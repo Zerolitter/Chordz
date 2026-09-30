@@ -4,9 +4,12 @@ import { useEffect, useState } from "react";
 import { useStudio } from "./use-studio";
 import { Meter, PanelHeading, Range } from "./primitives";
 import { trackDisplayColor } from "../../lib/client/appearance";
+import { useKnobModulation } from "./use-knob-modulation";
 
 export function MixerPanel() {
   const s = useStudio();
+  const configLocked = s.recordingPhase !== "idle";
+  const effective = useKnobModulation(s.project.tracks.map(track => track.id));
   const [meters, setMeters] = useState<{
     master: number;
     tracks: Record<string, number>;
@@ -44,6 +47,7 @@ export function MixerPanel() {
               </button>
               <div className="channel-buttons">
                 <button
+                  disabled={configLocked}
                   aria-label={"Mixer mute " + track.name}
                   aria-pressed={track.mute}
                   className={track.mute ? "on" : ""}
@@ -52,6 +56,7 @@ export function MixerPanel() {
                   M
                 </button>
                 <button
+                  disabled={configLocked}
                   aria-label={"Mixer solo " + track.name}
                   aria-pressed={track.solo}
                   className={track.solo ? "on" : ""}
@@ -61,6 +66,9 @@ export function MixerPanel() {
                 </button>
               </div>
               <Range
+                variant="knob" size="small" defaultValue={0}
+                trackId={track.id} modulationTarget="track.pan" effectiveValue={effective(track,"track.pan")}
+                modulationRange={effective.range(track,"track.pan")}
                 label={track.name + " pan"}
                 min={-1}
                 max={1}
@@ -76,6 +84,7 @@ export function MixerPanel() {
               />
               <div className="fader">
                 <DraftInput
+                  disabled={configLocked}
                   aria-label={track.name + " volume"}
                   type="range"
                   min={-60}
@@ -98,6 +107,9 @@ export function MixerPanel() {
               </div>
               <output className="mono">{track.volume.toFixed(1)} dB</output>
               <Range
+                variant="knob" size="small" defaultValue={0}
+                trackId={track.id} modulationTarget="track.reverb" effectiveValue={effective(track,"track.reverb")}
+                modulationRange={effective.range(track,"track.reverb")}
                 label={track.name + " reverb"}
                 value={track.reverb}
                 onChange={(v) =>
@@ -105,6 +117,9 @@ export function MixerPanel() {
                 }
               />
               <Range
+                variant="knob" size="small" defaultValue={0}
+                trackId={track.id} modulationTarget="track.delay" effectiveValue={effective(track,"track.delay")}
+                modulationRange={effective.range(track,"track.delay")}
                 label={track.name + " delay"}
                 value={track.delay}
                 onChange={(v) =>
@@ -117,6 +132,7 @@ export function MixerPanel() {
             <h3>Master</h3>
             <div className="fader">
               <DraftInput
+                disabled={configLocked}
                 aria-label="Master volume"
                 type="range"
                 min={-30}
@@ -140,6 +156,7 @@ export function MixerPanel() {
             </output>
             <label className="checkbox-label">
               <DraftInput
+                disabled={configLocked}
                 type="checkbox"
                 checked={s.project.master.limiter}
                 onChange={(e) =>
@@ -155,6 +172,7 @@ export function MixerPanel() {
               Limiter
             </label>
             <Range
+              variant="knob" size="small" defaultValue={2.4}
               label="Reverb decay"
               min={0.2}
               max={8}
@@ -179,6 +197,9 @@ export function MixerPanel() {
           <div className="effects-row">
             {(["low", "mid", "high"] as const).map((p) => (
               <Range
+                variant="knob" defaultValue={0}
+                modulationTarget={`track.${p}`} effectiveValue={effective(s.selectedTrack!,`track.${p}`)}
+                modulationRange={effective.range(s.selectedTrack!,`track.${p}`)}
                 key={p}
                 label={p[0].toUpperCase() + p.slice(1) + " EQ"}
                 min={-18}
@@ -192,6 +213,7 @@ export function MixerPanel() {
               />
             ))}
             <Range
+              variant="knob" defaultValue={0}
               label="Saturation"
               value={s.selectedTrack.drive}
               onChange={(v) =>

@@ -56,10 +56,48 @@ export interface SongGraph {
   noise: AudioBuffer;
   nodes: AudioNode[];
   dispose: () => void;
+  reverbState?: {input:GainNode;current:{convolver:ConvolverNode;level:GainNode};decay:number;seed:number;
+    pending:{decay:number;seed:number}|null;timer:ReturnType<typeof setTimeout>|null;
+    retired?:{convolver:ConvolverNode;level:GainNode};retireTimer:ReturnType<typeof setTimeout>|null;transitionUntil:number;disposed:boolean};
   modulation?: { project: ProjectDocument; audioOrigin: number; songOrigin: number;
-    tracks: Map<string,{track:Track;evaluator:ModulationEvaluator;signature:string}> };
+    tracks: Map<string,{track:Track;evaluator:ModulationEvaluator;signature:string;activeTrackTargets:ReadonlySet<string>}> };
 }
 const dbGain = (db: number) => Math.pow(10, db / 20);
+function reverbImpulse(context:BaseAudioContext,decay:number,seed:number) {
+  const impulse=context.createBuffer(2,Math.ceil(context.sampleRate*decay),context.sampleRate),random=randomGenerator(seed+47);
+  for(let ch=0;ch<2;ch++){const data=impulse.getChannelData(ch);for(let i=0;i<data.length;i++)data[i]=(random()*2-1)*Math.pow(1-i/data.length,2.5)*.28;}
+  return impulse;
+}
+/** Coalesce a drag into bounded parallel wet returns; the dry graph and voices stay connected. */
+export function updateReverbDecay(graph:SongGraph,decay:number,seed:number) {
+  const wet=graph.reverbState;if(!wet||wet.disposed)return;
+  if(wet.decay===decay&&wet.seed===seed){wet.pending=null;return;}
+  wet.pending={decay,seed};if(wet.timer)return;
+  const retire=()=>{
+    if(!wet.retired)return;
+    if(graph.context.currentTime<wet.transitionUntil){wet.retireTimer=setTimeout(retire,Math.max(100,(wet.transitionUntil-graph.context.currentTime)*1000));return;}
+    try{wet.input.disconnect(wet.retired.convolver);}catch{}
+    wet.retired.convolver.disconnect();wet.retired.level.disconnect();
+    const obsolete=new Set<AudioNode>([wet.retired.convolver,wet.retired.level]);
+    graph.nodes.splice(0,graph.nodes.length,...graph.nodes.filter(node=>!obsolete.has(node)));
+    wet.retired=undefined;wet.retireTimer=null;
+  };
+  const apply=()=>{
+    wet.timer=null;if(wet.disposed||!wet.pending)return;
+    const now=graph.context.currentTime;
+    if(wet.retired&&now<wet.transitionUntil){wet.timer=setTimeout(apply,Math.max(5,(wet.transitionUntil-now)*1000));return;}
+    if(wet.retireTimer){clearTimeout(wet.retireTimer);wet.retireTimer=null;}retire();
+    const next=wet.pending;wet.pending=null;
+    const convolver=graph.context.createConvolver(),level=graph.context.createGain();
+    convolver.buffer=reverbImpulse(graph.context,next.decay,next.seed);level.gain.setValueAtTime(0,now);
+    wet.input.connect(convolver);convolver.connect(level);level.connect(graph.master);
+    wet.current.level.gain.cancelAndHoldAtTime(now);wet.current.level.gain.linearRampToValueAtTime(0,now+.1);
+    level.gain.linearRampToValueAtTime(1,now+.1);
+    wet.retired=wet.current;wet.current={convolver,level};wet.decay=next.decay;wet.seed=next.seed;wet.transitionUntil=now+.1;
+    graph.nodes.push(convolver,level);wet.retireTimer=setTimeout(retire,110);
+  };
+  wet.timer=setTimeout(apply,100);
+}
 interface ModulationKnot { at: number; value: number }
 const modulationCurves=new WeakMap<AudioParam,ModulationKnot[]>();
 function curveValue(curve:ModulationKnot[],at:number) {
@@ -97,30 +135,77 @@ function submitModulationCurve(param:AudioParam,curve:ModulationKnot[],reset:boo
 export function configureModulation(graph:SongGraph,project:ProjectDocument,events:(ModControlEvent&{trackId:string})[],
   audioOrigin:number,songOrigin=0) {
   const previous=graph.modulation;
-  const tracks=new Map<string,{track:Track;evaluator:ModulationEvaluator;signature:string}>();
+  const tracks=new Map<string,{track:Track;evaluator:ModulationEvaluator;signature:string;activeTrackTargets:ReadonlySet<string>}>();
   for(const track of project.tracks) {
     const strip=graph.tracks.get(track.id);if(!strip)continue;
-    if(!track.modulation?.enabled) {
-      if(strip.matrixGain){modulationCurves.delete(strip.matrixGain.gain);strip.matrixGain.gain.cancelScheduledValues(graph.context.currentTime);strip.matrixGain.gain.setValueAtTime(1,graph.context.currentTime);}
+    const prior=previous?.tracks.get(track.id);
+    const oldTargets=prior?.activeTrackTargets??new Set<string>();
+    const nextTargets=new Set<string>(track.modulation?.enabled?track.modulation.routes.filter(r=>r.enabled).map(r=>r.target):[]);
+    const seconds=Math.max(0,graph.context.currentTime-audioOrigin+songOrigin);
+    const restoreAt=Math.max(graph.context.currentTime,audioOrigin+(Math.ceil(seconds*MODULATION_HZ-1e-8)+1)/MODULATION_HZ-songOrigin);
+    for(const target of oldTargets)if(target.startsWith("track.")&&!nextTargets.has(target))restoreTrackTarget(graph,track,project,target,restoreAt,audioOrigin,songOrigin);
+    if(!track.modulation||(!track.modulation.enabled&&!prior)) {
       continue;
     }
     const lanes=track.automation.filter(l=>l.points.length).map(l=>({id:l.parameter,points:l.points.map(p=>({seconds:tickToSeconds(p.tick,project.tempo),value:p.value}))}));
     const trackEvents=events.filter(e=>e.trackId===track.id);
     const signature=JSON.stringify([track.modulation,project.tempo,trackEvents,lanes]);
-    const prior=previous?.tracks.get(track.id);
-    const evaluator=prior?.signature===signature?prior.evaluator:new ModulationEvaluator(compileModulation(track.modulation,track.id,project.tempo,trackEvents,lanes));
-    tracks.set(track.id,{track,evaluator,signature});
+    const sameClock=previous?.audioOrigin===audioOrigin&&previous.songOrigin===songOrigin;
+    const evaluator=prior&&sameClock?prior.evaluator:new ModulationEvaluator(compileModulation(track.modulation,track.id,project.tempo,trackEvents,lanes));
+    if(prior&&sameClock&&prior.signature!==signature)evaluator.reconfigure(compileModulation(track.modulation,track.id,project.tempo,trackEvents,lanes),
+      Math.max(0,graph.context.currentTime-audioOrigin+songOrigin));
+    tracks.set(track.id,{track,evaluator,signature,activeTrackTargets:nextTargets});
     if(!strip.matrixGain) {
       const level=graph.context.createGain();level.gain.value=1;
       strip.volume.disconnect();strip.volume.connect(level);level.connect(strip.pan);
       strip.matrixGain=level;strip.nodes.push(level);graph.nodes.push(level);
     }
-    if(!track.modulation.routes.some(r=>r.enabled&&r.target==="track.gain")){
+    if(!prior&&(!track.modulation.enabled||!track.modulation.routes.some(r=>r.enabled&&r.target==="track.gain"))){
       modulationCurves.delete(strip.matrixGain.gain);
       strip.matrixGain.gain.cancelScheduledValues(graph.context.currentTime);strip.matrixGain.gain.setValueAtTime(1,graph.context.currentTime);
     }
   }
   graph.modulation={project,audioOrigin,songOrigin,tracks};
+}
+/** Restore only a removed bus destination, retaining every other native schedule. */
+function restoreTrackTarget(graph:SongGraph,track:Track,project:ProjectDocument,target:string,at:number,audioOrigin:number,songOrigin:number) {
+  const strip=graph.tracks.get(track.id);if(!strip)return;
+  const mapping:Record<string,{param:AudioParam;base:number;parameter?:Parameters<typeof automationValue>[1];convert?:(v:number)=>number}>={
+    "track.gain":{param:strip.matrixGain!.gain,base:0,convert:dbGain},
+    "track.cutoff":{param:strip.filter.frequency,base:track.sound.cutoff,parameter:"cutoff"},
+    "track.resonance":{param:strip.filter.Q,base:track.sound.resonance},
+    "track.pan":{param:strip.pan.pan,base:track.pan,parameter:"pan"},
+    "track.low":{param:strip.low.gain,base:track.low},"track.mid":{param:strip.mid.gain,base:track.mid},"track.high":{param:strip.high.gain,base:track.high},
+    "track.reverb":{param:strip.reverb.gain,base:track.reverb,parameter:"reverb"},"track.delay":{param:strip.delay.gain,base:track.delay,parameter:"delay"},
+  };
+  const binding=mapping[target];if(!binding)return;
+  const {param,parameter,base}=binding,convert=binding.convert??((value:number)=>value);
+  const settle=at+.02,tick=(settle-audioOrigin+songOrigin)*project.tempo/60*960;
+  const held=modulationCurves.has(param)?curveValue(modulationCurves.get(param)!,at):param.value;
+  modulationCurves.delete(param);param.cancelScheduledValues(at);param.setValueAtTime(held,at);
+  param.linearRampToValueAtTime(convert(parameter?automationValue(track,parameter,tick,base):base),settle);
+  if(parameter)for(const point of track.automation.find(l=>l.parameter===parameter)?.points??[]) {
+    const pointAt=audioOrigin+tickToSeconds(point.tick,project.tempo)-songOrigin;
+    if(pointAt>settle)param.linearRampToValueAtTime(convert(point.value),pointAt);
+  }
+}
+/** Intrinsic native control values, in destination units, including automation and held onset settings. */
+export function modulationEffectiveTargets(graph:SongGraph,trackId:string,at:number,voice?:Voice):Readonly<Record<string,number>> {
+  const strip=graph.tracks.get(trackId);if(!strip)return Object.freeze({});
+  const value=(param:AudioParam)=>{const curve=modulationCurves.get(param);return curve&&at>=curve[0].at&&at<=curve[curve.length-1].at?curveValue(curve,at):param.value;};
+  const result:Record<string,number>={"track.cutoff":value(strip.filter.frequency),"track.resonance":value(strip.filter.Q),
+    "track.gain":strip.matrixGain?20*Math.log10(Math.max(1e-12,value(strip.matrixGain.gain))):0,"track.pan":value(strip.pan.pan),
+    "track.low":value(strip.low.gain),"track.mid":value(strip.mid.gain),"track.high":value(strip.high.gain),
+    "track.reverb":value(strip.reverb.gain),"track.delay":value(strip.delay.gain)};
+  const binding=voice?.modulation;
+  if(binding){
+    result["voice.pitch"]=value(binding.pitch.offset);result["voice.gain"]=20*Math.log10(Math.max(1e-12,value(binding.level.gain)));
+    if(binding.filter){result["voice.cutoff"]=value(binding.filter.frequency);result["voice.resonance"]=value(binding.filter.Q);}
+    if(binding.fmMod)result["voice.fmRatio"]=value(binding.fmMod.frequency)/binding.frequency;
+    if(binding.fmAmount)result["voice.fmIndex"]=value(binding.fmAmount.gain)/binding.frequency;
+    for(const field of ["attack","decay","sustain","release"] as const)result[`voice.${field}`]=binding.sound[field];
+  }
+  return Object.freeze(result);
 }
 export function modulationEvent(graph:SongGraph,trackId:string,event:Omit<ModControlEvent,"seconds">,at:number) {
   const mod=graph.modulation;mod?.tracks.get(trackId)?.evaluator.addEvent({...event,seconds:Math.max(0,at-mod.audioOrigin+mod.songOrigin)});
@@ -128,7 +213,9 @@ export function modulationEvent(graph:SongGraph,trackId:string,event:Omit<ModCon
 function restoreVoiceTarget(voice:Voice,target:string,at:number,graph:SongGraph) {
   const binding=voice.modulation;if(!binding)return;
   const sound=binding.sound;
-  const set=(param:AudioParam,value:number)=>{modulationCurves.delete(param);param.cancelScheduledValues(at);param.setValueAtTime(value,at);};
+  const restoreEnd=voice.start>=at?at:at+.02;
+  const set=(param:AudioParam,value:number)=>{const prior=modulationCurves.get(param),held=prior?curveValue(prior,at):param.value;modulationCurves.delete(param);param.cancelScheduledValues(at);
+    if(voice.start>=at)param.setValueAtTime(value,at);else{param.setValueAtTime(held,at);param.linearRampToValueAtTime(value,at+.02);}};
   if(target==="voice.pitch")set(binding.pitch.offset,0);
   if(target==="voice.gain")set(binding.level.gain,1);
   if(target==="voice.fmRatio"&&binding.fmMod)set(binding.fmMod.frequency,sound.fmRatio*binding.frequency);
@@ -136,12 +223,12 @@ function restoreVoiceTarget(voice:Voice,target:string,at:number,graph:SongGraph)
   if(target==="voice.resonance"&&binding.filter)set(binding.filter.Q,sound.resonance);
   if(target==="voice.cutoff"&&binding.filter) {
     const onset=(graph.modulation?.audioOrigin??0)+binding.context.start-(graph.modulation?.songOrigin??0);
-    const age=Math.max(0,at-onset),attack=Math.max(.0001,sound.attack),decay=Math.max(.0001,sound.decay);
+    const age=Math.max(0,restoreEnd-onset),attack=Math.max(.0001,sound.attack),decay=Math.max(.0001,sound.decay);
     const initial=1-sound.filterEnvelope*.85,settled=1-sound.filterEnvelope*.65;
     const phase=age<attack?initial+(1-initial)*age/attack:age<attack+decay?1+(settled-1)*(age-attack)/decay:settled;
     set(binding.filter.frequency,Math.max(20,sound.cutoff*phase));
-    if(onset+attack>at)binding.filter.frequency.linearRampToValueAtTime(sound.cutoff,onset+attack);
-    if(onset+attack+decay>at)binding.filter.frequency.linearRampToValueAtTime(Math.max(20,sound.cutoff*settled),onset+attack+decay);
+    if(onset+attack>restoreEnd)binding.filter.frequency.linearRampToValueAtTime(sound.cutoff,onset+attack);
+    if(onset+attack+decay>restoreEnd)binding.filter.frequency.linearRampToValueAtTime(Math.max(20,sound.cutoff*settled),onset+attack+decay);
   }
 }
 function modulationValue(evaluator:ModulationEvaluator,target:string,seconds:number,base:(seconds:number)=>number,
@@ -151,7 +238,7 @@ function modulationValue(evaluator:ModulationEvaluator,target:string,seconds:num
   if(voice&&voice.start>left)left=voice.start;
   // One control frame of interpolation latency keeps live input causal: an unknown
   // controller change can never alter samples that have already reached the speakers.
-  const value=(at:number)=>convert(applyModTarget(target,base(at),evaluator.sample(Math.max(voice?.start??0,at-1/MODULATION_HZ),voice).targets[target]??0));
+  const value=(at:number)=>convert(applyModTarget(target,base(at),evaluator.audioSample(Math.max(voice?.start??0,at-1/MODULATION_HZ),voice).targets[target]??0));
   if(seconds<=left+1e-9)return value(left);
   // Window edges lie on the same native parameter ramp as a single complete pass.
   return value(left)+(value(right)-value(left))*clamp((seconds-left)/(right-left),0,1);
@@ -171,7 +258,7 @@ export function scheduleModulation(graph:SongGraph,from:number,to:number,voices:
   };
   for(const [id,binding]of mod.tracks) {
     const {track,evaluator}=binding,strip=graph.tracks.get(id)!;
-    const active=new Set<string>(track.modulation!.routes.filter(r=>r.enabled).map(r=>r.target));
+    const active=new Set<string>(track.modulation!.enabled?track.modulation!.routes.filter(r=>r.enabled).map(r=>r.target):[]);
     for(let i=0;i<points.length;i++) {
       const at=points[i],seconds=Math.max(0,at-mod.audioOrigin+mod.songOrigin);
       for(const target of active) {
@@ -200,7 +287,7 @@ export function scheduleModulation(graph:SongGraph,from:number,to:number,voices:
     }
     voice.enableModulation?.();const targets=voice.modulation;if(!targets)continue;
     const {track,evaluator}=binding;
-    const active=new Set<string>(track.modulation!.routes.filter(r=>r.enabled).map(r=>r.target));
+    const active=new Set<string>(track.modulation!.enabled?track.modulation!.routes.filter(r=>r.enabled).map(r=>r.target):[]);
     for(const target of targets.activeTargets)if(!active.has(target))restoreVoiceTarget(voice,target,from,graph);
     targets.activeTargets=new Set([...active].filter(t=>t.startsWith("voice.")));
     if(!active.has("voice.pitch")&&!modulationCurves.has(targets.pitch.offset))targets.pitch.offset.setValueAtTime(0,from);
@@ -252,20 +339,11 @@ export function makeGraph(
   const output = context.createGain();
   analyser.connect(output);
   output.connect(destination);
-  const reverb = context.createConvolver(),
-    impulse = context.createBuffer(
-      2,
-      Math.ceil(context.sampleRate * project.master.reverbDecay),
-      context.sampleRate,
-    ),
-    random = randomGenerator(project.seed + 47);
-  for (let ch = 0; ch < 2; ch++) {
-    const data = impulse.getChannelData(ch);
-    for (let i = 0; i < data.length; i++)
-      data[i] = (random() * 2 - 1) * Math.pow(1 - i / data.length, 2.5) * 0.28;
-  }
-  reverb.buffer = impulse;
-  reverb.connect(master);
+  const reverb = context.createConvolver(),reverbInput=context.createGain(),reverbLevel=context.createGain();
+  reverb.buffer = reverbImpulse(context,project.master.reverbDecay,project.seed);
+  reverbInput.connect(reverb);reverb.connect(reverbLevel);reverbLevel.connect(master);
+  const reverbState:NonNullable<SongGraph["reverbState"]>={input:reverbInput,current:{convolver:reverb,level:reverbLevel},
+    decay:project.master.reverbDecay,seed:project.seed,pending:null,timer:null,retireTimer:null,transitionUntil:0,disposed:false};
   const delay = context.createDelay(3);
   delay.delayTime.value = (60 / project.tempo) * 0.75;
   const feedback = context.createGain();
@@ -291,6 +369,8 @@ export function makeGraph(
       limiter,
       analyser,
       reverb,
+      reverbInput,
+      reverbLevel,
       delay,
       feedback,
       delayFilter,
@@ -331,7 +411,7 @@ export function makeGraph(
     pan.connect(meter);
     meter.connect(master);
     pan.connect(rv);
-    rv.connect(reverb);
+    rv.connect(reverbInput);
     pan.connect(dl);
     dl.connect(delay);
     lfo.connect(lfoGain);
@@ -381,7 +461,11 @@ export function makeGraph(
     analyser,
     noise,
     nodes,
+    reverbState,
     dispose: () => {
+      reverbState.disposed=true;reverbState.pending=null;
+      if(reverbState.timer)clearTimeout(reverbState.timer);if(reverbState.retireTimer)clearTimeout(reverbState.retireTimer);
+      reverbState.timer=null;reverbState.retireTimer=null;
       output.disconnect();
       for (const t of tracks.values()) {
         try {
@@ -392,6 +476,15 @@ export function makeGraph(
     },
   };
 }
+function laneChanged(track:Track,previous:Track,parameter:string) {
+  return JSON.stringify(track.automation.find(l=>l.parameter===parameter)?.points??[])!==JSON.stringify(previous.automation.find(l=>l.parameter===parameter)?.points??[]);
+}
+function automatedChanged(track:Track,previous:Track,parameter:string,base:number,oldBase:number) {
+  return laneChanged(track,previous,parameter)||(!track.automation.some(l=>l.parameter===parameter&&l.points.length)&&base!==oldBase);
+}
+function trackMuted(track:Track,project:ProjectDocument,onlyTrack?:string) {
+  return track.mute||(!onlyTrack&&project.tracks.some(t=>t.solo&&!t.mute)&&!track.solo);
+}
 export function applyTrack(
   graph: TrackGraph,
   track: Track,
@@ -400,10 +493,13 @@ export function applyTrack(
   tick: number,
   onlyTrack?: string,
   immediately = false,
+  previous?: Track,
+  previousProject?: ProjectDocument,
 ) {
-  const solo = project.tracks.some((t) => t.solo && !t.mute);
-  const muted = track.mute || (!onlyTrack && solo && !track.solo);
-  const set = (param: AudioParam, value: number) => {
+  const muted = trackMuted(track,project,onlyTrack);
+  const changed=(parameter:string,base:number,oldBase:number)=>!previous||automatedChanged(track,previous,parameter,base,oldBase);
+  const set = (param: AudioParam, value: number, shouldChange = true) => {
+    if(!shouldChange)return;
     modulationCurves.delete(param);
     param.cancelScheduledValues(time);
     if(immediately)param.setValueAtTime(value,time);
@@ -412,10 +508,12 @@ export function applyTrack(
   set(
     graph.volume.gain,
     muted ? 0 : dbGain(automationValue(track, "volume", tick, track.volume)),
+    changed("volume",track.volume,previous?.volume??track.volume)||!!previousProject&&muted!==trackMuted(previous!,previousProject,onlyTrack),
   );
   set(
     graph.pan.pan,
     clamp(automationValue(track, "pan", tick, track.pan), -1, 1),
+    changed("pan",track.pan,previous?.pan??track.pan),
   );
   set(
     graph.filter.frequency,
@@ -424,24 +522,28 @@ export function applyTrack(
       20,
       20000,
     ),
+    changed("cutoff",track.sound.cutoff,previous?.sound.cutoff??track.sound.cutoff),
   );
-  set(graph.filter.Q, track.sound.resonance);
+  set(graph.filter.Q, track.sound.resonance,!previous||track.sound.resonance!==previous.sound.resonance);
   set(
     graph.expression.gain,
     clamp(automationValue(track, "expression", tick, 1), 0, 1),
+    changed("expression",1,1),
   );
-  set(graph.low.gain, track.low);
-  set(graph.mid.gain, track.mid);
-  set(graph.high.gain, track.high);
+  set(graph.low.gain, track.low,!previous||track.low!==previous.low);
+  set(graph.mid.gain, track.mid,!previous||track.mid!==previous.mid);
+  set(graph.high.gain, track.high,!previous||track.high!==previous.high);
   set(
     graph.reverb.gain,
     clamp(automationValue(track, "reverb", tick, track.reverb), 0, 1),
+    changed("reverb",track.reverb,previous?.reverb??track.reverb),
   );
   set(
     graph.delay.gain,
     clamp(automationValue(track, "delay", tick, track.delay), 0, 1),
+    changed("delay",track.delay,previous?.delay??track.delay),
   );
-  set(graph.lfo.frequency, track.sound.lfoRate);
+  set(graph.lfo.frequency, track.sound.lfoRate,!previous||track.sound.lfoRate!==previous.sound.lfoRate);
   set(
     graph.lfoGain.gain,
     track.sound.cutoff *
@@ -451,7 +553,9 @@ export function applyTrack(
         0,
         1,
       ),
+    !previous||track.sound.cutoff!==previous.sound.cutoff||track.sound.lfoDepth!==previous.sound.lfoDepth||laneChanged(track,previous,"modulation"),
   );
+  if(previous&&track.drive===previous.drive)return;
   if (track.drive > 0) {
     const curve = new Float32Array(2048);
     const amount = 1 + track.drive * 20;
@@ -469,9 +573,14 @@ export function scheduleAutomation(
   project: ProjectDocument,
   audioStart: number,
   startTick: number,
+  previous?:Track,
+  previousProject?:ProjectDocument,
 ) {
   for (const lane of track.automation) {
     if (!lane.points.length) continue;
+    if(previous&&!laneChanged(track,previous,lane.parameter)&&
+      !(lane.parameter==="modulation"&&(track.sound.cutoff!==previous.sound.cutoff||track.sound.lfoDepth!==previous.sound.lfoDepth))&&
+      !(lane.parameter==="volume"&&previousProject&&trackMuted(track,project)!==trackMuted(previous,previousProject)))continue;
     if (
       lane.parameter === "volume" &&
       (track.mute ||
@@ -592,9 +701,9 @@ export function makeVoice(
   const noteId=(note as ScheduledNote&{id?:string}).id;
   const modContext:ModVoice={key:motion?.key??(noteId?`${noteId}:${note.tick}`:`${note.index}:${note.tick}:${note.pitch}`),pitch:note.pitch,velocity:note.velocity,start:songStart,
     ...(duration!==undefined?{release:songStart+duration+offset}:{})};
-  let onset=graph.modulation?.tracks.get(track.id)?.evaluator.sample(songStart,modContext);
+  let onset=graph.modulation?.tracks.get(track.id)?.evaluator.audioSample(songStart,modContext);
   const onsetSound=(settings:Track["sound"])=>{
-    if(!onset)return settings;
+    if(!onset)return {...settings};
     const sound={...settings};
     for(const key of ["attack","decay","sustain","release"] as const)
       if(onset.targets[`voice.${key}`]!==undefined)sound[key]=applyModTarget(`voice.${key}`,settings[key],onset.targets[`voice.${key}`]);
@@ -606,6 +715,7 @@ export function makeVoice(
     bend: AudioParam[] = [];
   gain.connect(tg.input);
   const sound = track.sound;
+  let currentSound=sound;
   let release = sound.release;
   let synthFilter: BiquadFilterNode | undefined;
   let fmMod: OscillatorNode | undefined, fmAmount: GainNode | undefined;
@@ -790,36 +900,44 @@ export function makeVoice(
       for(const param of bend)pitch.connect(param);
       pitch.start(Math.max(context.currentTime,time));
       voice.output=level;
-      voice.modulation={context:modContext,pitch,level,filter:synthFilter,fmMod,fmAmount,sound:track.sound,frequency:440*Math.pow(2,(note.pitch-69)/12),activeTargets:new Set()};
+      voice.modulation={context:modContext,pitch,level,filter:synthFilter,fmMod,fmAmount,sound:currentSound,frequency:440*Math.pow(2,(note.pitch-69)/12),activeTargets:new Set()};
     },
     updateSound: (next, at) => {
       if (percussion || at >= voice.end) return;
-      if(time>at)onset=graph.modulation?.tracks.get(next.id)?.evaluator.sample(songStart,voice.modulation?.context??modContext);
+      if(time>at)onset=graph.modulation?.tracks.get(next.id)?.evaluator.audioSample(songStart,voice.modulation?.context??modContext);
+      const prior=currentSound,queued=time>at;
       const settings=onsetSound(next.sound), when=Math.max(at,time), elapsed=Math.max(0,when-time);
+      if(!queued){settings.attack=prior.attack;settings.decay=prior.decay;settings.filterEnvelope=prior.filterEnvelope;}
+      // A held voice retains its synthesis topology and onset timing until note-off.
+      settings.algorithm=sound.algorithm;settings.articulation=sound.articulation;currentSound=settings;
       next={...next,sound:settings};if(voice.modulation)voice.modulation.sound=settings;
       release=settings.release;
-      for(let i=0;i<bend.length;i++){
+      if(settings.detune!==prior.detune)for(let i=0;i<bend.length;i++){
         const base=waveformOscillators.length?(i-1)*settings.detune:fmMod&&i===1?0:settings.detune;
         const expressionBend=bend[i].value-voice.baseBend[i];
         voice.baseBend[i]=base;bend[i].setTargetAtTime(base+expressionBend,when,.008);
       }
-      if(settings.algorithm===sound.algorithm)for(const osc of waveformOscillators)osc.type=settings.wave;
-      if(fmMod&&fmAmount){modulationCurves.delete(fmMod.frequency);modulationCurves.delete(fmAmount.gain);const frequency=440*Math.pow(2,(note.pitch-69)/12);fmMod.frequency.setTargetAtTime(frequency*settings.fmRatio,when,.012);fmAmount.gain.setTargetAtTime(frequency*settings.fmIndex,when,.012);}
+      if(settings.wave!==prior.wave)for(const osc of waveformOscillators)osc.type=settings.wave;
+      if(fmMod&&fmAmount){const frequency=440*Math.pow(2,(note.pitch-69)/12);
+        if(settings.fmRatio!==prior.fmRatio){modulationCurves.delete(fmMod.frequency);fmMod.frequency.cancelAndHoldAtTime(when);fmMod.frequency.setTargetAtTime(frequency*settings.fmRatio,when,.012);}
+        if(settings.fmIndex!==prior.fmIndex){modulationCurves.delete(fmAmount.gain);fmAmount.gain.cancelAndHoldAtTime(when);fmAmount.gain.setTargetAtTime(frequency*settings.fmIndex,when,.012);}
+      }
       if(synthFilter){
-        modulationCurves.delete(synthFilter.Q);modulationCurves.delete(synthFilter.frequency);
         const attack=Math.max(.0001,settings.attack),decay=Math.max(.0001,settings.decay);
         const initial=1-settings.filterEnvelope*.85,settled=1-settings.filterEnvelope*.65;
         const phase=elapsed<attack?initial+(1-initial)*elapsed/attack:elapsed<attack+decay?1+(settled-1)*(elapsed-attack)/decay:settled;
-        synthFilter.Q.setTargetAtTime(settings.resonance,when,.012);
-        synthFilter.frequency.cancelAndHoldAtTime(when);synthFilter.frequency.setTargetAtTime(Math.max(20,settings.cutoff*phase),when,.012);
-        if(time+attack>when+.015)synthFilter.frequency.linearRampToValueAtTime(settings.cutoff,time+attack);
-        if(time+attack+decay>when+.015)synthFilter.frequency.linearRampToValueAtTime(Math.max(20,settings.cutoff*settled),time+attack+decay);
+        if(settings.resonance!==prior.resonance){modulationCurves.delete(synthFilter.Q);synthFilter.Q.cancelAndHoldAtTime(when);synthFilter.Q.setTargetAtTime(settings.resonance,when,.012);}
+        if(queued||settings.cutoff!==prior.cutoff){
+          modulationCurves.delete(synthFilter.frequency);synthFilter.frequency.cancelAndHoldAtTime(when);synthFilter.frequency.setTargetAtTime(Math.max(20,settings.cutoff*phase),when,.012);
+          if(time+attack>when+.015)synthFilter.frequency.linearRampToValueAtTime(settings.cutoff,time+attack);
+          if(time+attack+decay>when+.015)synthFilter.frequency.linearRampToValueAtTime(Math.max(20,settings.cutoff*settled),time+attack+decay);
+        }
       }
-      if(time>at){gain.gain.cancelScheduledValues(time);envelope(gain.gain,time,actualDuration,peak,next);}
-      else if(elapsed>=settings.attack+settings.decay&&(actualDuration===undefined||when<time+actualDuration)){
+      if(queued){gain.gain.cancelScheduledValues(time);envelope(gain.gain,time,actualDuration,peak,next);}
+      else if(settings.sustain!==prior.sustain&&elapsed>=settings.attack+settings.decay&&(actualDuration===undefined||when<time+actualDuration)){
         gain.gain.cancelAndHoldAtTime(when);gain.gain.setTargetAtTime(Math.max(.00001,peak*settings.sustain),when,.012);
       }
-      if(actualDuration!==undefined&&when<time+actualDuration){
+      if(actualDuration!==undefined&&when<time+actualDuration&&(queued||settings.sustain!==prior.sustain||settings.release!==prior.release)){
         // Keep the current attack/decay, but replace its future release as one envelope.
         gain.gain.cancelAndHoldAtTime(time+actualDuration);
         gain.gain.exponentialRampToValueAtTime(.00001,time+actualDuration+release);

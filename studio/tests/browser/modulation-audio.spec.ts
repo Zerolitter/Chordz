@@ -504,3 +504,139 @@ test("releasing one MIDI input restores surviving CC owners without changing ear
   expect(result.guardedReset).toBe(true);
   expect(result.oldAll).toBe(.6); expect(result.keyboardStillHeld).toBe(true);
 });
+
+test("a native suspended source-rate edit preserves past PCM and the held voice's integrated gain phase", async ({ page }) => {
+  await page.goto("/");
+  const result = await page.evaluate(async () => {
+    const { makeGraph, makeVoice, configureModulation, scheduleModulation } = await import("/lib/audio/graph.ts" as string);
+    const { emptyPatch, makeSource } = await import("/lib/audio/modulation.ts" as string);
+    const { instrumentFor } = await import("/lib/audio/catalog.ts" as string);
+    const { createProject, createTrack } = await import("/lib/music/project.ts" as string);
+    const sampleRate = 48000, duration = .8, oldRate = .75, newRate = 2.25, phaseOffset = .125;
+    const project: ProjectDocument = createProject(), track: Track = createTrack("lead");
+    project.tracks = [track]; project.master.limiter = false; project.master.reverbDecay = .05;
+    track.reverb = 0; track.delay = 0;
+    track.sound = { ...track.sound, attack: .001, decay: .002, sustain: 1, release: .05, filterEnvelope: 0, lfoDepth: 0 };
+    track.modulation = { ...emptyPatch(), sources: [{ ...makeSource("lfo", "motion"), sync: false, rate: oldRate, phase: phaseOffset }],
+      routes: [{ id: "gain", sourceId: "motion", target: "voice.gain", amount: -9, curve: "linear", slew: 0, enabled: true }] };
+    const note: ScheduledNote = { trackId: track.id, pitch: 69, tick: 0, duration: 1920, velocity: 1, index: 1 };
+    async function render(edit: boolean) {
+      const context = new OfflineAudioContext(1, Math.round(duration * sampleRate), sampleRate);
+      const graph: SongGraph = makeGraph(context, project, undefined, context.destination, false, true);
+      configureModulation(graph, project, [], 0);
+      const voice: Voice = makeVoice(graph, track, instrumentFor(project, track), note, 0, undefined, new Map());
+      const motion = voice.modulation!, evaluator = graph.modulation!.tracks.get(track.id)!.evaluator;
+      const nodes = [...graph.nodes], sources = [...voice.sources];
+      // Probe the actual native matrix gain; exclude unrelated synth, ADSR and bus histories.
+      voice.gain.disconnect(); motion.level.disconnect(); graph.output.disconnect();
+      const constant = context.createConstantSource(); constant.offset.value = .125;
+      constant.connect(motion.level); motion.level.connect(context.destination); constant.start(0); constant.stop(duration);
+      scheduleModulation(graph, 0, duration, [voice], true);
+      const suspended = edit ? context.suspend(.25) : null;
+      const rendering = context.startRendering();
+      let editAt = 0, cutover = 0, identities = true;
+      if (suspended) {
+        await suspended; editAt = context.currentTime; cutover = Math.ceil(editAt * 128 - 1e-8) / 128;
+        const changed: Track = { ...track, modulation: { ...track.modulation!, sources: [{ ...track.modulation!.sources[0], rate: newRate }] } };
+        configureModulation(graph, { ...project, tracks: [changed] }, [], 0);
+        scheduleModulation(graph, editAt, duration, [voice], true);
+        identities = voice.modulation === motion && graph.modulation!.tracks.get(track.id)!.evaluator === evaluator &&
+          voice.end === Infinity && graph.nodes.length === nodes.length && graph.nodes.every((node, index) => node === nodes[index]) &&
+          voice.sources.every((source, index) => source === sources[index]);
+        await context.resume();
+      }
+      const buffer = await rendering; graph.dispose();
+      return { pcm: buffer.getChannelData(0), editAt, cutover, identities };
+    }
+    const baseline = await render(false), edited = await render(true);
+    const reference = new OfflineAudioContext(1, Math.round(duration * sampleRate), sampleRate);
+    const constant = reference.createConstantSource(), gain = reference.createGain();
+    constant.offset.value = .125; constant.connect(gain); gain.connect(reference.destination);
+    const canonicalValue = (at: number) => {
+      const controlAt = Math.max(0, at - 1 / 128);
+      const phase = phaseOffset + Math.min(controlAt, edited.cutover) * oldRate + Math.max(0, controlAt - edited.cutover) * newRate;
+      return Math.pow(10, -9 * Math.sin(phase * Math.PI * 2) / 20);
+    };
+    const nativeValue = (at: number) => {
+      const left = Math.floor(at * 128 + 1e-8) / 128, right = left + 1 / 128;
+      return canonicalValue(left) + (canonicalValue(right) - canonicalValue(left)) * (at - left) / (right - left);
+    };
+    gain.gain.setValueAtTime(nativeValue(0), 0);
+    for (let frame = 1; frame / 128 < duration; frame++) gain.gain.linearRampToValueAtTime(nativeValue(frame / 128), frame / 128);
+    gain.gain.linearRampToValueAtTime(nativeValue(duration), duration);
+    constant.start(0); constant.stop(duration);
+    const expected = (await reference.startRendering()).getChannelData(0);
+    let beforeError = 0, integratedError = 0, peak = 0, finite = true;
+    for (let index = 0; index < edited.pcm.length; index++) {
+      const value = edited.pcm[index]; finite &&= Number.isFinite(value); peak = Math.max(peak, Math.abs(value));
+      if (index / sampleRate < edited.editAt) beforeError = Math.max(beforeError, Math.abs(value - baseline.pcm[index]));
+      integratedError = Math.max(integratedError, Math.abs(value - expected[index]));
+    }
+    return { beforeError, integratedError, peak, finite, identities: edited.identities, editAt: edited.editAt, cutover: edited.cutover };
+  });
+  expect(result.finite).toBe(true); expect(result.identities).toBe(true); expect(result.peak).toBeGreaterThan(.02);
+  expect(result.beforeError, JSON.stringify(result)).toBeLessThan(1e-6);
+  expect(result.integratedError, JSON.stringify(result)).toBeLessThan(1e-6);
+});
+
+test("editing pan preserves unrelated native volume automation and modulated filter PCM", async ({ page }) => {
+  await page.goto("/");
+  const result = await page.evaluate(async () => {
+    const { makeGraph, applyTrack, configureModulation, scheduleModulation, scheduleAutomation } = await import("/lib/audio/graph.ts" as string);
+    const { emptyPatch } = await import("/lib/audio/modulation.ts" as string);
+    const { createProject, createTrack, secondsToTick } = await import("/lib/music/project.ts" as string);
+    const duration = .8, sampleRate = 48000;
+    const project: ProjectDocument = createProject(), track: Track = createTrack("lead");
+    project.tracks = [track]; project.tempo = 120; project.master.limiter = false; project.master.reverbDecay = .05;
+    track.volume = -18; track.reverb = 0; track.delay = 0;
+    track.sound = { ...track.sound, cutoff: 1000, resonance: .7, lfoDepth: 0 };
+    track.automation = [
+      { parameter: "volume", points: [{ tick: 0, value: -18 }, { tick: 1920, value: -3 }] },
+      { parameter: "cutoff", points: [{ tick: 0, value: 1000 }, { tick: 1920, value: 7000 }] },
+    ];
+    track.modulation = { ...emptyPatch(), macros: [.5, 0, 0, 0],
+      routes: [{ id: "cutoff", sourceId: "M1", target: "track.cutoff", amount: .5, curve: "linear", slew: 0, enabled: true }] };
+    async function render(edit: boolean) {
+      const context = new OfflineAudioContext(2, duration * sampleRate, sampleRate), detached = context.createGain();
+      const graph: SongGraph = makeGraph(context, project, undefined, detached, false, true), strip = graph.tracks.get(track.id)!;
+      scheduleAutomation(strip, track, project, 0, 0); configureModulation(graph, project, [], 0);
+      // Preserve the real volume and filter nodes, and probe before the pan whose edit intentionally changes the stereo field.
+      strip.filter.disconnect(); strip.volume.disconnect(); strip.pan.disconnect();
+      const merger=context.createChannelMerger(2),splitter=context.createChannelSplitter(2),panProbe=context.createConstantSource();
+      merger.connect(context.destination);panProbe.offset.value=.125;panProbe.connect(strip.pan);strip.pan.connect(splitter);splitter.connect(merger,0,1);
+      panProbe.start(0);panProbe.stop(duration);
+      const oscillator = context.createOscillator(); oscillator.frequency.value = 4000;
+      oscillator.connect(strip.filter); strip.filter.connect(strip.volume); strip.volume.connect(merger,0,0);
+      oscillator.start(0); oscillator.stop(duration);
+      scheduleModulation(graph, 0, duration, [], true);
+      const nodes = [...graph.nodes], suspended = edit ? context.suspend(.25) : null, rendering = context.startRendering();
+      let editAt = 0, identities = true;
+      if (suspended) {
+        await suspended; editAt = context.currentTime;
+        const nextTrack: Track = { ...track, pan: .4 }, nextProject = { ...project, tracks: [nextTrack] };
+        const tick = secondsToTick(editAt, project.tempo);
+        applyTrack(strip, nextTrack, nextProject, editAt, tick, undefined, false, track, project);
+        scheduleAutomation(strip, nextTrack, nextProject, editAt, tick, track, project);
+        configureModulation(graph, nextProject, [], 0); scheduleModulation(graph, editAt, duration, [], true);
+        identities = graph.tracks.get(track.id) === strip && graph.nodes.length === nodes.length && graph.nodes.every((node, index) => node === nodes[index]);
+        await context.resume();
+      }
+      const buffer=await rendering,pcm=buffer.getChannelData(0),panPcm=buffer.getChannelData(1);
+      const pan=Math.acos(panPcm[panPcm.length-1]/.125)*4/Math.PI-1;
+      graph.dispose(); return { pcm, pan, editAt, identities };
+    }
+    const baseline = await render(false), edited = await render(true);
+    let beforeError = 0, afterError = 0, peak = 0, finite = true;
+    for (let index = 0; index < baseline.pcm.length; index++) {
+      const difference = Math.abs(baseline.pcm[index] - edited.pcm[index]);
+      finite &&= Number.isFinite(edited.pcm[index]); peak = Math.max(peak, Math.abs(edited.pcm[index]));
+      if (index / sampleRate < edited.editAt) beforeError = Math.max(beforeError, difference);
+      else afterError = Math.max(afterError, difference);
+    }
+    return { beforeError, afterError, peak, finite, pan: edited.pan, identities: edited.identities, editAt: edited.editAt };
+  });
+  expect(result.finite).toBe(true); expect(result.identities).toBe(true); expect(result.peak).toBeGreaterThan(.005);
+  expect(result.pan).toBeCloseTo(.4, 6);
+  expect(result.beforeError, JSON.stringify(result)).toBeLessThan(1e-6);
+  expect(result.afterError, JSON.stringify(result)).toBeLessThan(1e-6);
+});

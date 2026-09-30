@@ -97,8 +97,9 @@ test("chord end handles resize in snapped gestures, cancel on Escape, and keep a
 
 test("sound workspace tuning preserves the audition while instrument swaps cancel it",async({page})=>{
   await blank(page);await page.getByLabel("Add instrument track").click();await page.getByRole("button",{name:/Glass FM.*Synthesizers/}).click();await page.getByRole("button",{name:"Audition",exact:true}).click();await expect(page.locator(".transport-position")).toContainText("Audition");
-  await page.getByRole("navigation").getByRole("button",{name:"03 Sound"}).click();await page.getByLabel("FM depth",{exact:true}).fill("7");await expect(page.locator(".transport-position")).toContainText("Audition");
-  await page.getByLabel("Filter cutoff",{exact:true}).fill("0.7");await page.getByLabel("Expression",{exact:true}).fill("0.5");await expect(page.locator(".transport-position")).toContainText("Audition");
+  await page.getByRole("navigation").getByRole("button",{name:"03 Sound"}).click();await page.getByLabel("FM depth value",{exact:true}).fill("7");await expect(page.locator(".transport-position")).toContainText("Audition");
+  const cutoff=Math.exp(Math.log(40)+.7*(Math.log(18000)-Math.log(40)));
+  await page.getByLabel("Filter cutoff value",{exact:true}).fill(String(cutoff));await page.getByLabel("Expression value",{exact:true}).fill("0.5");await expect(page.locator(".transport-position")).toContainText("Audition");
   await page.getByRole("navigation").getByRole("button",{name:"04 Mix"}).click();await page.getByLabel("Glass FM volume",{exact:true}).fill("-10");await expect(page.locator(".transport-position")).toContainText("Audition");
   await page.locator(".instrument-select").click();await page.getByRole("button",{name:/Warm sub bass.*Synthesizers/}).click();await expect(page.locator(".transport-position")).not.toContainText("Audition");
 });

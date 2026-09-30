@@ -22,6 +22,7 @@ export interface ScheduledExpression extends PerformanceEvent {
   trackId: string;
 }
 export interface ScheduledAudio {
+  clipId: string;
   trackId: string;
   tick: number;
   duration: number;
@@ -57,6 +58,7 @@ export function compileSong(
     for (const clip of track.clips) {
       if (clip.audio) {
         audio.push({
+          clipId: clip.id,
           trackId: track.id,
           tick: clip.startTick,
           duration: clip.lengthTick,

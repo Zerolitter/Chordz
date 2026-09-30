@@ -26,6 +26,7 @@ export function Shortcuts(){
       if(e.code==="Escape"){
         if(e.defaultPrevented)return;
         if(target.closest('[role="dialog"],[data-state="open"]'))return;
+        if(s.cancelGesture()){e.preventDefault();return;}
         if(s.cancelEdit()){e.preventDefault();return;}
         s.stop();return;
       }

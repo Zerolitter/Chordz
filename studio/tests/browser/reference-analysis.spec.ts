@@ -48,7 +48,9 @@ test("private reference proposals stay staged, cancel cleanly, apply once and su
   await page.goto("/"); await expect(page.getByLabel("Song title")).toBeEnabled();
   await page.getByRole("button", { name: "Songs", exact: true }).click(); await page.getByRole("button", { name: "Blank song", exact: true }).click();
   await page.getByRole("navigation").getByRole("button", { name: "03 Sound" }).click();
-  const panel = page.getByRole("region", { name: "Reference analysis" }), rack = page.getByRole("region", { name: "Selected track modulation rack" });
+  const rack = page.getByRole("region", { name: "Selected track modulation rack" });
+  await rack.locator(".mod-reference-inspector>summary").click();
+  const panel = rack.getByRole("region", { name: "Reference analysis" });
   await expect.poll(() => savedTrack(page)).toEqual({ routes: 0, movement: false });
   await panel.getByLabel("Reference audio").setInputFiles({ name: "private-pulse.wav", mimeType: "audio/wav", buffer: pulseFixture() });
   await expect(panel.getByRole("button", { name: "Analyze selected range", exact: true })).toBeEnabled();

@@ -1,6 +1,7 @@
 "use client";
 import { useId,useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import {useStudio} from "./use-studio";
+import { DawKnob, type DawKnobProps } from "./daw-knob";
 import {
   Dialog,
   DialogContent,
@@ -30,7 +31,10 @@ export function IconButton({
     </button>
   );
 }
-export function Range({
+export function Range({ variant = "range", ...props }: DawKnobProps & { variant?: "range" | "knob" }) {
+  return variant === "knob" ? <DawKnob {...props} /> : <NativeRange {...props} />;
+}
+function NativeRange({
   label,
   value,
   min = 0,
@@ -40,17 +44,7 @@ export function Range({
   format,
   log = false,
   unit = "",
-}: {
-  label: string;
-  value: number;
-  min?: number;
-  max?: number;
-  step?: number;
-  onChange: (value: number) => void;
-  format?: (value: number) => string;
-  log?: boolean;
-  unit?: string;
-}) {
+}: DawKnobProps) {
   const id = useId();
   const s=useStudio(),gesture=useRef(false);
   const displayed = log

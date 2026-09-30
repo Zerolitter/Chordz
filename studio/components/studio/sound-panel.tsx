@@ -5,6 +5,9 @@ import { useStudio } from "./use-studio";
 import { PanelHeading, Range, frequencyLabel } from "./primitives";
 import {SoundReadiness} from "./sound-readiness";
 import { ModulationRack } from "./modulation-rack";
+import { useKnobModulation } from "./use-knob-modulation";
+import { SourceGraphEditor } from "./source-graph-editor";
+import { makeSource } from "../../lib/audio/modulation";
 import { instrumentFor, instrumentSettings,isDrumInstrument } from "../../lib/audio/catalog";
 import {
   clamp,
@@ -18,6 +21,8 @@ export function SoundPanel() {
   const [bend, setBend] = useState(0),
     [expression, setExpression] = useState(1),
     [modulation, setModulation] = useState(0);
+  const effective = useKnobModulation(track ? [track.id] : []);
+  const configLocked = s.recordingPhase !== "idle";
   if (track?.kind === "audio")
     return (
       <div>
@@ -38,6 +43,8 @@ export function SoundPanel() {
     );
   const sound = track.sound,
     instrument = instrumentFor(s.project, track);
+  const defaults = instrumentSettings(instrument);
+  const envelope = { ...makeSource("envelope", "instrument-envelope", "voice"), name: "Instrument envelope", attack: sound.attack, decay: sound.decay, sustain: sound.sustain, release: sound.release };
   function change(update: Partial<SoundSettings>) {
     s.updateTrack(track!.id, t=>({...t,sound:{...t.sound,...update}}), "Shape sound");
   }
@@ -61,23 +68,25 @@ export function SoundPanel() {
   }
   return (
     <div className="sound-panel">
-      <PanelHeading eyebrow={instrument.family} title={track.name}>
+      <PanelHeading eyebrow={instrument.family} title={instrument.name}>
         <button
+          data-edit-policy="bypass"
+          disabled={configLocked}
           className="secondary-button"
-          onClick={() =>
+          onClick={() => { if (!s.finishGesture()) return;
             s.updateTrack(
               track.id,
               { sound: instrumentSettings(instrument) },
               "Reset preset",
-            )
-          }
+            ); }}
         >
           Reset sound
         </button>
       </PanelHeading>
-      <label className="field">
+      <div className="sound-instrument-header"><label className="field">
         Track name
         <DraftInput
+          disabled={configLocked}
           aria-label="Track name"
           value={track.name}
           onChange={(e) =>
@@ -85,11 +94,11 @@ export function SoundPanel() {
           }
         />
       </label>
-      <SoundReadiness/>
+      <div><SoundReadiness/>
       <p className="sound-description">{instrument.description}</p>
-      <p className="helper">Tune while auditioning. Oscillator mode, attack, decay and sample articulation apply on the next note.</p>
+      </div><p className="helper">Tune while auditioning. Attack, decay, filter envelope, engine and articulation changes apply to the next notes.</p></div>
       <ModulationRack />
-      <div className="sound-modules">
+      <div className="sound-modules" key={track.id} data-edit-policy="bypass">
         <section>
           <h3>
             {instrument.kind === "sample" ? "Performance" : "Oscillators"}
@@ -99,13 +108,13 @@ export function SoundPanel() {
               <label className="field">
                 Engine
                 <select
+                  disabled={configLocked}
                   aria-label="Synthesis engine"
                   value={sound.algorithm}
-                  onChange={(e) =>
+                  onChange={(e) => { if (!s.finishGesture()) return;
                     change({
                       algorithm: e.target.value as SoundSettings["algorithm"],
-                    })
-                  }
+                    }); }}
                 >
                   <option value="subtractive">Subtractive · unison</option>
                   <option value="fm">Frequency modulation</option>
@@ -114,11 +123,10 @@ export function SoundPanel() {
               {sound.algorithm==="subtractive"&&<label className="field">
                 Waveform
                 <select
+                  disabled={configLocked}
                   aria-label="Oscillator waveform"
                   value={sound.wave}
-                  onChange={(e) =>
-                    change({ wave: e.target.value as SoundSettings["wave"] })
-                  }
+                  onChange={(e) => { if (s.finishGesture()) change({ wave: e.target.value as SoundSettings["wave"] }); }}
                 >
                   {["sine", "triangle", "sawtooth", "square"].map((w) => (
                     <option key={w}>{w}</option>
@@ -129,16 +137,26 @@ export function SoundPanel() {
               {sound.algorithm === "fm" && (
                 <>
                   <Range
+                    variant="knob"
                     label="FM ratio"
-                    min={0.25}
-                    max={16}
+                    min={0.1}
+                    max={20}
+                    defaultValue={defaults.fmRatio}
+                    modulationTarget="voice.fmRatio"
+                    effectiveValue={effective(track,"voice.fmRatio")}
+                    modulationRange={effective.range(track,"voice.fmRatio")}
                     value={sound.fmRatio}
                     onChange={(v) => change({ fmRatio: v })}
                   />
                   <Range
+                    variant="knob"
                     label="FM depth"
                     min={0}
-                    max={20}
+                    max={30}
+                    defaultValue={defaults.fmIndex}
+                    modulationTarget="voice.fmIndex"
+                    effectiveValue={effective(track,"voice.fmIndex")}
+                    modulationRange={effective.range(track,"voice.fmIndex")}
                     value={sound.fmIndex}
                     onChange={(v) => change({ fmIndex: v })}
                   />
@@ -149,9 +167,10 @@ export function SoundPanel() {
           {instrument.articulations.length>1&&<label className="field">
             Articulation
             <select
+              disabled={configLocked}
               aria-label="Instrument articulation"
               value={sound.articulation}
-              onChange={(e) => change({ articulation: e.target.value })}
+              onChange={(e) => { if (s.finishGesture()) change({ articulation: e.target.value }); }}
             >
               {!instrument.articulations.includes(sound.articulation)&&<option value={sound.articulation}>Unavailable · {sound.articulation} (kept)</option>}
               {instrument.articulations.map((a) => (
@@ -161,9 +180,11 @@ export function SoundPanel() {
           </label>
           }
           {instrument.kind!=="drums"&&<Range
+            variant="knob"
             label="Detune"
-            min={-50}
-            max={50}
+            min={-1200}
+            max={1200}
+            defaultValue={defaults.detune}
             step={1}
             value={sound.detune}
             onChange={(v) => change({ detune: v })}
@@ -171,6 +192,7 @@ export function SoundPanel() {
           />
           }
           {instrument.kind!=="drums"&&<Range
+            variant="knob" performance defaultValue={0}
             label="Pitch bend"
             min={-1}
             max={1}
@@ -182,6 +204,7 @@ export function SoundPanel() {
           />
           }
           <Range
+            variant="knob" performance defaultValue={1}
             label="Expression"
             value={expression}
             onChange={(v) => {
@@ -190,28 +213,26 @@ export function SoundPanel() {
             }}
           />
           {!isDrumInstrument(instrument)&&<button
-            className="secondary-button"
-            onPointerDown={() => s.expression("sustain", 1)}
+            className="secondary-button sound-module-note"
+            onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); s.expression("sustain", 1); }}
             onPointerUp={() => s.expression("sustain", 0)}
-            onPointerLeave={() => s.expression("sustain", 0)}
+            onPointerCancel={() => s.expression("sustain", 0)}
+            onLostPointerCapture={() => s.expression("sustain", 0)}
+            onBlur={() => s.expression("sustain", 0)}
+            onKeyDown={event => { if (["Enter"," "].includes(event.key)) { event.preventDefault(); event.stopPropagation(); if (!event.repeat) s.expression("sustain", 1); } }}
+            onKeyUp={event => { if (["Enter"," "].includes(event.key)) { event.preventDefault(); event.stopPropagation(); s.expression("sustain", 0); } }}
           >
             Hold sustain pedal
           </button>}
         </section>
         {!isDrumInstrument(instrument)&&<section>
           <h3>Amplitude envelope</h3>
-          <svg
-            className="envelope-visual"
-            viewBox="0 0 260 80"
-            aria-hidden="true"
-          >
-            <path
-              d={`M5 75 L${25 + sound.attack * 20} 8 L120 ${75 - sound.sustain * 65} L180 ${75 - sound.sustain * 65} L250 75`}
-            />
-          </svg>
+          <div className="instrument-envelope-graph"><SourceGraphEditor source={envelope} trackId={track.id} seed={s.project.seed} disabled={configLocked}
+            onChange={source => change({ attack: source.attack, decay: source.decay, sustain: source.sustain, release: source.release })} /></div>
           {(["attack", "decay", "sustain", "release"] as const).map(
             (parameter) => (
               <Range
+                variant="knob"
                 key={parameter}
                 label={parameter[0].toUpperCase() + parameter.slice(1)}
                 min={
@@ -222,8 +243,13 @@ export function SoundPanel() {
                       : 0.001
                 }
                 max={
-                  parameter === "sustain" ? 1 : parameter === "release" ? 8 : 4
+                  parameter === "sustain" ? 1 : parameter === "release" ? 15 : 10
                 }
+                step={parameter === "sustain" ? .01 : .001}
+                defaultValue={defaults[parameter]}
+                modulationTarget={`voice.${parameter}`}
+                effectiveValue={effective(track,`voice.${parameter}`)}
+                modulationRange={effective.range(track,`voice.${parameter}`)}
                 log={parameter !== "sustain"}
                 value={sound[parameter]}
                 onChange={(v) => change({ [parameter]: v })}
@@ -236,22 +262,34 @@ export function SoundPanel() {
         <section>
           <h3>Filter & movement</h3>
           <Range
+            variant="knob"
             label="Filter cutoff"
-            min={40}
-            max={18000}
+            min={20}
+            max={20000}
+            step={1}
+            defaultValue={defaults.cutoff}
+            modulationTargets={instrument.kind === "synth" ? ["track.cutoff","voice.cutoff"] : ["track.cutoff"]}
+            effectiveValue={effective(track,"track.cutoff")}
+            modulationRange={effective.range(track,"track.cutoff")}
             log
             value={sound.cutoff}
             onChange={(v) => change({ cutoff: v })}
             format={frequencyLabel}
           />
           <Range
+            variant="knob"
             label="Resonance"
-            min={0.1}
-            max={20}
+            min={0}
+            max={24}
+            defaultValue={defaults.resonance}
+            modulationTargets={instrument.kind === "synth" ? ["track.resonance","voice.resonance"] : ["track.resonance"]}
+            effectiveValue={effective(track,"track.resonance")}
+            modulationRange={effective.range(track,"track.resonance")}
             value={sound.resonance}
             onChange={(v) => change({ resonance: v })}
           />
           {instrument.kind==="synth"&&<Range
+            variant="knob" defaultValue={defaults.filterEnvelope}
             label="Filter envelope"
             min={0}
             max={1}
@@ -260,20 +298,22 @@ export function SoundPanel() {
           />
           }
           <Range
+            variant="knob" defaultValue={defaults.lfoRate}
             label="LFO rate"
-            min={0.05}
-            max={20}
-            log
+            min={0}
+            max={30}
             value={sound.lfoRate}
             onChange={(v) => change({ lfoRate: v })}
             unit=" Hz"
           />
           <Range
+            variant="knob" defaultValue={defaults.lfoDepth}
             label="LFO depth"
             value={sound.lfoDepth}
             onChange={(v) => change({ lfoDepth: v })}
           />
           <Range
+            variant="knob" performance defaultValue={0}
             label="Modulation"
             value={modulation}
             onChange={(v) => {
@@ -311,7 +351,7 @@ export function SoundPanel() {
               </thead>
               <tbody>
                 {instrument.zones.map((z, i) => {
-                  const editable = !!z.assetId;
+                  const editable = !!z.assetId && !configLocked;
                   return (
                     <tr key={i}>
                       <td>

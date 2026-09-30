@@ -1,14 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   configureModulation,
+  applyTrack,
   makeGraph,
   makeVoice,
   modulationEvent,
   scheduleModulation,
+  scheduleAutomation,
+  updateReverbDecay,
+  modulationEffectiveTargets,
+  type SongGraph,
+  type Voice,
 } from "../lib/audio/graph";
+import { StudioEngine } from "../lib/audio/engine";
+import type { ScheduledNote } from "../lib/audio/compile";
+import type { ProjectDocument, Track } from "../lib/music/types";
 import { instrumentFor } from "../lib/audio/catalog";
 import { emptyPatch, makeSource } from "../lib/audio/modulation";
-import { createProject, createTrack } from "../lib/music/project";
+import { createProject, createTrack, emptyClip } from "../lib/music/project";
 import type { ModRoute, ModTarget, ModulationPatch } from "../lib/music/modulation-types";
 
 type ParamEvent = { kind: "set" | "linear" | "exponential" | "target"; time: number; value: number; tau?: number; order: number };
@@ -99,7 +108,12 @@ class FakeNode {
     if (destination instanceof FakeParam) destination.inputs.add(this);
     return destination;
   }
-  disconnect() {
+  disconnect(destination?: FakeNode | FakeParam) {
+    if (destination) {
+      this.connections.delete(destination);
+      if (destination instanceof FakeParam) destination.inputs.delete(this);
+      return;
+    }
     for (const destination of this.connections) if (destination instanceof FakeParam) destination.inputs.delete(this);
     this.connections.clear();
   }
@@ -132,6 +146,7 @@ class FakeContext {
   createConvolver() { return this.node("convolver"); }
   createDelay() { return this.node("delay"); }
   createBuffer(channels: number, length: number, rate: number) { return new FakeBuffer(channels, length, rate); }
+  async decodeAudioData() { return this.createBuffer(1, 8000, this.sampleRate); }
   advance(time: number) {
     this.currentTime = time;
     for (const node of this.nodes) if (node.stoppedAt !== undefined && node.stoppedAt <= time) node.finish();
@@ -278,6 +293,52 @@ describe("modulation graph bindings", () => {
     f.graph.dispose();
   });
 
+  it("retains a held attack, decay and filter envelope when those settings are edited for future notes", () => {
+    const f = fixture(activePatch([route("pan", "track.pan", .2)]));
+    f.track.sound = { ...f.track.sound, attack: .2, decay: .3, filterEnvelope: .6, cutoff: 1000 };
+    configureModulation(f.graph, f.project, [], 0);
+    const held = makeVoice(f.graph, f.track, instrumentFor(f.project, f.track), f.note, 0, undefined, new Map());
+    const queued = makeVoice(f.graph, f.track, instrumentFor(f.project, f.track), { ...f.note, index: 8 }, 1, undefined, new Map());
+    const parameters = [param(held.gain.gain), param(held.modulation!.filter!.frequency)];
+    const curves = parameters.map(parameter => ({ events: JSON.stringify(parameter.events), cancels: JSON.stringify(parameter.cancelLog),
+      values: [.1, .2, .35, .5, .75].map(at => parameter.at(at)) }));
+    const sources = [...held.sources], nodes = [...f.context.nodes];
+    f.context.currentTime = .0625;
+    const next = { ...f.track, sound: { ...f.track.sound, attack: .8, decay: .9, filterEnvelope: .95 } };
+    held.updateSound!(next, .0625); queued.updateSound!(next, .0625);
+    expect(held.modulation!.sound.attack).toBe(.2); expect(held.modulation!.sound.decay).toBe(.3);
+    expect(held.modulation!.sound.filterEnvelope).toBe(.6);
+    expect(queued.modulation!.sound.attack).toBe(.8); expect(queued.modulation!.sound.decay).toBe(.9);
+    expect(queued.modulation!.sound.filterEnvelope).toBe(.95);
+    for (const [index, parameter] of parameters.entries()) {
+      expect(JSON.stringify(parameter.events)).toBe(curves[index].events); expect(JSON.stringify(parameter.cancelLog)).toBe(curves[index].cancels);
+      expect([.1, .2, .35, .5, .75].map(at => parameter.at(at))).toEqual(curves[index].values);
+    }
+    expect(param(queued.gain.gain).events.some(event => event.kind === "linear" && event.time === 1.8)).toBe(true);
+    expect(held.sources).toEqual(sources); expect(f.context.nodes).toEqual(nodes);
+    expect(held.end).toBe(Infinity); expect(held.sources.every(source => node(source).stoppedAt === undefined)).toBe(true);
+    f.graph.dispose();
+  });
+
+  it("reports native destination values with automation, FM units and held onset settings", () => {
+    const f = fixture(activePatch([route("track-cutoff", "track.cutoff", 1), route("pulse", "track.gain", -3),
+      route("pitch", "voice.pitch", 100), route("gain", "voice.gain", -6), route("filter", "voice.cutoff", 1),
+      route("ratio", "voice.fmRatio", 1), route("index", "voice.fmIndex", 2), route("attack", "voice.attack", .2)]));
+    f.track.sound = { ...f.track.sound, algorithm: "fm", cutoff: 3000, filterEnvelope: .5, fmRatio: 2, fmIndex: 3 };
+    f.track.automation = [{ parameter: "cutoff", points: [{ tick: 0, value: 1000 }, { tick: 1920, value: 2000 }] }];
+    configureModulation(f.graph, f.project, [], 0);
+    const voice = makeVoice(f.graph, f.track, instrumentFor(f.project, f.track), f.note, 0, undefined, new Map());
+    scheduleModulation(f.graph, 0, 1, [voice], true);
+    const at = .375, target = modulationEffectiveTargets(f.graph, f.track.id, at, voice);
+    expect(target["track.cutoff"]).toBeCloseTo(2750, 10); expect(target["track.gain"]).toBeCloseTo(-3, 10);
+    expect(target["voice.pitch"]).toBe(100); expect(target["voice.gain"]).toBeCloseTo(-6, 10);
+    expect(target["voice.fmRatio"]).toBe(3); expect(target["voice.fmIndex"]).toBe(5);
+    expect(target["voice.cutoff"]).toBeCloseTo(4050, 10); expect(target["voice.attack"]).toBeCloseTo(.21, 10);
+    expect(target["voice.decay"]).toBe(.02); expect(target["voice.sustain"]).toBe(.6); expect(target["voice.release"]).toBe(.1);
+    expect(target["voice.cutoff"]).toBeCloseTo(param(voice.modulation!.filter!.frequency).at(at), 10);
+    expect(Object.isFrozen(target)).toBe(true); f.graph.dispose();
+  });
+
   it("reschedules a live macro from its audio time without changing the preceding timeline", () => {
     const value = activePatch([route("pan", "track.pan", 1)]); value.macros[0] = 0;
     const f = fixture(value);
@@ -326,6 +387,128 @@ describe("modulation graph bindings", () => {
     f.graph.dispose();
   });
 
+  it("retains the evaluator, held voice nodes and unrelated native curves through a source rate edit", () => {
+    const value = activePatch([route("pitch", "voice.pitch", 80, "voice"), route("pan", "track.pan", .4, "shared")]);
+    value.sources = [
+      { ...makeSource("lfo", "voice", "voice"), sync: false, rate: 1 },
+      { ...makeSource("lfo", "shared"), sync: false, rate: 1 },
+    ];
+    const f = fixture(value);
+    configureModulation(f.graph, f.project, [], 0);
+    const voice = makeVoice(f.graph, f.track, instrumentFor(f.project, f.track), f.note, .03125, undefined, new Map());
+    scheduleModulation(f.graph, 0, 1, [voice], true);
+    const evaluator = f.graph.modulation!.tracks.get(f.track.id)!.evaluator, motion = voice.modulation!;
+    const audioNodes = [...f.context.nodes], voiceSources = [...voice.sources], pitch = param(motion.pitch.offset), pan = param(f.strip.pan.pan);
+    const panEvents = JSON.stringify(pan.events), panCancels = JSON.stringify(pan.cancelLog), envelope = JSON.stringify(param(voice.gain.gain).events);
+    const past = [.0625, .09375, .1171875].map(at => pitch.at(at));
+    f.context.currentTime = .125;
+    f.track.modulation = { ...value, sources: value.sources.map(source => source.id === "voice" ? { ...source, rate: 2 } : source) };
+    configureModulation(f.graph, f.project, [], 0);
+    scheduleModulation(f.graph, .125, 1, [voice], true);
+    expect(f.graph.modulation!.tracks.get(f.track.id)!.evaluator).toBe(evaluator);
+    expect(f.context.nodes).toEqual(audioNodes); expect(voice.sources).toEqual(voiceSources);
+    expect(voice.modulation).toBe(motion); expect(voice.end).toBe(Infinity);
+    expect(voice.sources.every(source => node(source).stoppedAt === undefined)).toBe(true);
+    expect(JSON.stringify(param(voice.gain.gain).events)).toBe(envelope);
+    expect(JSON.stringify(pan.events)).toBe(panEvents); expect(JSON.stringify(pan.cancelLog)).toBe(panCancels);
+    expect([.0625, .09375, .1171875].map(at => pitch.at(at))).toEqual(past);
+    const delayedPhase = .125 - .03125 + (.25 - 1 / 128 - .125) * 2;
+    expect(pitch.at(.25)).toBeCloseTo(80 * Math.sin(delayedPhase * Math.PI * 2), 10);
+    f.graph.dispose();
+  });
+
+  it("keeps accumulated phase and existing voice nodes when a gain route is added and removed", () => {
+    const value = activePatch([route("pitch", "voice.pitch", 80, "voice")]);
+    value.sources = [{ ...makeSource("lfo", "voice", "voice"), sync: false, rate: 1 }];
+    const f = fixture(value);
+    configureModulation(f.graph, f.project, [], 0);
+    const voice = makeVoice(f.graph, f.track, instrumentFor(f.project, f.track), f.note, 0, undefined, new Map());
+    scheduleModulation(f.graph, 0, 1, [voice], true);
+    f.context.currentTime = .125;
+    f.track.modulation = { ...value, sources: [{ ...value.sources[0], rate: 2 }] };
+    configureModulation(f.graph, f.project, [], 0); scheduleModulation(f.graph, .125, 1, [voice], true);
+    const motion = voice.modulation!, evaluator = f.graph.modulation!.tracks.get(f.track.id)!.evaluator;
+    const audioNodes = [...f.context.nodes], pitch = param(motion.pitch.offset), pitchEvents = JSON.stringify(pitch.events), pitchCancels = JSON.stringify(pitch.cancelLog);
+    f.context.currentTime = .25;
+    f.track.modulation = { ...f.track.modulation, routes: [...value.routes, route("gain", "voice.gain", -6)] };
+    configureModulation(f.graph, f.project, [], 0); scheduleModulation(f.graph, .25, 1, [voice], true);
+    expect(param(motion.level.gain).at(.5)).toBeCloseTo(Math.pow(10, -6 / 20), 10);
+    expect(JSON.stringify(pitch.events)).toBe(pitchEvents); expect(JSON.stringify(pitch.cancelLog)).toBe(pitchCancels);
+    f.context.currentTime = .375;
+    f.track.modulation = { ...f.track.modulation, routes: value.routes };
+    configureModulation(f.graph, f.project, [], 0); scheduleModulation(f.graph, .375, 1, [voice], true);
+    expect(f.graph.modulation!.tracks.get(f.track.id)!.evaluator).toBe(evaluator);
+    expect(voice.modulation).toBe(motion); expect(f.context.nodes).toEqual(audioNodes);
+    expect(JSON.stringify(pitch.events)).toBe(pitchEvents); expect(JSON.stringify(pitch.cancelLog)).toBe(pitchCancels);
+    expect(param(motion.level.gain).at(.5)).toBe(1);
+    expect(pitch.at(.5)).toBeCloseTo(80 * Math.sin((.125 + (.5 - 1 / 128 - .125) * 2) * Math.PI * 2), 10);
+    expect(voice.sources.every(source => node(source).stoppedAt === undefined)).toBe(true);
+    f.graph.dispose();
+  });
+
+  it("preserves native volume automation and modulated cutoff ramps when only pan is edited", () => {
+    const f = fixture(activePatch([route("cutoff", "track.cutoff", 1)]));
+    f.track.sound.cutoff = 1000;
+    f.track.automation = [
+      { parameter: "volume", points: [{ tick: 0, value: -12 }, { tick: 1920, value: -3 }] },
+      { parameter: "cutoff", points: [{ tick: 0, value: 1000 }, { tick: 1920, value: 2000 }] },
+    ];
+    const previousTrack = structuredClone(f.track), previousProject = structuredClone(f.project);
+    scheduleAutomation(f.strip, f.track, f.project, 0, 0); configureModulation(f.graph, f.project, [], 0);
+    scheduleModulation(f.graph, 0, 1, [], true);
+    const parameters = [param(f.strip.volume.gain), param(f.strip.filter.frequency)];
+    const history = parameters.map(parameter => ({ events: JSON.stringify(parameter.events), cancels: JSON.stringify(parameter.cancelLog),
+      values: [.1, .4, .8].map(at => parameter.at(at)) }));
+    f.context.currentTime = .25; f.track = { ...f.track, pan: .4 }; f.project.tracks = [f.track];
+    applyTrack(f.strip, f.track, f.project, .25, 480, undefined, false, previousTrack, previousProject);
+    configureModulation(f.graph, f.project, [], 0); scheduleModulation(f.graph, .25, 1, [], true);
+    for (const [index, parameter] of parameters.entries()) {
+      expect(JSON.stringify(parameter.events)).toBe(history[index].events);
+      expect(JSON.stringify(parameter.cancelLog)).toBe(history[index].cancels);
+      expect([.1, .4, .8].map(at => parameter.at(at))).toEqual(history[index].values);
+    }
+    expect(param(f.strip.pan.pan).at(.75)).toBeCloseTo(.4, 10); f.graph.dispose();
+  });
+
+  it("reschedules only a changed automation lane and preserves the other native lane histories", () => {
+    const f = fixture();
+    f.track.automation = [
+      { parameter: "volume", points: [{ tick: 0, value: -12 }, { tick: 1920, value: -3 }] },
+      { parameter: "cutoff", points: [{ tick: 0, value: 1000 }, { tick: 1920, value: 2000 }] },
+      { parameter: "pan", points: [{ tick: 0, value: 0 }, { tick: 1920, value: .5 }] },
+    ];
+    scheduleAutomation(f.strip, f.track, f.project, 0, 0);
+    const previousTrack = structuredClone(f.track), parameters = [param(f.strip.volume.gain), param(f.strip.filter.frequency)];
+    const history = parameters.map(parameter => ({ events: JSON.stringify(parameter.events), cancels: JSON.stringify(parameter.cancelLog) }));
+    f.track.automation = f.track.automation.map(lane => lane.parameter === "pan" ? { ...lane, points: [{ tick: 0, value: 0 }, { tick: 1920, value: -.5 }] } : lane);
+    f.context.currentTime = .25; scheduleAutomation(f.strip, f.track, f.project, .25, 480, previousTrack);
+    for (const [index, parameter] of parameters.entries()) {
+      expect(JSON.stringify(parameter.events)).toBe(history[index].events); expect(JSON.stringify(parameter.cancelLog)).toBe(history[index].cancels);
+    }
+    expect(param(f.strip.pan.pan).at(.75)).toBeCloseTo(-.375, 12); f.graph.dispose();
+  });
+
+  it.each(["routes removed", "matrix bypassed"])("restores bus targets and their cutoff automation when %s", mode => {
+    const value = activePatch([route("cutoff", "track.cutoff", 1), route("q", "track.resonance", 2), route("pan", "track.pan", .4),
+      route("low", "track.low", -1), route("mid", "track.mid", 2), route("high", "track.high", 2),
+      route("reverb", "track.reverb", .3), route("delay", "track.delay", .4), route("pulse", "track.gain", -6)]);
+    const f = fixture(value);
+    f.track.sound.cutoff = 1000; f.track.sound.resonance = 3; f.track.pan = -.3;
+    f.track.low = 2; f.track.mid = -1; f.track.high = 4; f.track.reverb = .2; f.track.delay = .15;
+    f.track.automation = [{ parameter: "cutoff", points: [{ tick: 0, value: 1000 }, { tick: 1920, value: 2000 }] }];
+    configureModulation(f.graph, f.project, [], 0); scheduleModulation(f.graph, 0, 1, [], true);
+    const earlierCutoff = param(f.strip.filter.frequency).at(.125);
+    f.context.currentTime = .25;
+    f.track.modulation = mode === "matrix bypassed" ? { ...value, enabled: false } : { ...value, routes: [] };
+    configureModulation(f.graph, f.project, [], 0); scheduleModulation(f.graph, .25, 1, [], true);
+    expect(param(f.strip.filter.frequency).at(.125)).toBe(earlierCutoff);
+    expect(param(f.strip.filter.frequency).at(.75)).toBeCloseTo(1750, 10);
+    expect(param(f.strip.filter.Q).at(.75)).toBe(3); expect(param(f.strip.pan.pan).at(.75)).toBe(-.3);
+    expect(param(f.strip.low.gain).at(.75)).toBe(2); expect(param(f.strip.mid.gain).at(.75)).toBe(-1); expect(param(f.strip.high.gain).at(.75)).toBe(4);
+    expect(param(f.strip.reverb.gain).at(.75)).toBe(.2); expect(param(f.strip.delay.gain).at(.75)).toBe(.15);
+    expect(param(f.strip.matrixGain!.gain).at(.75)).toBe(1); f.graph.dispose();
+  });
+
   it.each(["routes disabled", "matrix bypassed"])("restores base pitch, level, FM and the native filter envelope when %s", mode => {
     const value = activePatch([
       route("pitch", "voice.pitch", 100), route("level", "voice.gain", -6),
@@ -340,6 +523,7 @@ describe("modulation graph bindings", () => {
     scheduleModulation(f.graph, 0, .5, [voice], true);
     expect(param(motion.pitch.offset).at(.005)).toBe(100);
     expect(param(motion.fmMod!.frequency).at(.005)).toBe(440 * 3);
+    const priorFilter = param(motion.filter!.frequency).at(.005);
     f.context.currentTime = .005;
     f.track.modulation = mode === "matrix bypassed"
       ? { ...value, enabled: false }
@@ -352,8 +536,11 @@ describe("modulation graph bindings", () => {
     expect(param(motion.fmMod!.frequency).at(.1)).toBe(440 * 2);
     expect(param(motion.fmAmount!.gain).at(.1)).toBe(440 * 3);
     expect(param(motion.filter!.Q).at(.1)).toBe(5);
-    expect(param(motion.filter!.frequency).at(.005)).toBeCloseTo(3000 * (1 - .8 * .85 / 2), 9);
-    expect(param(motion.filter!.frequency).at(.01)).toBe(3000);
+    expect(param(motion.filter!.frequency).at(.005)).toBe(priorFilter);
+    const transitioning = param(motion.filter!.frequency).at(.01);
+    expect(Number.isFinite(transitioning)).toBe(true);
+    expect(transitioning).toBeLessThan(priorFilter);
+    expect(transitioning).toBeGreaterThan(3000 * (1 - .8 * .65));
     expect(param(motion.filter!.frequency).at(.03)).toBeCloseTo(3000 * (1 - .8 * .65), 9);
     expect(param(motion.filter!.frequency).at(.1)).toBeCloseTo(3000 * (1 - .8 * .65), 9);
     f.graph.dispose();
@@ -387,5 +574,328 @@ describe("modulation graph bindings", () => {
     for (const audioSource of voice.sources) expect(node(audioSource).connections.size).toBe(0);
     f.graph.dispose();
     expect(node(f.strip.matrixGain!).connections.size).toBe(0);
+  });
+});
+
+type EngineTestState = {
+  context: AudioContext; graph: SongGraph; liveGraph: SongGraph | null; output: GainNode; limiter: DynamicsCompressorNode;
+  voices: Voice[]; playing: boolean; activity: "song" | "audition"; previewId: string | null; previewTrackId: string | null;
+  previewInstrument: string | null;
+  live: Map<string, Voice[]>; liveModVoices: Set<Voice>; heldKeys: Set<string>;
+  liveOwners: Map<string, { trackId: string; pitch: number; token: symbol }>;
+  toneContext: { resume: () => Promise<void>; dispose: () => void };
+  backendJobs: Map<string, { token: symbol; failed?: boolean }>;
+  readyTrack: (track: Track) => Track;
+  readyInstrument: (track: Track) => ReturnType<typeof instrumentFor>;
+  buffers: Map<string, AudioBuffer>;
+  schedule: () => void;
+  resetCursors: (tick: number, includeHeld: boolean) => void;
+  bindVoice: (voice: Voice, graph: SongGraph, track: Track, note: ScheduledNote, at: number, duration: number | undefined) => void;
+};
+
+function engineFixture(audition = false, asset: (id: string) => Promise<Blob> = async () => { throw Error("No sample assets in this fixture"); }, setup?: (project: ProjectDocument) => void) {
+  const project = createProject(), context = new FakeContext();
+  project.master.limiter = false; project.master.reverbDecay = .05;
+  project.tracks = [createTrack("lead"), createTrack("bass")];
+  for (const [index, track] of project.tracks.entries()) {
+    track.id = "engine-" + index; track.reverb = 0; track.delay = 0;
+    track.sound = { ...track.sound, algorithm: "fm", lfoDepth: 0, filterEnvelope: 0, attack: .2, decay: .3, sustain: .6, release: .1 };
+    track.modulation = activePatch([route("pitch", "voice.pitch", 80, "clock")]);
+    track.modulation.sources = [{ ...makeSource("lfo", "clock", "voice"), sync: false, rate: 1 }];
+  }
+  setup?.(project);
+  const graph = makeGraph(context as unknown as BaseAudioContext, project, undefined, undefined, false, true);
+  configureModulation(graph, project, [], 0);
+  const engine = new StudioEngine(project, asset);
+  // Inject only the native scheduling boundary; the engine's edit classification and voice bookkeeping run unchanged.
+  const state = engine as unknown as EngineTestState;
+  Object.assign(state, { context, graph, output: context.createGain(), limiter: context.createDynamicsCompressor(),
+    toneContext: { resume: async () => {}, dispose: () => {} }, playing: !audition, activity: audition ? "audition" : "song",
+    previewId: audition ? "preview-identity" : null, previewTrackId: audition ? project.tracks[0].id : null,
+    previewInstrument: audition ? JSON.stringify(instrumentFor(project, project.tracks[0])) : null });
+  const make = (track: Track, at: number, index: number, duration?: number) => {
+    const note: ScheduledNote = { id: "note-" + index, trackId: track.id, pitch: 69, tick: Math.round(at * 1920), duration: 576, velocity: .8, index };
+    const voice = makeVoice(graph, track, instrumentFor(project, track), note, at, duration, new Map());
+    state.bindVoice(voice, graph, track, note, at, duration); return voice;
+  };
+  const held = make(project.tracks[0], 0, 1), queued = make(project.tracks[0], .75, 2, .3), other = make(project.tracks[1], .8, 3, .3);
+  state.voices = [held, queued, other]; scheduleModulation(graph, 0, 1.5, state.voices, true); context.currentTime = .0625;
+  return { project, context, graph, engine, state, held, queued, other };
+}
+
+describe("engine scalar and backend continuity", () => {
+  it.each(["instrument ID", "resolved manifest"] as const)("cancels audition on %s replacement while preserving unrelated raw live owners and voices", async replacement => {
+    const f = engineFixture(true, undefined, replacement === "resolved manifest" ? project => {
+      const manifest = { ...structuredClone(instrumentFor(project, project.tracks[0])), id: "captured-instrument" };
+      project.userInstruments.push(manifest); project.tracks[0].instrumentId = manifest.id;
+    } : undefined);
+    const input = "keyboard:unrelated", liveTrack = f.project.tracks[1];
+    try {
+      await f.engine.noteOn(liveTrack.id, 72, .7, input);
+      const raw = f.state.live.get(input)![0], sources = [...raw.sources], liveGraph = f.state.liveGraph;
+      const owner = f.state.liveOwners.get(input), envelope = JSON.stringify(param(raw.gain.gain).events);
+      const next = structuredClone(f.project);
+      if (replacement === "instrument ID") next.tracks[0].instrumentId = "bass";
+      else next.userInstruments[0] = { ...next.userInstruments[0], defaults: { ...next.userInstruments[0].defaults, fmRatio: 7 } };
+      f.engine.updateProject(next);
+      expect(f.engine.state.previewId).toBeNull(); expect(f.engine.state.activity).toBe("idle");
+      expect(f.state.voices).toEqual([]);
+      expect([f.held, f.queued, f.other].every(voice => voice.sources.every(source => node(source).stoppedAt === f.context.currentTime + .02))).toBe(true);
+      expect(f.state.liveGraph).toBe(liveGraph); expect(f.state.live.get(input)).toEqual([raw]);
+      expect(f.state.liveOwners.get(input)).toBe(owner); expect(f.state.heldKeys.has(input)).toBe(true);
+      expect(f.state.liveModVoices.has(raw)).toBe(true); expect(raw.end).toBe(Infinity); expect(raw.sources).toEqual(sources);
+      expect(raw.sources.every(source => node(source).stoppedAt === undefined)).toBe(true);
+      expect(JSON.stringify(param(raw.gain.gain).events)).toBe(envelope);
+    } finally { f.engine.dispose(); }
+  });
+
+  it("rebuilds a same-object live track addition without losing existing raw held voices or owners", async () => {
+    const f = engineFixture(false), input = "keyboard:existing";
+    try {
+      await f.engine.noteOn(f.project.tracks[0].id, 69, .8, input);
+      const raw = f.state.live.get(input)![0], oldGraph = f.state.liveGraph!, oldStrip = oldGraph.tracks.get(raw.trackId)!;
+      const owner = f.state.liveOwners.get(input), sources = [...raw.sources], envelope = JSON.stringify(param(raw.gain.gain).events);
+      const added = createTrack("lead"); added.id = "same-object-added"; added.reverb = 0; added.delay = 0;
+      f.project.tracks.push(added);
+      f.engine.updateProject(f.project);
+      const rebuilt = f.state.liveGraph!;
+      expect(rebuilt === oldGraph).toBe(false); expect(rebuilt.tracks.has(added.id)).toBe(true);
+      expect(f.state.live.get(input)).toEqual([raw]); expect(f.state.liveOwners.get(input)).toBe(owner);
+      expect(f.state.heldKeys.has(input)).toBe(true); expect(f.state.liveModVoices.has(raw)).toBe(true);
+      expect(raw.end).toBe(Infinity); expect(raw.sources).toEqual(sources);
+      expect(raw.sources.every(source => node(source).stoppedAt === undefined)).toBe(true);
+      expect(JSON.stringify(param(raw.gain.gain).events)).toBe(envelope);
+      expect(node(raw.output ?? raw.gain).connections.has(node(oldStrip.input))).toBe(false);
+      expect(node(raw.output ?? raw.gain).connections.has(node(rebuilt.tracks.get(raw.trackId)!.input))).toBe(true);
+      await expect(f.engine.noteOn(added.id, 76, .7, "keyboard:new")).resolves.toBe(f.context.currentTime);
+      expect(f.state.live.get("keyboard:new")![0].trackId).toBe(added.id);
+      expect(f.state.live.get(input)).toEqual([raw]); expect(f.state.liveOwners.get(input)).toBe(owner);
+    } finally { f.engine.dispose(); }
+  });
+
+  it.each([false, true])("preserves held and queued voice identities through source, sound and pan edits during audition: %s", audition => {
+    const f = engineFixture(audition), voices = [...f.state.voices], nodes = [...f.context.nodes];
+    const gainEvents = JSON.stringify(param(f.held.gain.gain).events), gainCancels = JSON.stringify(param(f.held.gain.gain).cancelLog);
+    const unrelated = [param(f.other.modulation!.pitch.offset), param(f.other.modulation!.filter!.frequency)];
+    const curves = unrelated.map(parameter => ({ events: JSON.stringify(parameter.events), cancels: JSON.stringify(parameter.cancelLog) }));
+    const next = structuredClone(f.project), track = next.tracks[0];
+    track.pan = .4; track.sound.wave = "square"; track.sound.attack = .8; track.sound.decay = .9; track.sound.filterEnvelope = .7;
+    track.modulation!.sources[0].rate = 2;
+    try {
+      f.engine.updateProject(next);
+      expect(f.engine.state.playing).toBe(!audition); expect(f.engine.state.activity).toBe(audition ? "audition" : "song");
+      expect(f.engine.state.previewId).toBe(audition ? "preview-identity" : null);
+      expect(f.state.graph).toBe(f.graph); expect(f.state.voices).toEqual(voices); expect(f.context.nodes).toEqual(nodes);
+      expect(f.held.modulation!.sound.attack).toBe(.2); expect(f.held.modulation!.sound.decay).toBe(.3);
+      expect(f.held.modulation!.sound.filterEnvelope).toBe(0); expect(f.queued.modulation!.sound.attack).toBe(.8);
+      expect(f.queued.start).toBe(.75); expect(f.other.start).toBe(.8);
+      expect(JSON.stringify(param(f.held.gain.gain).events)).toBe(gainEvents); expect(JSON.stringify(param(f.held.gain.gain).cancelLog)).toBe(gainCancels);
+      expect(f.held.sources.every(source => node(source).stoppedAt === undefined)).toBe(true);
+      for (const [index, parameter] of unrelated.entries()) {
+        expect(JSON.stringify(parameter.events)).toBe(curves[index].events); expect(JSON.stringify(parameter.cancelLog)).toBe(curves[index].cancels);
+      }
+    } finally { f.engine.dispose(); }
+  });
+
+  it.each(["algorithm", "articulation"] as const)("replaces only an affected queued %s backend at its original onset while the held topology survives", async field => {
+    const f = engineFixture(true), next = structuredClone(f.project), originalHeld = [...f.held.sources];
+    const otherCurves = JSON.stringify(param(f.other.modulation!.pitch.offset).events);
+    if (field === "algorithm") next.tracks[0].sound.algorithm = "subtractive";
+    else next.tracks[0].sound.articulation = "staccato";
+    try {
+      f.engine.updateProject(next);
+      // Synth loading has no assets but retains the real asynchronous readiness boundary.
+      await f.engine.ensureBuffers(next, [next.tracks[0].id]); await Promise.resolve();
+      const replacement = f.state.voices.find(voice => voice.trackId === f.queued.trackId && voice.start === .75)!;
+      expect(replacement).not.toBe(f.queued); expect(replacement.pitch).toBe(f.queued.pitch);
+      expect(replacement.modulation!.context.key).toBe(f.queued.modulation!.context.key);
+      expect(replacement.modulation!.context.start).toBe(f.queued.modulation!.context.start);
+      expect(replacement.sources).toHaveLength(field === "algorithm" ? 3 : 2); expect(replacement.sources.every(source => node(source).startedAt === .75)).toBe(true);
+      expect(replacement.modulation!.sound[field]).toBe(next.tracks[0].sound[field]);
+      expect(replacement.end).toBeCloseTo(1.25, 12);
+      expect(f.queued.sources.every(source => node(source).stoppedAt === f.context.currentTime + .02)).toBe(true);
+      expect(f.state.voices[0]).toBe(f.held); expect(f.held.sources).toEqual(originalHeld); expect(f.held.sources).toHaveLength(2);
+      expect(f.held.modulation!.sound.algorithm).toBe("fm"); expect(f.held.end).toBe(Infinity);
+      expect(f.held.modulation!.sound.articulation).toBe(f.project.tracks[0].sound.articulation);
+      expect(f.held.sources.every(source => node(source).stoppedAt === undefined)).toBe(true);
+      expect(f.state.voices[2]).toBe(f.other); expect(JSON.stringify(param(f.other.modulation!.pitch.offset).events)).toBe(otherCurves);
+      expect(f.engine.state.previewId).toBe("preview-identity"); expect(f.engine.state.activity).toBe("audition");
+    } finally { f.engine.dispose(); }
+  });
+
+  it("keeps a failed new backend on the previous instrument until a matching explicit retry succeeds", async () => {
+    let rejectAsset!: (reason: Error) => void, attempted!: () => void, failed!: () => void, calls = 0;
+    const request = new Promise<void>(resolve => { attempted = resolve; }), failure = new Promise<void>(resolve => { failed = resolve; });
+    const f = engineFixture(false, async () => {
+      if (++calls > 1) return new Blob([new Uint8Array([1])]);
+      attempted(); return new Promise<Blob>((_, reject) => { rejectAsset = reject; });
+    });
+    const next = structuredClone(f.project), track = next.tracks[0];
+    track.instrumentId = "replacement"; track.sound.attack = .4;
+    next.userInstruments.push({ id: "replacement", name: "Replacement", family: "test", description: "test", kind: "sample",
+      zones: [{ assetId: "replacement-pcm", root: 69, low: 0, high: 127, velocityLow: 0, velocityHigh: 1, roundRobin: 0, articulation: "sustain" }],
+      articulations: ["sustain"], defaults: {}, license: "test", source: "test" });
+    f.engine.onStatus = message => { if (message === "Fixture load failed") failed(); };
+    try {
+      f.engine.updateProject(next); await request;
+      const pending = f.state.backendJobs.get(track.id)!;
+      expect(f.state.readyTrack(track).instrumentId).toBe(f.project.tracks[0].instrumentId);
+      expect(f.state.readyTrack(track).sound.attack).toBe(.4);
+      expect(f.state.readyInstrument(f.state.readyTrack(track)).id).toBe(instrumentFor(f.project, f.project.tracks[0]).id);
+      expect(f.state.voices[1]).toBe(f.queued);
+      rejectAsset(Error("Fixture load failed")); await failure;
+      expect(pending.failed).toBe(true); expect(f.engine.instrumentReadiness(track.id).state).toBe("failed");
+      await f.engine.ensureBuffers(f.project, [track.id]);
+      expect(f.state.backendJobs.get(track.id)).toBe(pending); expect(f.state.voices[1]).toBe(f.queued); expect(calls).toBe(1);
+      await f.engine.ensureBuffers(next, [track.id]);
+      expect(calls).toBe(2); expect(f.state.backendJobs.has(track.id)).toBe(false);
+      expect(f.engine.instrumentReadiness(track.id).state).toBe("ready");
+      const replacement = f.state.voices[1]; expect(replacement).not.toBe(f.queued); expect(replacement.start).toBe(.75);
+      expect(replacement.sources).toHaveLength(1); expect(node(replacement.sources[0]).kind).toBe("buffer");
+      expect(f.state.voices[0]).toBe(f.held); expect(f.state.voices[2]).toBe(f.other);
+    } finally { f.engine.dispose(); }
+  });
+
+  it("schedules identical overlapping audio clip copies separately and avoids duplicates after cursor resets", () => {
+    const project = createProject(), track = createTrack("lead"), context = new FakeContext();
+    track.kind = "audio"; track.reverb = 0; track.delay = 0; project.tracks = [track]; project.master.reverbDecay = .05;
+    const first = { ...emptyClip(192, 960), id: "copy-one", audio: { assetId: "pcm", offsetSec: 0, gain: .8, fadeInSec: 0, fadeOutSec: 0 } };
+    track.clips = [first, { ...structuredClone(first), id: "copy-two" }];
+    const graph = makeGraph(context as unknown as BaseAudioContext, project, undefined, undefined, false, true);
+    const engine = new StudioEngine(project, async () => { throw Error("Already decoded audio fixture"); }), state = engine as unknown as EngineTestState;
+    Object.assign(state, { context, graph, output: context.createGain(), limiter: context.createDynamicsCompressor(),
+      toneContext: { resume: async () => {}, dispose: () => {} }, playing: true, activity: "song",
+      voices: [], buffers: new Map([["pcm", context.createBuffer(1, 16000, 8000)]]) });
+    try {
+      state.schedule(); const originals = [...state.voices];
+      expect(originals).toHaveLength(2); expect(originals.map(voice => voice.start)).toEqual([.1, .1]);
+      expect(originals[0].sources[0]).not.toBe(originals[1].sources[0]);
+      state.resetCursors(0, false); state.schedule(); expect(state.voices).toEqual(originals);
+      const next = structuredClone(project);
+      next.tracks[0].clips.push({ ...structuredClone(first), id: "copy-three", startTick: 240 });
+      engine.updateProject(next); state.schedule();
+      expect(state.voices).toHaveLength(3); expect(state.voices.slice(0, 2)).toEqual(originals);
+      expect(state.voices[2].start).toBe(.125);
+      state.resetCursors(0, false); state.schedule(); expect(state.voices).toHaveLength(3);
+    } finally { engine.dispose(); }
+  });
+
+  it("does not let a successful retry of an older backend clear a newer pending replacement", async () => {
+    type AssetRequest = { id: string; resolve: (blob: Blob) => void; reject: (error: Error) => void };
+    const requests: AssetRequest[] = []; let requested: (() => void) | undefined, failed!: () => void;
+    const failure = new Promise<void>(resolve => { failed = resolve; });
+    const f = engineFixture(false, id => new Promise<Blob>((resolve, reject) => {
+      requests.push({ id, resolve, reject }); requested?.(); requested = undefined;
+    }));
+    const request = async () => {
+      if (!requests.length) await new Promise<void>(resolve => { requested = resolve; });
+      return requests.shift()!;
+    };
+    const first = structuredClone(f.project), trackId = first.tracks[0].id;
+    for (const id of ["replacement-a", "replacement-b"]) first.userInstruments.push({ id, name: id, family: "test", description: "test", kind: "sample",
+      zones: [{ assetId: id, root: 69, low: 0, high: 127, velocityLow: 0, velocityHigh: 1, roundRobin: 0, articulation: "sustain" }],
+      articulations: ["sustain"], defaults: {}, license: "test", source: "test" });
+    first.tracks[0].instrumentId = "replacement-a";
+    f.engine.onStatus = message => { if (message === "First replacement failed") failed(); };
+    try {
+      f.engine.updateProject(first); (await request()).reject(Error("First replacement failed")); await failure;
+      const oldJob = f.state.backendJobs.get(trackId)!; expect(oldJob.failed).toBe(true);
+      const retry = f.engine.ensureBuffers(first, [trackId]), retryAsset = await request();
+      expect(retryAsset.id).toBe("replacement-a");
+      const next = structuredClone(first); next.tracks[0].instrumentId = "replacement-b";
+      f.engine.updateProject(next); const nextAsset = await request(), nextJob = f.state.backendJobs.get(trackId)!;
+      expect(nextAsset.id).toBe("replacement-b"); expect(nextJob.token).not.toBe(oldJob.token);
+      retryAsset.resolve(new Blob([new Uint8Array([1])])); await retry;
+      expect(f.state.backendJobs.get(trackId)).toBe(nextJob); expect(f.state.voices[1]).toBe(f.queued);
+      expect(f.state.readyTrack(next.tracks[0]).instrumentId).toBe(f.project.tracks[0].instrumentId);
+      const complete = f.engine.ensureBuffers(next, [trackId]); nextAsset.resolve(new Blob([new Uint8Array([2])])); await complete; await Promise.resolve();
+      expect(f.state.backendJobs.has(trackId)).toBe(false); expect(f.state.voices[1]).not.toBe(f.queued);
+      expect(node(f.state.voices[1].sources[0]).buffer).toBe(f.state.buffers.get("replacement-b"));
+      expect(f.state.voices[0]).toBe(f.held); expect(f.state.voices[2]).toBe(f.other);
+    } finally { f.engine.dispose(); }
+  });
+});
+
+describe("live reverb return changes", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("coalesces the latest decay and crossfades only the wet returns", () => {
+    vi.useFakeTimers();
+    const f = fixture(), wet = f.graph.reverbState!, initial = wet.current;
+    const dry = [f.strip.input, f.strip.filter, f.strip.volume, f.strip.pan, f.strip.reverb, f.graph.master, f.graph.output];
+    const dryConnections = dry.map(value => [...node(value).connections]);
+    const advance = (ms: number) => { f.context.currentTime += ms / 1000; vi.advanceTimersByTime(ms); };
+    updateReverbDecay(f.graph, 2, 7); advance(50); updateReverbDecay(f.graph, 3, 11);
+    expect(wet.current).toBe(initial);
+    advance(50);
+    expect(wet.decay).toBe(3); expect(wet.seed).toBe(11); expect(wet.pending).toBeNull();
+    expect(wet.current.convolver).not.toBe(initial.convolver);
+    expect(node(wet.current.convolver).buffer!.duration).toBe(3);
+    expect(node(wet.input).connections.has(node(initial.convolver))).toBe(true);
+    expect(node(wet.input).connections.has(node(wet.current.convolver))).toBe(true);
+    expect(param(initial.level.gain).at(.15) + param(wet.current.level.gain).at(.15)).toBeCloseTo(1, 12);
+    expect(param(initial.level.gain).at(.2)).toBeCloseTo(0, 12);
+    expect(param(wet.current.level.gain).at(.2)).toBeCloseTo(1, 12);
+    advance(110);
+    expect(wet.retired).toBeUndefined(); expect(node(initial.convolver).connections.size).toBe(0);
+    expect(node(initial.level).connections.size).toBe(0);
+    expect(node(wet.input).connections.has(node(initial.convolver))).toBe(false);
+    for (const [index, value] of dry.entries()) expect([...node(value).connections]).toEqual(dryConnections[index]);
+    f.graph.dispose(); expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("bounds active convolvers during a long drag and keeps held voices and dry paths intact", () => {
+    vi.useFakeTimers();
+    const f = fixture(activePatch([route("pitch", "voice.pitch", 80)]));
+    configureModulation(f.graph, f.project, [], 0);
+    const voice = makeVoice(f.graph, f.track, instrumentFor(f.project, f.track), f.note, 0, undefined, new Map());
+    const sources = [...voice.sources], matrix = voice.modulation!, dry = [f.strip.input, f.strip.filter, f.strip.volume, f.strip.pan, voice.gain, matrix.level];
+    const connections = dry.map(value => [...node(value).connections]), envelope = JSON.stringify(param(voice.gain.gain).events);
+    const advance = (ms: number) => { f.context.currentTime += ms / 1000; vi.advanceTimersByTime(ms); };
+    for (let index = 0; index < 24; index++) {
+      updateReverbDecay(f.graph, .5 + index * .1, index);
+      advance(25);
+      expect(f.graph.nodes.filter(value => node(value).kind === "convolver").length).toBeLessThanOrEqual(2);
+      expect([...node(f.graph.reverbState!.input).connections].filter(value => value instanceof FakeNode && value.kind === "convolver").length).toBeLessThanOrEqual(2);
+      expect(voice.sources).toEqual(sources); expect(voice.modulation).toBe(matrix); expect(voice.end).toBe(Infinity);
+      expect(voice.sources.every(source => node(source).stoppedAt === undefined)).toBe(true);
+      expect(JSON.stringify(param(voice.gain.gain).events)).toBe(envelope);
+      for (const [offset, value] of dry.entries()) expect([...node(value).connections]).toEqual(connections[offset]);
+    }
+    advance(500);
+    // A coalesced final build starts at the current native time; advance that clock through its own crossfade.
+    advance(110);
+    expect(f.graph.reverbState!.decay).toBeCloseTo(2.8, 12); expect(f.graph.reverbState!.seed).toBe(23);
+    expect(f.graph.nodes.filter(value => node(value).kind === "convolver")).toHaveLength(1);
+    expect(f.graph.reverbState!.pending).toBeNull(); expect(vi.getTimerCount()).toBe(0);
+    f.graph.dispose();
+  });
+
+  it("retains the old wet return while native audio time is paused during a crossfade", () => {
+    vi.useFakeTimers();
+    const f = fixture(), wet = f.graph.reverbState!, old = wet.current;
+    updateReverbDecay(f.graph, 2, 4); f.context.currentTime = .1; vi.advanceTimersByTime(100);
+    expect(wet.current).not.toBe(old);
+    vi.advanceTimersByTime(1000);
+    expect(wet.retired).toBe(old); expect(node(old.convolver).connections.size).toBeGreaterThan(0);
+    expect(node(wet.input).connections.has(node(old.convolver))).toBe(true);
+    expect(param(old.level.gain).at(.1)).toBe(1);
+    f.context.currentTime = .21; vi.advanceTimersByTime(100);
+    expect(wet.retired).toBeUndefined(); expect(node(old.convolver).connections.size).toBe(0);
+    expect(node(wet.input).connections.has(node(old.convolver))).toBe(false);
+    f.graph.dispose(); expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it.each([false, true])("disposal cancels a pending impulse build, including an active crossfade: %s", crossfading => {
+    vi.useFakeTimers();
+    const f = fixture();
+    updateReverbDecay(f.graph, 2, 4);
+    if (crossfading) { f.context.currentTime = .1; vi.advanceTimersByTime(100); updateReverbDecay(f.graph, 3, 5); }
+    const nodes = f.context.nodes.length;
+    f.graph.dispose(); f.context.currentTime = 1; vi.advanceTimersByTime(1000);
+    expect(f.context.nodes).toHaveLength(nodes);
+    expect(f.graph.reverbState!.pending).toBeNull(); expect(f.graph.reverbState!.disposed).toBe(true);
+    expect(f.graph.nodes.every(value => node(value).connections.size === 0)).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

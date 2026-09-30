@@ -20,8 +20,8 @@ test("live movement records emitted notes once and keeps four independent macros
   await page.locator("main.studio-shell").evaluate(element => { element.tabIndex = -1; element.focus(); });
   await page.keyboard.down("a"); await page.keyboard.down("d"); await page.keyboard.down("g");
   await page.waitForTimeout(450);
-  await rack.getByLabel("M1 performance", { exact: true }).fill("0.73");
-  await rack.getByLabel("M2 performance", { exact: true }).fill("0.28");
+  await rack.getByLabel("M1 performance value", { exact: true }).fill("0.73");
+  await rack.getByLabel("M2 performance value", { exact: true }).fill("0.28");
   await page.waitForTimeout(250);
   await page.keyboard.up("a"); await page.keyboard.up("d"); await page.keyboard.up("g");
   await page.getByLabel("Finish recording", { exact: true }).click();
@@ -47,7 +47,7 @@ test("live movement records emitted notes once and keeps four independent macros
   await rack.getByLabel("M1 amount value", { exact: true }).blur();
   await page.getByLabel("Start recording", { exact: true }).click();
   await expect(page.locator(".transport-position")).toContainText("Recording ·");
-  await rack.getByLabel("M3 performance", { exact: true }).fill("0.41");
+  await rack.getByLabel("M3 performance value", { exact: true }).fill("0.41");
   await page.getByLabel("Finish recording", { exact: true }).click();
   await expect(page.getByLabel("Start recording", { exact: true })).toBeEnabled();
   const secondEvents = await page.evaluate(async () => {
@@ -115,7 +115,7 @@ test("MIDI CC channels remain independent and disconnect records controller clea
   await page.getByRole("button", { name: "Blank song", exact: true }).click();
   await page.getByRole("navigation").getByRole("button", { name: "03 Sound" }).click();
   const rack = page.getByRole("region", { name: "Selected track modulation rack" });
-  await rack.getByText("MIDI CC source", { exact: true }).click();
+  await rack.locator(".mod-midi-inspector>summary").click();
   await rack.getByRole("button", { name: "Learn CC", exact: true }).click();
   await expect(rack.getByRole("button", { name: "Cancel MIDI learn", exact: true })).toBeVisible();
   await page.evaluate(() => {

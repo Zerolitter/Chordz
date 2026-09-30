@@ -1,0 +1,9 @@
+{
+  "date": "2026-10-01",
+  "unit": { "passed": 223, "files": 27 },
+  "browser": { "nonNativePassed": 69, "nativePassed": 11, "total": 80, "responsiveRerunPassed": true },
+  "sourceColumns": { "1440": 3, "960": 2, "800": 2, "390": 1 },
+  "native": { "strictAbsolutePcmErrorLimit": 0.000001, "verifiedCases": ["rate edit past and integrated output", "unrelated pan edit pre/post output"] },
+  "referenceExport": { "tracks": 16, "recordedSeconds": 2.0986666666666665, "exportSeconds": 304.8, "sampleRate": 48000, "bitDepth": 24, "channels": 2, "rms": 0.010182338475804607, "peak": 0.1426326036453247, "renderWallSeconds": 61.358 },
+  "handsOnOutstanding": ["physical microphone/MIDI/hotplug", "physical touch", "human listening/perceptual timing", "native audio/download behavior"]
+}

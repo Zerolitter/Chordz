@@ -2,6 +2,24 @@ import type { ProjectDocument } from "./types";
 export type FieldPath=(string|{id:string})[];
 export interface FieldPatch {path:FieldPath;before:unknown;after:unknown;}
 export interface EditTransaction {owner?:string;projectId:string;label:string;patches:FieldPatch[];invalid:string|null;}
+export interface EditGesture {
+  owner: string;
+  projectId: string;
+  parentOwner?: string;
+  savepoint: EditTransaction | null;
+}
+/** A staged audition owns history; each child gesture owns only its savepoint. */
+export function gestureSavepoint(transaction: EditTransaction, owner: string, parentOwner?: string): EditGesture {
+  return { owner, projectId: transaction.projectId, parentOwner,
+    savepoint: parentOwner ? structuredClone(transaction) : null };
+}
+/** Stale pointer cancellation must never erase another editor or another song. */
+export function restoreGesture(transaction: EditTransaction | null, gesture: EditGesture):
+  { restored: true; transaction: EditTransaction | null } | { restored: false } {
+  if (!transaction || transaction.projectId !== gesture.projectId ||
+    transaction.owner !== (gesture.parentOwner ?? gesture.owner)) return { restored: false };
+  return { restored: true, transaction: gesture.savepoint ? structuredClone(gesture.savepoint) : null };
+}
 const equal=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
 const record=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==="object"&&!Array.isArray(value);
 const entities=(value:unknown):value is (Record<string,unknown>&{id:string})[]=>Array.isArray(value)&&value.every(v=>record(v)&&typeof v.id==="string")&&new Set(value.map(v=>v.id)).size===value.length;

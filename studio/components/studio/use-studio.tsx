@@ -14,7 +14,7 @@ import {
   type ReactNode,
 } from "react";
 import { historyReducer, type HistoryAction } from "../../lib/music/edit";
-import { applyPreview, previewEdit, commitTransaction, rebaseTransaction, type EditTransaction } from "../../lib/music/transactions";
+import { applyPreview, previewEdit, commitTransaction, rebaseTransaction, gestureSavepoint, restoreGesture, type EditGesture, type EditTransaction } from "../../lib/music/transactions";
 import { chordCommand, type ChordCommand } from "../../lib/music/chord-commands";
 import {
   createDemo,
@@ -61,8 +61,10 @@ import { AudioProcessor } from "../../lib/audio/worker-client";
 import { MicrophoneRecorder } from "../../lib/audio/recording";
 import {LiveMovement} from "../../lib/music/live-movement";
 import {performanceKey} from "../../lib/music/performance";
-import {MACRO_IDS} from "../../lib/music/modulation-types";
+import {MACRO_IDS, type ModTarget} from "../../lib/music/modulation-types";
 import {emptyPatch} from "../../lib/audio/modulation";
+import {instrumentFor} from "../../lib/audio/catalog";
+import {assignModulationRoute} from "../../lib/music/modulation-assignment";
 
 export type StudioMode = "write" | "arrange" | "sound" | "mix";
 export type StudioUser = { userId: string; displayName: string } | null;
@@ -94,6 +96,7 @@ function useStudioController(
   });
   const [transaction,setTransaction]=useState<EditTransaction|null>(null);
   const activeEdit=useRef<EditTransaction|null>(null),fieldOwner=useRef(""),committedRef=useRef(history.present);
+  const activeGesture=useRef<EditGesture|null>(null);
   const [editConflict,setEditConflict]=useState<EditTransaction|null>(null);
   const project=useMemo(()=>applyPreview(history.present,transaction),[history.present,transaction]),projectRef=useRef(project);
   const [selectedChordId,setSelectedChordId]=useState("");
@@ -246,9 +249,49 @@ function useStudioController(
     fieldOwner.current=owner;renderEdit({owner,projectId:committedRef.current.id,label:"Edit",patches:[],invalid:null});return true;
   }
   function ownsEdit(owner:string){return activeEdit.current?.owner===owner;}
+  const stagedOwner = (owner?: string) => !!owner && (owner.startsWith("reference-") || owner.startsWith("reference:") || owner.startsWith("modulation-ab:"));
+  function ownsGesture(owner:string){
+    const gesture=activeGesture.current;
+    return gesture?.owner===owner && activeEdit.current?.projectId===gesture.projectId &&
+      activeEdit.current?.owner===(gesture.parentOwner??owner);
+  }
+  function gestureParent(owner:string){return activeGesture.current?.owner===owner ? activeGesture.current.parentOwner : undefined;}
+  function beginGesture(owner:string,parentOwner?:string){
+    if(takeSession.current){setError("Finish recording before changing sound or configuration.");return false;}
+    if(ownsGesture(owner))return true;
+    if(activeGesture.current&&!finishGesture())return false;
+    const current=activeEdit.current;
+    const parent=parentOwner??(stagedOwner(current?.owner)?current?.owner:undefined);
+    if(parent){
+      if(current?.owner!==parent||current.invalid){if(current?.invalid)setError(current.invalid);return false;}
+      activeGesture.current=gestureSavepoint(current,owner,parent);return true;
+    }
+    if(!beginEdit(owner))return false;
+    activeGesture.current=gestureSavepoint(activeEdit.current!,owner);return true;
+  }
+  function invalidateGesture(invalid:string|null,owner:string){
+    if(ownsGesture(owner))invalidateEdit(invalid,gestureParent(owner)??owner);
+  }
+  function finishGesture(owner=activeGesture.current?.owner):boolean{
+    const gesture=activeGesture.current;
+    if(!gesture)return true;
+    if(!owner||!ownsGesture(owner))return false;
+    if(activeEdit.current?.invalid){setError(activeEdit.current.invalid);return false;}
+    activeGesture.current=null;
+    return gesture.parentOwner ? true : finishEdit(owner);
+  }
+  function cancelGesture(owner=activeGesture.current?.owner){
+    const gesture=activeGesture.current;
+    if(!gesture||gesture.owner!==owner)return false;
+    activeGesture.current=null;
+    const result=restoreGesture(activeEdit.current,gesture);
+    if(!result.restored)return false;
+    fieldOwner.current=result.transaction?.owner??"";renderEdit(result.transaction);setError("");return true;
+  }
   function invalidateEdit(invalid:string|null,owner?:string){if(activeEdit.current&&(!owner||ownsEdit(owner)))renderEdit({...activeEdit.current,invalid});}
-  function cancelEdit(owner?:string){if(owner&&!ownsEdit(owner))return false;if(!activeEdit.current)return false;fieldOwner.current="";renderEdit(null);return true;}
-  function finishEdit(owner?:string){
+  function cancelEdit(owner?:string){if(owner&&activeGesture.current?.owner===owner)return cancelGesture(owner);if(owner&&!ownsEdit(owner))return false;if(!activeEdit.current)return false;activeGesture.current=null;fieldOwner.current="";renderEdit(null);return true;}
+  function finishEdit(owner?:string):boolean{
+    if(activeGesture.current){if(owner===activeGesture.current.owner)return finishGesture(owner);if(!finishGesture())return false;}
     if(owner&&!ownsEdit(owner))return true;
     const tx=activeEdit.current;if(!tx)return true;
     if(tx.owner&&(tx.owner.startsWith("reference-")||tx.owner.startsWith("reference:")||tx.owner.startsWith("modulation-ab:"))&&owner!==tx.owner){cancelEdit();return true;}
@@ -279,6 +322,7 @@ function useStudioController(
   function changeHistory(action: HistoryAction) {
     if(takeSession.current) return;
     if((action.type==="undo"||action.type==="redo")&&cancelInteraction.current?.())return;
+    if(activeGesture.current){cancelGesture();return;}
     if(activeEdit.current){cancelEdit();return;}
     const next=historyReducer({...history,present:committedRef.current},action);
     committedRef.current=next.present;projectRef.current=next.present;
@@ -339,6 +383,18 @@ function useStudioController(
       }),
       label,
     );
+  }
+  function assignModulation(sourceId:string,target:ModTarget,trackId=selectedTrackRef.current?.id,sourceTrackId?:string){
+    if(takeSession.current){setError("Finish recording before configuring modulation.");return false;}
+    if(!finishGesture())return false;
+    if(activeEdit.current?.invalid){setError(activeEdit.current.invalid);return false;}
+    const doc=projectRef.current,track=doc.tracks.find(t=>t.id===trackId);
+    if(!track){setError("Select a track before assigning modulation.");return false;}
+    const instrument=instrumentFor(doc,track);
+    const result=assignModulationRoute(track.modulation??emptyPatch(doc.seed),sourceId,target,uid(),
+      {audio:track.kind==="audio",synth:instrument.kind==="synth",fm:instrument.kind==="synth"&&track.sound.algorithm==="fm"},track.id,sourceTrackId);
+    if(!result.ok){setError(result.error);return false;}
+    updateTrack(track.id,{modulation:result.patch},"Assign modulation");return true;
   }
   function selectTrack(id: string) {
     if(!finishEdit())return;
@@ -1355,7 +1411,7 @@ function useStudioController(
     project,
     projectRef,committedRef,
     history,
-    transaction,ownsEdit,beginEdit,finishEdit,cancelEdit,invalidateEdit,editConflict,reapplyEdit,discardEdit:()=>setEditConflict(null),registerInteraction,
+    transaction,ownsEdit,beginEdit,finishEdit,cancelEdit,invalidateEdit,beginGesture,ownsGesture,gestureParent,finishGesture,cancelGesture,invalidateGesture,assignModulation,editConflict,reapplyEdit,discardEdit:()=>setEditConflict(null),registerInteraction,
     applyChord,selectedChordId,setSelectedChordId,
     dispatch: changeHistory as React.Dispatch<HistoryAction>,
     mode,

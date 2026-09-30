@@ -18,7 +18,10 @@ export interface ModControlEvent {
 }
 export interface ModControlLane { id: string; points: { seconds: number; value: number }[] }
 export interface ModVoice { key: string; pitch: number; velocity: number; start: number; release?: number }
-export interface ModSample { sources: Record<string, number>; targets: Record<string, number>; sourceParameters?: Record<string,number> }
+export interface ModSourceState { readonly phase:number;readonly value:number;readonly rate:number;readonly amplitude:number;
+  readonly elapsed:number;readonly voiceStart?:number;readonly release?:number;readonly key:string;readonly seed:number }
+export interface ModSample { sources: Record<string, number>; targets: Record<string, number>; sourceParameters?: Record<string,number>;
+  sourceStates?:Readonly<Record<string,ModSourceState>> }
 
 export function emptyPatch(seed = 0): ModulationPatch {
   return {version:1,enabled:true,sources:[],routes:[],macros:[0,0,0,0],macroNames:["Motion","Tone","Space","Pulse"],seed};
@@ -96,8 +99,8 @@ export function compileModulation(patch: ModulationPatch, trackId: string, tempo
     lanes:new Map(lanes.map(l=>[l.id,[...l.points].sort((a,b)=>a.seconds-b.seconds)]))};
 }
 
-interface ModState { frame: number; phases: Record<string,number>; rates: Record<string,number>; slews: Record<string,number>; sample: ModSample }
-interface ModRuntime { state: ModState; checkpoints: Map<number,ModState>; samples: Map<number,ModSample> }
+interface ModState { frame: number; phases: Record<string,number>; rates: Record<string,number>; slews: Record<string,number>; sample: ModSample;configuration?:CompiledModulation }
+interface ModRuntime { state: ModState; checkpoints: Map<number,ModState>; samples: Map<number,ModSample>;anchor?:ModState }
 const freshState=():ModState=>({frame:-1,phases:{},rates:{},slews:{},sample:{sources:{},targets:{}}});
 const freshRuntime=():ModRuntime=>({state:freshState(),checkpoints:new Map(),samples:new Map()});
 const copyState=(s:ModState):ModState=>({...s,phases:{...s.phases},rates:{...s.rates},slews:{...s.slews}});
@@ -112,7 +115,7 @@ function randomValue(seed:number,key:string,cycle:number):number {
   h=Math.imul(h^cycle,0x85ebca6b);h=Math.imul(h^(h>>>16),0xc2b2ae35);h^=h>>>16;
   return (h>>>0)/0xffffffff*2-1;
 }
-function sourceValue(source:ModSource,phase:number,elapsed:number,voice:ModVoice|undefined,seconds:number,key:string,seed:number):number {
+export function modulationSourceValue(source:ModSource,phase:number,elapsed:number,voice?:ModVoice,seconds=elapsed,key=source.id,seed=0):number {
   const cycle=Math.floor(phase),fraction=phase-cycle;
   if(source.kind==="lfo") {
     if(source.shape==="triangle")return 1-4*Math.abs(fraction-.5);
@@ -138,38 +141,66 @@ function sourceValue(source:ModSource,phase:number,elapsed:number,voice:ModVoice
 export class ModulationEvaluator {
   private track=freshRuntime();
   private voices=new Map<string,{runtime:ModRuntime;voice:ModVoice}>();
-  constructor(readonly compiled:CompiledModulation) {}
+  private revisions:{at:number;compiled:CompiledModulation}[];
+  constructor(compiled:CompiledModulation) {this.revisions=[{at:0,compiled}];}
+  get compiled(){return this.revisions[this.revisions.length-1].compiled;}
+  private configurationAt(seconds:number){return this.revisions[Math.max(0,lastAt(this.revisions,seconds,r=>r.at))].compiled;}
+  private invalidate(runtime:ModRuntime,origin:number,at:number) {
+    const frame=Math.ceil((at-origin)*MODULATION_HZ-1e-8);
+    for(const f of runtime.checkpoints.keys())if(f>=frame)runtime.checkpoints.delete(f);
+    for(const f of runtime.samples.keys())if(f>=frame)runtime.samples.delete(f);
+    if(runtime.state.frame>=frame)runtime.state=runtime.anchor?copyState(runtime.anchor):freshState();
+  }
+  /** Authored edits affect future control frames while compatible clocks and slews continue. */
+  reconfigure(compiled:CompiledModulation,seconds:number) {
+    const at=Math.max(0,Math.ceil(seconds*MODULATION_HZ-1e-8)/MODULATION_HZ);
+    this.revisions=this.revisions.filter(revision=>revision.at<at-1e-9);
+    this.revisions.push({at,compiled});
+    this.invalidate(this.track,0,at);for(const {runtime,voice}of this.voices.values())this.invalidate(runtime,voice.start,at);
+    if(this.revisions.length>128) {
+      const keep=this.revisions[this.revisions.length-128].at;
+      const anchor=(runtime:ModRuntime,origin:number,voice?:ModVoice)=>{
+        const frame=Math.ceil((keep-origin)*MODULATION_HZ-1e-8)-1;
+        if(frame<0)return;
+        runtime.samples.delete(frame);
+        this.evaluate(runtime,origin+frame/MODULATION_HZ,voice);runtime.anchor=copyState(runtime.state);
+        for(const f of runtime.checkpoints.keys())if(f<frame)runtime.checkpoints.delete(f);
+        for(const f of runtime.samples.keys())if(f<frame)runtime.samples.delete(f);
+        runtime.checkpoints.set(frame,copyState(runtime.state));
+      };
+      anchor(this.track,0);for(const {runtime,voice}of this.voices.values())anchor(runtime,voice.start,voice);
+      this.revisions=this.revisions.slice(-128);
+    }
+  }
   /** A recorded lane has precedence over its controller events. */
   control(id:string,seconds:number):number {
-    const lane=this.compiled.lanes.get(id);
+    const compiled=this.configurationAt(seconds),lane=compiled.lanes.get(id);
     if(lane?.length) {
       const index=lastAt(lane,seconds,p=>p.seconds);
       if(index<0)return lane[0].value;
       const before=lane[index],after=lane[index+1];
       return after?before.value+(after.value-before.value)*clamp((seconds-before.seconds)/(after.seconds-before.seconds||1),0,1):before.value;
     }
-    const events=this.compiled.events.get(id)??[],index=lastAt(events,seconds,e=>e.seconds);
+    const events=compiled.events.get(id)??[],index=lastAt(events,seconds,e=>e.seconds);
     if(index>=0)return events[index].value;
     const macro=MACRO_IDS.indexOf(id as typeof MACRO_IDS[number]);
-    return macro>=0?this.compiled.patch.macros[macro]:id==="expression"?1:0;
+    return macro>=0?compiled.patch.macros[macro]:id==="expression"?1:0;
   }
   /** Live event insertion invalidates only future checkpoints, preserving canonical history. */
   addEvent(event:ModControlEvent) {
     const id=controlEventId(event);if(!id)return;
-    for(const key of event.type==="controlChange"?[id,`cc:all:${event.cc}`]:[id]) {
-      const list=this.compiled.events.get(key)??[];list.push(event);list.sort((a,b)=>a.seconds-b.seconds);this.compiled.events.set(key,list);
+    for(const {compiled}of this.revisions)for(const key of event.type==="controlChange"?[id,`cc:all:${event.cc}`]:[id]) {
+      const list=compiled.events.get(key)??[];if(!list.includes(event))list.push(event);list.sort((a,b)=>a.seconds-b.seconds);compiled.events.set(key,list);
     }
-    const invalidate=(runtime:ModRuntime,origin:number)=>{
-      const frame=Math.floor((event.seconds-origin)*MODULATION_HZ);
-      for(const f of runtime.checkpoints.keys())if(f>=frame)runtime.checkpoints.delete(f);
-      for(const f of runtime.samples.keys())if(f>=frame)runtime.samples.delete(f);
-      if(runtime.state.frame>=frame)runtime.state=freshState();
-    };
-    invalidate(this.track,0);for(const {runtime,voice}of this.voices.values())invalidate(runtime,voice.start);
+    this.invalidate(this.track,0,event.seconds);for(const {runtime,voice}of this.voices.values())this.invalidate(runtime,voice.start,event.seconds);
   }
   forgetVoice(key:string){this.voices.delete(key);}
   sample(seconds:number,voice?:ModVoice):ModSample {
-    if(!this.compiled.patch.enabled)return {sources:{},targets:{}};
+    const sample=this.audioSample(seconds,voice);
+    return {...sample,sourceStates:Object.freeze(Object.fromEntries(Object.entries(sample.sourceStates??{}).map(([id,state])=>[id,Object.freeze({...state})])))};
+  }
+  /** The graph reads immutable cached samples without allocating display snapshots. */
+  audioSample(seconds:number,voice?:ModVoice):ModSample {
     seconds=Math.max(0,seconds);
     if(!voice)return this.evaluate(this.track,seconds);
     let binding=this.voices.get(voice.key);
@@ -179,29 +210,44 @@ export class ModulationEvaluator {
       if(this.voices.size>256)this.voices.delete(this.voices.keys().next().value!);
     }
     if(binding.voice.release!==voice.release) {
-      binding.voice={...voice};binding.runtime=freshRuntime();
+      const changedAt=Math.min(binding.voice.release??Infinity,voice.release??Infinity);
+      binding.voice={...voice};this.invalidate(binding.runtime,voice.start,changedAt);
     }
-    const local=this.evaluate(binding.runtime,seconds,voice),shared=this.sample(seconds);
+    const local=this.evaluate(binding.runtime,seconds,voice),shared=this.audioSample(seconds);
     return {sources:{...local.sources,...shared.sources,velocity:clamp(voice.velocity,0,1),key:clamp(voice.pitch/127,0,1)},
-      targets:{...local.targets,...shared.targets},sourceParameters:{...local.sourceParameters,...shared.sourceParameters}};
+      targets:{...local.targets,...shared.targets},sourceParameters:{...local.sourceParameters,...shared.sourceParameters},
+      sourceStates:Object.freeze({...local.sourceStates,...shared.sourceStates})};
   }
   private evaluate(runtime:ModRuntime,seconds:number,voice?:ModVoice):ModSample {
-    const origin=voice?.start??0,frame=Math.max(0,Math.floor((seconds-origin)*MODULATION_HZ+1e-8));
+    const origin=voice?.start??0,frame=Math.max(runtime.anchor?.frame??0,Math.floor((seconds-origin)*MODULATION_HZ+1e-8));
     const cached=runtime.samples.get(frame);if(cached)return cached;
     if(runtime.state.frame>frame) {
       let prior:ModState|undefined;
       for(const [f,state]of runtime.checkpoints)if(f<=frame&&(!prior||f>prior.frame))prior=state;
-      runtime.state=prior?copyState(prior):freshState();
+      runtime.state=prior?copyState(prior):runtime.anchor?copyState(runtime.anchor):freshState();
     }
     while(runtime.state.frame<frame) {
-      const state=runtime.state,at=origin+(state.frame+1)/MODULATION_HZ;
-      const trackSample=voice?this.sample(at):undefined;
+      const state=runtime.state,at=origin+(state.frame+1)/MODULATION_HZ,compiled=this.configurationAt(at);
+      if(state.configuration&&state.configuration!==compiled) {
+        for(const id of Object.keys(state.phases)) {
+          const before=state.configuration.patch.sources.find(source=>source.id===id),after=compiled.patch.sources.find(source=>source.id===id);
+          if(!after||before?.kind!==after.kind||before.scope!==after.scope){delete state.phases[id];delete state.rates[id];}
+          else if(before.phase!==after.phase)state.phases[id]+=after.phase-before.phase;
+        }
+        for(const id of Object.keys(state.slews)) {
+          const before=state.configuration.patch.routes.find(route=>route.id===id),after=compiled.patch.routes.find(route=>route.id===id);
+          if(!after||before?.sourceId!==after.sourceId||before.target!==after.target)delete state.slews[id];
+        }
+      }
+      state.configuration=compiled;
+      const trackSample=voice?this.audioSample(at):undefined;
       const sources:Record<string,number>=trackSample?{...trackSample.sources}:{};
       const sourceParameters:Record<string,number>={...trackSample?.sourceParameters};
+      const sourceStates:Record<string,ModSourceState>={...trackSample?.sourceStates};
       for(const id of [...MACRO_IDS,"expression","modulation","pressure","pitchBend"])sources[id]=this.control(id,at);
-      for(const id of this.compiled.events.keys())if(id.startsWith("cc:"))sources[id]=this.control(id,at);
+      for(const id of compiled.events.keys())if(id.startsWith("cc:"))sources[id]=this.control(id,at);
       // Unused CCs still expose their default to routes.
-      for(const route of this.compiled.patch.routes)if(route.sourceId.startsWith("cc:"))sources[route.sourceId]=this.control(route.sourceId,at);
+      for(const route of compiled.patch.routes)if(route.sourceId.startsWith("cc:"))sources[route.sourceId]=this.control(route.sourceId,at);
       sources.velocity=voice?clamp(voice.velocity,0,1):0;sources.key=voice?clamp(voice.pitch/127,0,1):0;
       const routed=(route:ModulationPatch["routes"][number])=>{
         const value=sources[route.sourceId]??0,curved=route.curve==="exponential"?value*Math.abs(value):value;
@@ -210,33 +256,34 @@ export class ModulationEvaluator {
         const result=route.slew>0?previous+(raw-previous)*(1-Math.exp(-1/(MODULATION_HZ*route.slew))):raw;
         state.slews[route.id]=result;return result;
       };
-      for(const source of this.compiled.order) {
+      for(const source of compiled.order) {
         if(source.scope==="track"&&voice)continue;
         if(source.scope==="voice"&&!voice)continue;
-        if(!source.enabled){sources[source.id]=0;sourceParameters[`source:${source.id}:rate`]=0;sourceParameters[`source:${source.id}:amplitude`]=0;continue;}
         const oldPhase=state.phases[source.id]??source.phase;
         const phase=oldPhase+(state.frame>=0?(state.rates[source.id]??0)/MODULATION_HZ:0);
         let rateDelta=0,amplitudeDelta=0;
-        for(const route of this.compiled.incoming.get(source.id)??[]) {
+        for(const route of compiled.incoming.get(source.id)??[]) {
           const delta=routed(route);if(route.target.endsWith(":rate"))rateDelta+=delta;else amplitudeDelta+=delta;
         }
-        const hz=source.sync?this.compiled.tempo/60/source.division:source.rate;
+        const hz=source.sync?compiled.tempo/60/source.division:source.rate;
         state.rates[source.id]=clamp(hz*Math.pow(2,clamp(rateDelta,-3,3)),.01,40);
-        const amplitude=clamp(source.amplitude+amplitudeDelta,0,1);
+        const amplitude=source.enabled?clamp(source.amplitude+amplitudeDelta,0,1):0;
         sourceParameters[`source:${source.id}:rate`]=state.rates[source.id];sourceParameters[`source:${source.id}:amplitude`]=amplitude;
         state.phases[source.id]=phase;
-        sources[source.id]=clamp(sourceValue(source,phase,at-origin,voice,at,
-          `${this.compiled.trackId}:${source.id}:${source.scope==="voice"?voice!.key:"track"}`,this.compiled.patch.seed)
+        const key=`${compiled.trackId}:${source.id}:${source.scope==="voice"?voice!.key:"track"}`;
+        sources[source.id]=clamp(modulationSourceValue(source,phase,at-origin,voice,at,key,compiled.patch.seed)
           *amplitude,-1,1);
+        sourceStates[source.id]=Object.freeze({phase,value:sources[source.id],rate:state.rates[source.id],amplitude,
+          elapsed:at-origin,...(voice?{voiceStart:voice.start,release:voice.release}:{}),key,seed:compiled.patch.seed});
       }
       const targets:Record<string,number>=trackSample?{...trackSample.targets}:{};
-      for(const [target,routes]of this.compiled.incoming) {
+      for(const [target,routes]of compiled.incoming) {
         if(!target.includes("."))continue;
         const descriptor=MOD_TARGETS[target as keyof typeof MOD_TARGETS];
         if(!descriptor||descriptor.scope!== (voice?"voice":"track"))continue;
-        targets[target]=routes.reduce((sum,r)=>sum+routed(r),0);
+        targets[target]=compiled.patch.enabled?routes.reduce((sum,r)=>sum+routed(r),0):0;
       }
-      state.frame++;state.sample={sources,targets,sourceParameters};runtime.samples.set(state.frame,state.sample);
+      state.frame++;state.sample={sources:Object.freeze(sources),targets:Object.freeze(targets),sourceParameters:Object.freeze(sourceParameters),sourceStates:Object.freeze(sourceStates)};runtime.samples.set(state.frame,state.sample);
       if(state.frame%32===0)runtime.checkpoints.set(state.frame,copyState(state));
       if(runtime.samples.size>512)runtime.samples.delete(runtime.samples.keys().next().value!);
       if(runtime.checkpoints.size>512)runtime.checkpoints.delete(runtime.checkpoints.keys().next().value!);

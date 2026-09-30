@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import { createProject } from "../../lib/music/project";
 import { emptyPatch } from "../../lib/audio/modulation";
 import { DEFAULT_CHORD_MOVEMENT } from "../../lib/music/chord-movement";
@@ -9,6 +9,12 @@ async function blankSound(page: Page) {
   await page.getByRole("button", { name: "Songs", exact: true }).click();
   await page.getByRole("button", { name: "Blank song", exact: true }).click();
   await page.getByRole("navigation").getByRole("button", { name: "03 Sound" }).click();
+}
+
+async function openRouteSettings(rack: Locator) {
+  for (const inspector of await rack.locator(".mod-route-controls>details").all()) {
+    if (await inspector.getAttribute("open") === null) await inspector.locator(":scope>summary").click();
+  }
 }
 
 async function savedRoutes(page: Page) {
@@ -60,6 +66,7 @@ test("A/B audition is cancelled safely or committed as one edit", async ({ page 
   await rack.getByRole("button", { name: "B", exact: true }).click();
   await rack.getByLabel("Sound patch preset").selectOption("starter:pulse");
   await expect(rack.locator(".mod-route")).toHaveCount(5);
+  await openRouteSettings(rack);
   await expect(rack.getByLabel("Source for Pulse · amplitude", { exact: true })).toHaveValue("M1");
   await expect(rack.getByLabel("Source for Track filter", { exact: true })).toHaveValue("M2");
   await expect(rack.getByLabel("Source for Reverb send", { exact: true })).toHaveValue("M3");
@@ -112,6 +119,7 @@ test("malformed clipboard and stored patches are rejected before an A/B draft ca
   await expect(rack.getByLabel("Sound patch preset").locator('option[value="user:Broken"]')).toHaveCount(0);
   await rack.getByLabel("Sound patch preset").selectOption("user:Working");
   await rack.getByRole("button", { name: "Compare A/B", exact: true }).click();
+  await rack.locator(".mod-patch-actions>summary").click();
   await rack.getByRole("button", { name: "Paste patch", exact: true }).click();
   await expect(rack.getByRole("alert")).toHaveText("The clipboard does not contain a valid Chordz sound patch.");
   await expect(rack.getByLabel("M1 name", { exact: true })).toHaveValue("Motion");
@@ -142,11 +150,12 @@ test("unapplied A/B patches stay out of recovery and navigation discards them", 
 test("pointer cancellation restores a macro and dock arpeggiator controls share saved state", async ({ page }) => {
   await blankSound(page);
   const rack = page.getByRole("region", { name: "Selected track modulation rack" });
-  const macro = rack.getByLabel("M1 amount", { exact: true });
-  await macro.dispatchEvent("pointerdown", { pointerId: 7 });
-  await macro.fill("0.65");
-  await expect(rack.getByLabel("M1 amount value", { exact: true })).toHaveValue("0.65");
-  await macro.dispatchEvent("pointercancel", { pointerId: 7 });
+  const macro = rack.getByRole("slider", { name: "M1 amount", exact: true });
+  const box = (await macro.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down(); await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 40);
+  await expect(rack.getByLabel("M1 amount value", { exact: true })).not.toHaveValue("0");
+  await macro.dispatchEvent("pointercancel", { pointerId: 1 }); await page.mouse.up();
   await expect(rack.getByLabel("M1 amount value", { exact: true })).toHaveValue("0");
   await page.getByRole("button", { name: "Performance dock", exact: true }).click();
   await page.getByLabel("Performance live arpeggiator", { exact: true }).check();
@@ -199,6 +208,7 @@ test("the Assign picker creates a route using the keyboard", async ({ page }) =>
   await rack.getByRole("button", { name: "Assign", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(rack.locator(".mod-route")).toHaveCount(1);
+  await openRouteSettings(rack);
   await expect(rack.getByLabel("Source for Track filter", { exact: true })).toHaveValue("M2");
 });
 
@@ -210,6 +220,7 @@ test("the Assign picker remains usable with emulated tablet touch", async ({ bro
     await rack.getByLabel("Route source", { exact: true }).selectOption("M3");
     await rack.getByRole("button", { name: "Assign", exact: true }).tap();
     await expect(rack.locator(".mod-route")).toHaveCount(1);
+    await openRouteSettings(rack);
     await expect(rack.getByLabel("Source for Track filter", { exact: true })).toHaveValue("M3");
   } finally { await context.close(); }
 });
