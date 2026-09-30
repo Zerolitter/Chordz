@@ -40,3 +40,11 @@ The target `studio/` source was reconciled with the existing Site before applyin
 The final source passes 71 Studio unit tests, TypeScript, zero-warning ESLint, production build and the production dependency audit. Independent MP3 decode evidence and preserved v1/backup/audio-byte round trips are recorded in `studio/docs/VALIDATION.md`.
 
 Browser permission verification was unavailable, so the new browser scenarios, visual comparison and reopened native-window behavior have not been exercised. Existing native build/navigation evidence above remains historical and does not substitute for checking the upgraded hosted UI. Physical microphone/MIDI and human listening also remain outstanding.
+
+## Hosted Modulator upgrade — 2026-10-01
+
+The existing selected-track Sound workspace now includes the modulation matrix, four macros, staged A/B, original starting patches, chord movement and local reference analysis. The target Studio source remains reconciled with its existing Site. Native wrapper and installer code are unchanged; reopening the online client loads the published Studio update.
+
+Current Studio verification passes 156 unit tests, TypeScript, zero-warning lint, production build and a zero-finding production dependency audit. All 67 browser scenarios are verified through the complete run plus focused post-fix audio/recording reruns. This also executes the earlier Palette C UI and MP3 browser scenarios. Native audio comparisons, synthetic analysis, local supplied-sample measurements, five-minute exports, storage/recovery and enhancement compatibility evidence are detailed in `studio/docs/VALIDATION.md`.
+
+Visual desktop/tablet/mobile checks and isolated Chrome downloads pass. Actual microphone/MIDI/touch devices, human listening, production sign-in/download behavior and the reopened native window remain hands-on checks. Existing native build evidence is historical; current GitHub build/publication results are reported separately. No hardware or OS configuration changed.

@@ -57,7 +57,9 @@ export function exportMidi(project: ProjectDocument): Uint8Array {
             ticks: Math.round(e.tick * ratio),
             value: e.value,
           });
-        else {
+        else if(e.type==="controlChange"&&e.cc!==undefined) {
+          out.addCC({number:e.cc,ticks:Math.round(e.tick*ratio),value:Math.max(0,Math.min(1,e.value))});
+        } else {
           const number = {
             sustain: 64,
             modulation: 1,

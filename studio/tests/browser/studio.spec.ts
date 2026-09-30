@@ -294,8 +294,7 @@ test("audio import, trim, private upload, WAV and portable backup exports", asyn
     samples[i] = Math.sin((i * 2 * Math.PI * 220) / 48000) * 0.1;
   const wav = encodeWav([samples], 48000, 16);
   await page
-    .locator(".import-row input")
-    .first()
+    .getByLabel("Import audio file", { exact: true })
     .setInputFiles({
       name: "Test take.wav",
       mimeType: "audio/wav",

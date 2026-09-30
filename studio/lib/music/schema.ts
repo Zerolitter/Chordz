@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ProjectDocument } from "./types";
+import {modulationSchema,chordMovementSchema} from "./modulation-schema";
 
 export const idSchema = z.string().regex(/^[a-zA-Z0-9_-]{1,96}$/);
 const tick = z.number().int().min(0).max(1_000_000_000);
@@ -27,12 +28,22 @@ const event = z
       "modulation",
       "expression",
       "pressure",
+      "macro",
+      "controlChange",
     ]),
     value: z.number().min(-1).max(127),
     note: pitch.optional(),
+    macroId:z.enum(["M1","M2","M3","M4"]).optional(),
+    cc:z.number().int().min(0).max(119).optional(),
+    channel:z.number().int().min(0).max(15).optional(),
   })
-  .strict();
-const sound = z
+  .strict()
+  .superRefine((event,ctx)=>{
+    if(event.type==="macro"&&(!event.macroId||event.value<0||event.value>1))ctx.addIssue({code:"custom",message:"Macro events need an identifier and normalized value."});
+    if(event.type==="controlChange"&&(event.cc===undefined||event.channel===undefined||event.value<0||event.value>1))ctx.addIssue({code:"custom",message:"CC events need a controller, channel and normalized value."});
+    if(event.type!=="macro"&&event.macroId!==undefined||event.type!=="controlChange"&&(event.cc!==undefined||event.channel!==undefined))ctx.addIssue({code:"custom",message:"Unexpected performance event identity."});
+  });
+export const soundSchema = z
   .object({
     algorithm: z.enum(["subtractive", "fm"]),
     wave: z.enum(["sine", "triangle", "sawtooth", "square"]),
@@ -91,7 +102,9 @@ const track = z
     mid: z.number().min(-18).max(18),
     high: z.number().min(-18).max(18),
     drive: unit,
-    sound,
+    sound: soundSchema,
+    modulation:modulationSchema.optional(),
+    chordMovement:chordMovementSchema.optional(),
     clips: z.array(clip).max(1000),
     automation: z
       .array(
@@ -106,6 +119,7 @@ const track = z
               "pitchBend",
               "reverb",
               "delay",
+              "M1","M2","M3","M4",
             ]),
             points: z
               .array(
@@ -117,7 +131,7 @@ const track = z
           })
           .strict(),
       )
-      .max(8),
+      .max(12),
   })
   .strict();
 const zone = z
@@ -150,7 +164,7 @@ export const instrumentSchema = z
     articulations: z.array(z.string().max(40)).max(24),
     license: z.string().max(120),
     source: z.string().max(300),
-    defaults: sound.partial(),
+    defaults: soundSchema.partial(),
   })
   .strict();
 export const projectSchema: z.ZodType<ProjectDocument> = z

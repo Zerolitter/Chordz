@@ -9,6 +9,7 @@ import { tickToSeconds } from "../music/project";
 import { expandClip } from "../music/edit";
 
 export interface ScheduledNote {
+  id?: string;
   trackId: string;
   pitch: number;
   tick: number;
@@ -78,6 +79,7 @@ export function compileSong(
           }
         }
         notes.push({
+          id:n.id,
           trackId: track.id,
           pitch: clamp(n.pitch + clip.transpose, 0, 127),
           tick: clip.startTick + n.tick,

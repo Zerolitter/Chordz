@@ -25,3 +25,10 @@ MP3 WASM with the rebuilt encoder, then run `node scripts/build-audio-workers.mj
 to recreate the browser worker and copy its WASM asset. The website and desktop
 client serve the same worker. `public/audio/mp3.wasm` is a separate asset that
 can also be replaced with a compatible rebuild without changing application code.
+
+Chordz reference analysis uses **fft.js 4.0.4**, Fedor Indutny's MIT-licensed
+Fourier transform implementation. It is bundled into the local reference worker;
+analysis does not load code or upload audio to another service. The package's
+complete README, including its copyright and MIT license, is shipped at
+`public/audio/licenses/fft.js-NOTICE.txt`.
+Source: <https://github.com/indutny/fft.js>.

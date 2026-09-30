@@ -30,8 +30,7 @@ test("conflict recovery keeps audio that has not reached the cloud", async ({
     });
   });
   await page
-    .locator(".import-row input")
-    .first()
+    .getByLabel("Import audio file", { exact: true })
     .setInputFiles({
       name: "Pending audio.wav",
       mimeType: "audio/wav",
@@ -89,8 +88,7 @@ test("failed upload keeps a device draft and retries with its original asset", a
   );
   const samples = new Float32Array(4800).fill(0.05);
   await page
-    .locator(".import-row input")
-    .first()
+    .getByLabel("Import audio file", { exact: true })
     .setInputFiles({
       name: "Recovery take.wav",
       mimeType: "audio/wav",

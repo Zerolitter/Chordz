@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useStudio } from "./use-studio";
 import { PanelHeading, Range, frequencyLabel } from "./primitives";
 import {SoundReadiness} from "./sound-readiness";
+import { ModulationRack } from "./modulation-rack";
 import { instrumentFor, instrumentSettings,isDrumInstrument } from "../../lib/audio/catalog";
 import {
   clamp,
@@ -28,6 +29,7 @@ export function SoundPanel() {
         <button className="primary-button" onClick={() => s.setMode("arrange")}>
           Open arrangement
         </button>
+        <ModulationRack />
       </div>
     );
   if (!track)
@@ -86,6 +88,7 @@ export function SoundPanel() {
       <SoundReadiness/>
       <p className="sound-description">{instrument.description}</p>
       <p className="helper">Tune while auditioning. Oscillator mode, attack, decay and sample articulation apply on the next note.</p>
+      <ModulationRack />
       <div className="sound-modules">
         <section>
           <h3>

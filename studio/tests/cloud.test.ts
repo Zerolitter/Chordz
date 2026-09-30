@@ -6,6 +6,8 @@ import {
   assertSameOrigin,
 } from "../lib/server/repository";
 import { createProject } from "../lib/music/project";
+import {emptyPatch} from "../lib/audio/modulation";
+import {DEFAULT_CHORD_MOVEMENT} from "../lib/music/chord-movement";
 
 let repo: ProjectRepository;
 beforeEach(() => {
@@ -43,6 +45,26 @@ beforeEach(() => {
 });
 
 describe("owner-isolated cloud persistence", () => {
+  it("lets a capable client undo newly added extensions while retaining revision and owner checks", async () => {
+    const legacy = createProject(), created = await repo.create("alice", legacy);
+    const enhanced = structuredClone(legacy);
+    enhanced.tracks[0].modulation = emptyPatch();
+    enhanced.tracks[0].chordMovement = { ...DEFAULT_CHORD_MOVEMENT, enabled: true };
+    const saved = await repo.save("alice", legacy.id, enhanced, created.revision, true);
+    await expect(repo.save("alice", legacy.id, legacy, saved.revision)).rejects.toMatchObject({ status: 409 });
+    await expect(repo.save("bob", legacy.id, legacy, saved.revision, true)).rejects.toMatchObject({ status: 404 });
+    await expect(repo.save("alice", legacy.id, legacy, created.revision, true)).rejects.toMatchObject({ status: 409 });
+    const undone = await repo.save("alice", legacy.id, legacy, saved.revision, true);
+    expect(undone.document).toEqual(legacy);
+    expect(undone.revision).toBe(saved.revision + 1);
+  });
+  it("rejects a legacy snapshot that omits saved modulation even at the current revision",async()=>{
+    const document=createProject();document.tracks[0].modulation=emptyPatch(5);
+    const created=await repo.create("alice",document),legacy=structuredClone(document);delete legacy.tracks[0].modulation;
+    await expect(repo.save("alice",document.id,legacy,created.revision)).rejects.toMatchObject({status:409});
+    expect((await repo.get("alice",document.id)).document).toEqual(document);
+    const reset=structuredClone(document);reset.tracks[0].modulation=emptyPatch();expect((await repo.save("alice",document.id,reset,created.revision)).revision).toBe(2);
+  });
   it("retries an interrupted pending upload without leaving its asset stuck", async () => {
     const doc = createProject();
     await repo.create("alice", doc);

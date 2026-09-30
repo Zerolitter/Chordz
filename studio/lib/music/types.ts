@@ -1,4 +1,6 @@
 export const PPQ = 960;
+import type { ChordMovementSettings, MacroId, ModulationPatch } from "./modulation-types";
+export type { ChordMovementSettings, MacroId, ModulationPatch, ModSource, ModRoute, ModTarget } from "./modulation-types";
 export type Mode =
   | "major"
   | "minor"
@@ -14,12 +16,17 @@ export type ExpressionType =
   | "pitchBend"
   | "modulation"
   | "expression"
-  | "pressure";
+  | "pressure"
+  | "macro"
+  | "controlChange";
 export interface PerformanceEvent {
   tick: number;
   type: ExpressionType;
   value: number;
   note?: number;
+  macroId?: MacroId;
+  cc?: number;
+  channel?: number;
 }
 export interface NoteEvent {
   id: string;
@@ -73,7 +80,8 @@ export type AutomationParameter =
   | "modulation"
   | "pitchBend"
   | "reverb"
-  | "delay";
+  | "delay"
+  | "M1" | "M2" | "M3" | "M4";
 export interface AutomationLane {
   parameter: AutomationParameter;
   points: { tick: number; value: number }[];
@@ -97,6 +105,8 @@ export interface Track {
   sound: SoundSettings;
   clips: Clip[];
   automation: AutomationLane[];
+  modulation?: ModulationPatch;
+  chordMovement?: ChordMovementSettings;
 }
 export interface Section {
   id: string;
@@ -186,6 +196,7 @@ export interface GenerationOptions {
   register: number;
   tension: number;
   seed: number;
+  chordMovement?: ChordMovementSettings;
 }
 export const uid = () => crypto.randomUUID();
 export const clamp = (value: number, min: number, max: number) =>

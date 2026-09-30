@@ -5,6 +5,7 @@ import type {
   ProjectSummary,
 } from "../music/types";
 import { projectSchema } from "../music/schema";
+import { omitsStudioExtensions } from "../music/performance";
 
 export class ApiError extends Error {
   constructor(
@@ -167,10 +168,13 @@ export class ProjectRepository {
     id: string,
     document: ProjectDocument,
     expectedRevision: number,
+    supportsExtensions = false,
   ): Promise<CloudProject> {
     if (document.id !== id)
       throw new ApiError(400, "The project identifier does not match.");
-    await this.get(owner, id);
+    const stored = await this.get(owner, id);
+    if (!supportsExtensions && omitsStudioExtensions(stored.document, document))
+      throw new ApiError(409, "This song uses newer Studio controls. Reload Chordz before saving; your cloud version is preserved.");
     await this.validateAssets(owner, document);
     const now = new Date().toISOString();
     const result = await this.db

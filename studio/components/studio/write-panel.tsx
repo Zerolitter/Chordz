@@ -12,6 +12,8 @@ import {placePhrase} from "../../lib/music/phrases";
 import {instrumentFor,isDrumInstrument} from "../../lib/audio/catalog";
 import { emptyClip } from "../../lib/music/project";
 import { type GenerationOptions } from "../../lib/music/types";
+import { ChordMovementControls } from "./chord-movement-controls";
+import { DEFAULT_CHORD_MOVEMENT } from "../../lib/music/chord-movement";
 
 export function WritePanel() {
   const s = useStudio();
@@ -28,16 +30,19 @@ export function WritePanel() {
       .filter((c) => c.sectionId === s.selectedSection.id)
       .sort((a, b) => a.tick - b.tick),
     currentChord = chords.find(c=>c.id===s.selectedChordId);
-  const generated = useMemo(
-    () =>
-      generatePart(s.project, s.selectedSection, {
+  const generation = useMemo(
+    () => {
+      try { return { notes: generatePart(s.project, s.selectedSection, {
         role,
         energy,
         density,
         register,
         tension,
         seed: s.project.seed + variation,
-      }),
+        chordMovement: s.selectedTrack?.chordMovement,
+      }), error: "" }; }
+      catch (problem) { if (problem instanceof RangeError) return { notes: [], error: problem.message }; throw problem; }
+    },
     [
       s.project,
       s.selectedSection,
@@ -47,16 +52,17 @@ export function WritePanel() {
       register,
       tension,
       variation,
+      s.selectedTrack?.chordMovement,
     ],
   );
-  const candidate=compatible?generated:[];
-  const previewIdentity = JSON.stringify([s.project.id,s.selectedTrack?.id,s.selectedTrack?.instrumentId,s.selectedSection.id,s.selectedSection.startTick,s.selectedSection.lengthTick,s.project.key,s.project.mode,s.project.tempo,s.project.timeSignature,harmonyIdentity(s.project,s.selectedSection),s.project.seed,instrument,role,energy,density,register,tension,variation]);
+  const candidate=compatible?generation.notes:[];
+  const previewIdentity = JSON.stringify([s.project.id,s.selectedTrack?.id,s.selectedTrack?.instrumentId,s.selectedSection.id,s.selectedSection.startTick,s.selectedSection.lengthTick,s.project.key,s.project.mode,s.project.tempo,s.project.timeSignature,harmonyIdentity(s.project,s.selectedSection),s.project.seed,instrument,role,energy,density,register,tension,variation,s.selectedTrack?.chordMovement]);
   const cancelStalePreview=useEffectEvent(()=>s.cancelPreview());
   useLayoutEffect(()=>{ cancelStalePreview();return()=>cancelStalePreview(); },[previewIdentity]);
-  useLayoutEffect(()=>{s.registerWritingActions({generated:()=>{if(s.selectedTrack&&compatible)void s.previewPhrase(s.selectedTrack.id,candidate,previewIdentity);},chord:()=>{if(currentChord)void s.audition(currentChord.notes);},progression:()=>{if(s.selectedTrack)void s.previewPhrase(s.selectedTrack.id,progressionNotes(s.project,s.selectedSection),"progression:"+previewIdentity);}});return()=>s.registerWritingActions(null);});
+  useLayoutEffect(()=>{s.registerWritingActions({generated:()=>{if(s.selectedTrack&&compatible&&candidate.length&&!generation.error)void s.previewPhrase(s.selectedTrack.id,candidate,previewIdentity);},chord:()=>{if(currentChord)void s.audition(currentChord.notes);},progression:()=>{if(s.selectedTrack)void s.previewPhrase(s.selectedTrack.id,progressionNotes(s.project,s.selectedSection),"progression:"+previewIdentity);}});return()=>s.registerWritingActions(null);});
   function progression(){if(s.selectedTrack)void s.previewPhrase(s.selectedTrack.id,progressionNotes(s.project,s.selectedSection),"progression:"+previewIdentity);}
   function place(action:"insert"|"alternative"|"replace"){
-    if(!s.selectedTrack||!compatible||!s.finishEdit())return;
+    if(!s.selectedTrack||!compatible||!candidate.length||generation.error||!s.finishEdit())return;
     const clip={...emptyClip(s.selectedSection.startTick,s.selectedSection.lengthTick,role+" · "+s.selectedSection.name),notes:candidate.map(n=>({...n}))};
     const result=placePhrase(s.committedRef.current,s.selectedTrack.id,clip,action,s.selectedClipId);
     if(!result.ok){setPhraseError(result.error);setOfferAlternative(!!result.overlap);return;}
@@ -110,6 +116,7 @@ export function WritePanel() {
           <label className="field">Destination<select aria-label="Phrase destination" value={s.selectedTrackId} onChange={e=>s.selectTrack(e.target.value)}>{s.project.tracks.filter(t=>t.kind==="instrument").map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
           <p className="helper">{instrument?.name??"Choose an instrument"} · {s.selectedSection.name} · {s.selectedSection.lengthTick/(960*4/s.project.timeSignature[1])} beats</p>
           {!compatible&&<p className="action-error">Choose a drum track for drum patterns, or choose a pitched part.</p>}
+          {generation.error&&<p className="action-error" role="alert">{generation.error}</p>}
           <Range label="Energy" value={energy} onChange={setEnergy} />
           <Range label="Density" value={density} onChange={setDensity} />
           <Range
@@ -144,7 +151,7 @@ export function WritePanel() {
           <div className="button-row">
             <button
               className="secondary-button"
-              disabled={!compatible} onClick={() => { if(s.selectedTrack) void s.previewPhrase(s.selectedTrack.id,candidate,previewIdentity); }}
+              disabled={!compatible||!candidate.length||!!generation.error} onClick={() => { if(s.selectedTrack) void s.previewPhrase(s.selectedTrack.id,candidate,previewIdentity); }}
             >
               <Play size={14} />
               Audition
@@ -163,13 +170,14 @@ export function WritePanel() {
               Insert <ArrowRight size={15} />
             </button>
           </div>
-          <div className="button-row"><button className="secondary-button" disabled={!compatible||!s.selectedClip||!!s.selectedClip.audio} onClick={()=>place("replace")}>Replace selected phrase</button><button className="text-button" disabled={!s.selectedClip} onClick={()=>s.selectClip(s.selectedTrack!.id,s.selectedClip!.id)}>Edit phrase</button></div>
+          <div className="button-row"><button className="secondary-button" disabled={!compatible||!candidate.length||!!generation.error||!s.selectedClip||!!s.selectedClip.audio} onClick={()=>place("replace")}>Replace selected phrase</button><button className="text-button" disabled={!s.selectedClip} onClick={()=>s.selectClip(s.selectedTrack!.id,s.selectedClip!.id)}>Edit phrase</button></div>
           {phraseError&&<div className="action-error" role="alert">{phraseError}{offerAlternative&&<button className="secondary-button" onClick={()=>place("alternative")}>Insert on alternative track</button>}</div>}
           <p className="helper">
             {candidate.length} editable notes for{" "}
             {s.selectedTrack?.name ?? "your selected track"}. Each variation is
             repeatable.
           </p>
+          <details className="movement-inspector"><summary>Voicing, rhythm & movement</summary><ChordMovementControls value={s.selectedTrack?.chordMovement ?? DEFAULT_CHORD_MOVEMENT} disabled={s.recording || !compatible || !["chords", "strings", "arpeggio"].includes(role)} onChange={chordMovement => { if (s.selectedTrack) s.updateTrack(s.selectedTrack.id, { chordMovement }, "Shape chord movement"); }} /></details>
         </aside>
       </div>
       <div className="notebook">

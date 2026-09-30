@@ -3,6 +3,7 @@ import { clamp, type AutomationLane, type AutomationParameter, type Clip } from 
 export const automationBounds: Record<AutomationParameter, [number, number]> = {
   volume: [-60, 6], pan: [-1, 1], cutoff: [40, 18000], expression: [0, 1],
   modulation: [0, 1], pitchBend: [-1, 1], reverb: [0, 1], delay: [0, 1],
+  M1:[0,1],M2:[0,1],M3:[0,1],M4:[0,1],
 };
 export type AutomationPoint = AutomationLane["points"][number];
 export const MAX_TICK = 1_000_000_000;

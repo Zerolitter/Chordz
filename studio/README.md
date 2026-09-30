@@ -28,6 +28,16 @@ Stop before capture cancels a recording without creating an empty take. Complete
 
 Desktop Chrome and Edge are the full studio targets. Tablet layouts support editing; mobile supports project access and basic editing. Browser MIDI, recording, and folder access are detected. Chrome and Edge can save all stems to a chosen folder; other browsers can download an individual stem. MIDI-denied or unsupported browsers retain onscreen and computer keyboard input.
 
+## Modulation and reference workflow
+
+Choose a track, then open **Sound → Modulation**. Select a motion starter or add a source; drag it onto a parameter, or use the Source/Destination **Assign** picker. The route row keeps signed depth, curve, smoothing and bypass together. Four named macros are available during MIDI recording. **A/B** stages an audition; Apply commits it once and Cancel restores the saved patch. Local presets and copy/paste retain the complete sound, matrix and movement patch. Vary has separate locks; instrument, output level, tempo and key stay fixed.
+
+Expand **Live & generated chord movement** to shape voicing, rhythm, swing and strum. Generation retains Preview/Insert/Replace in Write. Live arpeggiator and Hold default off, and are also available in the performance dock. Record captures the emitted notes as one editable MIDI take; arrangement playback plays those notes directly. Stop releases held output.
+
+**Reference Audio** analyzes a local MP3/WAV range, a 60-second excerpt or the full file. Review confidence and manually correct tempo/key candidates. Sound, Movement and Both proposals are staged for audition before Apply. Tempo/key application is separate. Measured profiles stay in owner-scoped device storage; reference audio is uploaded only if explicitly imported as a track. Limits are 100 MiB, ten minutes and 256 MiB estimated decoded PCM. Cancellation and retry remain available without locking the transport.
+
+See [the implementation and verification boundaries](tasks/modulator.md).
+
 ## Development
 
 Node.js 22.13 or newer is required. Use the existing npm lockfile:
@@ -91,4 +101,4 @@ The workflow patch passes 46 unit tests, 24 Chrome scenarios and 12 focused Edge
 
 The chord-card follow-up passes 52 unit tests, all 32 Chrome scenarios and 20 focused Edge scenarios, plus TypeScript, zero-warning lint and the production build. See `tasks/chord-card-patch.md` and `docs/evidence/chord-card-patch.json` for the user-reported screenshot, movement and tuning results, and remaining physical-device/listening checks. Earlier fragmented guides retain their timing; new whole-card reordering does not split neighbours.
 
-The UI upgrade's current results are recorded separately in `tasks/ui-upgrade.md` and `docs/VALIDATION.md`. Prior browser results describe the earlier UI; the new browser scenarios have not run because the browser permission service could not verify access. Visual comparison, browser downloads and a reopened native client still need validation.
+The UI upgrade's original release record is retained in `tasks/ui-upgrade.md` and `docs/VALIDATION.md`. The Modulator verification now also exercises its UI and export browser scenarios in isolated Chrome. See the latest validation entry for current results and remaining physical-device/listening/native-window checks.

@@ -1,7 +1,7 @@
 import { build } from "esbuild";
 import { copyFile } from "node:fs/promises";
 await build({
-  entryPoints: ["lib/audio/processor.worker.ts", "lib/audio/mp3.worker.ts"],
+  entryPoints: ["lib/audio/processor.worker.ts", "lib/audio/mp3.worker.ts", "lib/audio/reference.worker.ts"],
   outdir: "public/audio",
   bundle: true,
   format: "esm",
@@ -13,4 +13,5 @@ await copyFile(
   new URL(import.meta.resolve("wasm-media-encoders/wasm/mp3")),
   "public/audio/mp3.wasm",
 );
-console.log("Audio processing and MP3 workers built.");
+await copyFile(new URL("../node_modules/fft.js/README.md", import.meta.url), "public/audio/licenses/fft.js-NOTICE.txt");
+console.log("Audio processing, MP3 and reference workers built.");

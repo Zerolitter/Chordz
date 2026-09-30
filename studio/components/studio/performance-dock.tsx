@@ -2,9 +2,11 @@
 import { ChevronDown, Keyboard, SlidersHorizontal, Upload } from "lucide-react";
 import { Piano } from "./piano";
 import { useStudio } from "./use-studio";
+import { DEFAULT_CHORD_MOVEMENT } from "../../lib/music/chord-movement";
 
 export function PerformanceDock({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const s = useStudio();
+  const movement = s.selectedTrack?.chordMovement ?? DEFAULT_CHORD_MOVEMENT;
   function toggle() {
     if (open) { s.releaseSource("pointer:"); s.releaseSource("button:"); }
     onOpenChange(!open);
@@ -20,7 +22,7 @@ export function PerformanceDock({ open, onOpenChange }: { open: boolean; onOpenC
   }
   return <section className="performance-dock">
     <button className="performance-toggle" aria-label="Performance dock" aria-expanded={open} aria-controls="performance-controls" onClick={toggle}>
-      <Keyboard size={15} /><strong>Perform</strong><span>{s.selectedTrack?.name ?? "Choose a track"}</span><ChevronDown size={14} className={open ? "expanded" : ""} />
+      <Keyboard size={15} /><strong>Perform</strong><span>{s.selectedTrack?.name ?? "Choose a track"}</span>{movement.liveEnabled && <span className="performance-arp-state">Arp · {movement.pattern}{movement.hold ? " · Hold" : ""}</span>}<ChevronDown size={14} className={open ? "expanded" : ""} />
     </button>
     <div id="performance-controls" hidden={!open} className="workspace-bottom">
       <div className="import-row">
@@ -33,6 +35,12 @@ export function PerformanceDock({ open, onOpenChange }: { open: boolean; onOpenC
           <input aria-label="Import sample file" type="file" accept="audio/*" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; void importFile(file, true); }} />
         </label>
       </div>
+      {s.selectedTrack?.kind === "instrument" && <div className="performance-arp-controls">
+        <label className="check-label"><input aria-label="Performance live arpeggiator" type="checkbox" checked={movement.liveEnabled} disabled={s.recording} onChange={e => { if (s.selectedTrack) s.updateTrack(s.selectedTrack.id, { chordMovement: { ...movement, liveEnabled: e.target.checked } }, "Toggle live arpeggiator"); }} />Live arpeggiator</label>
+        <label className="check-label"><input aria-label="Performance arpeggiator hold" type="checkbox" checked={movement.hold} disabled={s.recording || !movement.liveEnabled} onChange={e => { if (s.selectedTrack) s.updateTrack(s.selectedTrack.id, { chordMovement: { ...movement, hold: e.target.checked } }, "Hold live arpeggiator input"); }} />Hold input notes</label>
+        <button className="text-button" onClick={() => s.setMode("sound")}>Edit movement</button>
+        <span className="tiny">Record captures generated notes. Stop releases held output.</span>
+      </div>}
       <Piano />
     </div>
   </section>;

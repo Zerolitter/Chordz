@@ -23,6 +23,7 @@ import {
   emptyClip,
   projectEnd,
   secondsToTick,
+  tickToSeconds,
   TRACK_COLORS,
 } from "../../lib/music/project";
 import {
@@ -58,6 +59,10 @@ import {
 import type { StudioEngine, TransportState } from "../../lib/audio/engine";
 import { AudioProcessor } from "../../lib/audio/worker-client";
 import { MicrophoneRecorder } from "../../lib/audio/recording";
+import {LiveMovement} from "../../lib/music/live-movement";
+import {performanceKey} from "../../lib/music/performance";
+import {MACRO_IDS} from "../../lib/music/modulation-types";
+import {emptyPatch} from "../../lib/audio/modulation";
 
 export type StudioMode = "write" | "arrange" | "sound" | "mix";
 export type StudioUser = { userId: string; displayName: string } | null;
@@ -108,6 +113,13 @@ function useStudioController(
   const [heldNotes, setHeldNotes] = useState<Set<number>>(new Set());
   const heldRef = useRef(new Set<number>());
   const heldInputs = useRef(new Map<string, { trackId: string; pitch: number; velocity: number }>());
+  const movement=useRef<LiveMovement|null>(null);
+  const midiLearn=useRef<((cc:number,channel:number)=>void)|null>(null);
+  const movementCaptures=useRef(new Map<string,{trackId:string;takeId:string;at:number;end:number}>());
+  const [midiLearning,setMidiLearning]=useState(false);
+  const [runtimeMacros,setRuntimeMacros]=useState<Record<string,[number,number,number,number]>>({});
+  const runtimeMacrosRef=useRef(runtimeMacros);
+  const macroProject=useRef(project);
   const audioIntent = useRef(0);
   const pendingPreview=useRef<{identity:string;token:number}|null>(null);
   const writingActions = useRef<{generated:()=>void;chord:()=>void;progression:()=>void}|null>(null);
@@ -239,6 +251,7 @@ function useStudioController(
   function finishEdit(owner?:string){
     if(owner&&!ownsEdit(owner))return true;
     const tx=activeEdit.current;if(!tx)return true;
+    if(tx.owner&&(tx.owner.startsWith("reference-")||tx.owner.startsWith("reference:")||tx.owner.startsWith("modulation-ab:"))&&owner!==tx.owner){cancelEdit();return true;}
     if(tx.invalid){setError(tx.invalid);return false;}
     const result=commitTransaction(committedRef.current,tx);
     if(!result.ok){renderEdit(null);fieldOwner.current="";setEditConflict(tx);setError(result.error);return false;}
@@ -329,11 +342,13 @@ function useStudioController(
   }
   function selectTrack(id: string) {
     if(!finishEdit())return;
+    if(id!==selectedTrackId)cancelMidiLearn();
     if(id!==selectedTrackId)setSelectedClipId(clipsByTrack.current.get(id)??"");
     setSelectedTrackId(id);
   }
   function selectClip(trackId: string, clipId: string) {
     if(!finishEdit())return;
+    if(trackId!==selectedTrackId)cancelMidiLearn();
     setSelectedTrackId(trackId);
     setSelectedClipId(clipId);
     setMode("arrange");
@@ -379,7 +394,7 @@ function useStudioController(
     const clipId=sameProject&&document.tracks.find(t=>t.id===trackId)?.clips.some(c=>c.id===selectedClipId)?selectedClipId:"";
     committedRef.current=document;setSelectedChordId(chordId);
     pendingPreview.current=null;++audioIntent.current; heldInputs.current.clear(); controlTargets.current.clear(); controllerStates.current.clear(); syncHeld();
-    engineRef.current?.stop();
+    movement.current?.clear();cancelMidiLearn();runtimeMacrosRef.current={};setRuntimeMacros({});engineRef.current?.stop();
     projectRef.current = document;
     dispatch({ type: "load", project: document });
     meta.current.set(document.id, { revision, fingerprint });
@@ -402,6 +417,7 @@ function useStudioController(
           );
           result.onStatus = (text) => setMessage(text);
           result.subscribe((state) => setIsPlaying(state.playing));
+          for(const state of [...controllerStates.current.values()].sort((a,b)=>a.sequence-b.sequence))result.expression(state.trackId,state.event,0,false,state.source??"performance");
           engineRef.current = result;
           setEngine(result);
           setReady(true);
@@ -603,15 +619,17 @@ function useStudioController(
   }, [owner, user]);
   useEffect(() => {
     if (!hydrated) return;
+    const audition=transaction?.owner?.startsWith("reference-")||transaction?.owner?.startsWith("reference:")||transaction?.owner?.startsWith("modulation-ab:");
+    const draftDocument=audition?history.present:project;
     const timer = setTimeout(() => {
-      if (takeSession.current?.phase === "finalizing" || !projectSchema.safeParse(project).success) return;
-      const details = meta.current.get(project.id) ?? {
+      if (takeSession.current?.phase === "finalizing" || !projectSchema.safeParse(draftDocument).success) return;
+      const details = meta.current.get(draftDocument.id) ?? {
         revision: 0,
         fingerprint: "",
       };
       void saveDraft({
         owner,
-        document: project,
+        document: draftDocument,
         revision: details.revision,
         savedFingerprint: details.fingerprint,
         updatedAt: new Date().toISOString(),
@@ -633,7 +651,19 @@ function useStudioController(
     };
   }, [project,history.present,transaction, hydrated, owner, user]);
   useEffect(() => {
-    if(projectSchema.safeParse(project).success)engineRef.current?.updateProject(project);
+    if(!projectSchema.safeParse(project).success)return;
+    const prior=macroProject.current;macroProject.current=project;
+    if(!takeSession.current){
+      let changed=false;
+      for(const track of project.tracks){
+        const before=prior.tracks.find(t=>t.id===track.id)?.modulation?.macros,after=track.modulation?.macros;
+        if(prior.id===project.id&&JSON.stringify(before)===JSON.stringify(after))continue;
+        changed=true;runtimeMacrosRef.current={...runtimeMacrosRef.current,[track.id]:after??[0,0,0,0]};
+        for(const [key,state]of controllerStates.current)if(state.trackId===track.id&&state.event.type==="macro")controllerStates.current.delete(key);
+      }
+      if(changed)queueMicrotask(()=>setRuntimeMacros(runtimeMacrosRef.current));
+    }
+    engineRef.current?.updateProject(project);
   }, [project]);
   useEffect(() => {
     const unload = (event: BeforeUnloadEvent) => {
@@ -679,6 +709,7 @@ function useStudioController(
     }
   }
   function stop() {
+    movement.current?.clear();cancelMidiLearn();
     cancelInteraction.current?.();
     pendingPreview.current=null;
     ++audioIntent.current;
@@ -726,16 +757,57 @@ function useStudioController(
     phase(session,"capturing");
     const take=midiTake.current;
     if(take) {
-      for(const [id,input] of heldInputs.current) if(input.trackId===take.trackId) take.open.set(id,{id:uid(),pitch:input.pitch,tick:0,velocity:input.velocity});
-      const values=new Map<PerformanceEvent["type"],number>();
-      for(const {trackId,event} of controllerStates.current.values()) if(trackId===take.trackId) values.set(event.type,event.type==="sustain"?Math.max(values.get(event.type)??0,event.value):event.value);
-      take.events.push(...[...values].map(([type,value])=>({type,value,tick:0})));
+      for(const [id,input] of heldInputs.current) if(input.trackId===take.trackId&&!projectRef.current.tracks.find(t=>t.id===input.trackId)?.chordMovement?.liveEnabled){const noteId=uid();take.open.set(id,{id:noteId,pitch:input.pitch,tick:0,velocity:input.velocity});engineRef.current?.rebindLiveNote(id,noteId,session.startTick);}
+      const values=new Map<string,PerformanceEvent>();
+      const patch=projectRef.current.tracks.find(t=>t.id===take.trackId)?.modulation;
+      if(patch)MACRO_IDS.forEach((macroId,index)=>values.set(`macro:${macroId}`,{tick:0,type:"macro",macroId,value:patch.macros[index]}));
+      const pending:PerformanceEvent[]=[];
+      for(const {trackId,event,at,previous} of [...controllerStates.current.values()].sort((a,b)=>(a.at??0)-(b.at??0)||a.sequence-b.sequence)) if(trackId===take.trackId){
+        const key=performanceKey(event);
+        if(at!==undefined&&at>session.startTime){values.set(key,{...(previous??{...event,value:0}),tick:0});pending.push({...event,tick:Math.round(secondsToTick(at-session.startTime,session.tempo))});}
+        else values.set(key,{...event,value:event.type==="sustain"?Math.max(values.get(key)?.value??0,event.value):event.value,tick:0});
+      }
+      take.events.push(...values.values(),...pending);
     }
   }
   function takeTick() {
     const session = takeSession.current;
     return session ? secondsToTick(Math.max(0,(engineRef.current?.rawContext?.currentTime ?? 0)-session.startTime),session.tempo) : 0;
   }
+  function liveClock(){
+    const audio=engineRef.current,context=audio?.rawContext,state=audio?.state;
+    return {tick:state?.playing?state.tick:secondsToTick(context?.currentTime??0,projectRef.current.tempo),kind:state?.playing?"song":"live",countIn:state?.countIn??false};
+  }
+  function getMovement(){
+    if(!movement.current)movement.current=new LiveMovement((track,note)=>{
+      const audio=engineRef.current,context=audio?.rawContext;if(!audio||!context)return;
+      const clock=liveClock(),at=Math.max(context.currentTime,context.currentTime+tickToSeconds(note.tick-clock.tick,projectRef.current.tempo));
+      const duration=tickToSeconds(note.duration,projectRef.current.tempo),inputId=`movement:${track.id}:${note.id}`;
+      const session=takeSession.current,take=midiTake.current;
+      let scheduled=note;
+      for(const [id,capture]of movementCaptures.current)if(capture.end<context.currentTime)movementCaptures.current.delete(id);
+      if(session?.phase==="capturing"&&take?.trackId===track.id){const tick=Math.max(0,Math.round(secondsToTick(at-session.startTime,session.tempo)));scheduled={...note,tick:session.startTick+tick};take.notes.push({...note,tick,duration:Math.max(1,Math.round(secondsToTick(duration,session.tempo)))});movementCaptures.current.set(note.id,{trackId:track.id,takeId:session.id,at,end:at+duration});}
+      void audio.scheduleLiveNote(track.id,scheduled,at,duration,inputId).catch(error=>{if(movementCaptures.current.delete(note.id)&&midiTake.current)midiTake.current.notes=midiTake.current.notes.filter(n=>n.id!==note.id);report(error);});
+    },trackId=>{
+      const session=takeSession.current,take=midiTake.current,now=engineRef.current?.rawContext?.currentTime??0;
+      for(const [id,capture]of movementCaptures.current){
+        if(capture.trackId!==trackId)continue;
+        if(session?.id===capture.takeId&&take){
+          if(capture.at>=now)take.notes=take.notes.filter(n=>n.id!==id);
+          else if(capture.end>now)take.notes=take.notes.map(n=>n.id===id?{...n,duration:Math.max(1,Math.round(secondsToTick(now-capture.at,session.tempo)))}:n);
+        }
+        movementCaptures.current.delete(id);
+      }
+      engineRef.current?.releaseSource(`movement:${trackId}:`);
+    });
+    return movement.current;
+  }
+  const movementTick=useRef<()=>void>(()=>{});
+  useEffect(()=>{movementTick.current=()=>{if(!engineRef.current?.rawContext)return;captureStarted();getMovement().advance(projectRef.current,liveClock(),secondsToTick(.14,projectRef.current.tempo));};});
+  useEffect(()=>{
+    const timer=setInterval(()=>movementTick.current(),25);
+    return()=>{clearInterval(timer);movement.current?.clear();midiLearn.current=null;};
+  },[]);
   async function noteOn(pitch: number, velocity = 0.75, inputId = "pointer:" + pitch) {
     captureStarted();
     const session = takeSession.current;
@@ -745,16 +817,17 @@ function useStudioController(
     const input = { trackId: track.id,pitch,velocity }; heldInputs.current.set(inputId,input); syncHeld();
     if (latch) setSelectedNotes(notes=>notes.includes(pitch)?notes:[...notes,pitch]);
     const take = midiTake.current;
-    if(take && session?.phase === "capturing" && take.trackId===track.id) take.open.set(inputId,{ id:uid(),pitch,tick:takeTick(),velocity });
+    if(take && session?.phase === "capturing" && take.trackId===track.id&&!track.chordMovement?.liveEnabled) take.open.set(inputId,{ id:uid(),pitch,tick:takeTick(),velocity });
     try { const audio = await getEngine(); if(heldInputs.current.get(inputId)!==input) return;
-      await audio.noteOn(track.id,pitch,velocity,inputId);
+      if(track.chordMovement?.liveEnabled){getMovement().noteOn(inputId,track,pitch,velocity);getMovement().advance(projectRef.current,liveClock(),secondsToTick(.14,projectRef.current.tempo));}
+      else {const open=take?.open.get(inputId);await audio.noteOn(track.id,pitch,velocity,inputId,open&&session?{id:open.id,tick:session.startTick+Math.round(open.tick)}:undefined);}
 
     } catch(error) { if(heldInputs.current.get(inputId)===input) { heldInputs.current.delete(inputId); syncHeld(); } report(error); }
   }
   function noteOff(pitch: number, inputId = "pointer:" + pitch) {
     captureStarted();
     const input = heldInputs.current.get(inputId); heldInputs.current.delete(inputId); syncHeld();
-    if(input) engineRef.current?.noteOff(input.trackId,input.pitch,inputId);
+    if(input){movement.current?.noteOff(inputId,projectRef.current);engineRef.current?.noteOff(input.trackId,input.pitch,inputId);}
     const take=midiTake.current, open=take?.open.get(inputId);
     if(take && open) { const end=takeTick();
       if(end>open.tick) take.notes.push({id:open.id,pitch:open.pitch,tick:Math.round(open.tick),duration:Math.max(1,Math.round(end-open.tick)),velocity:open.velocity});
@@ -763,30 +836,80 @@ function useStudioController(
   }
   function releaseHeld(prefix:string){for(const [id,input]of heldInputs.current)if(id.startsWith(prefix))noteOff(input.pitch,id);}
   function releaseSource(prefix: string) {
-    for(const [source] of controlTargets.current) if(source.startsWith(prefix.replace(/:$/, ""))) { expression("sustain",0,source); controlTargets.current.delete(source); }
-    for(const key of controllerStates.current.keys()) if(key.startsWith(prefix.replace(/:$/, ""))) controllerStates.current.delete(key);
+    captureStarted();
+    movement.current?.releaseSource(prefix,projectRef.current);
+    const matches=(source:string)=>source===prefix.replace(/:$/, "")||source.startsWith(prefix);
+    const before=[...controllerStates.current.values()].sort((a,b)=>(b.at??0)-(a.at??0)||b.sequence-a.sequence);
+    for(const [source] of controlTargets.current) if(matches(source)) { expression("sustain",0,source); controlTargets.current.delete(source); }
+    for(const key of controllerStates.current.keys()) if(matches(key)) controllerStates.current.delete(key);
     for(const [id,input] of heldInputs.current) if(id.startsWith(prefix)) noteOff(input.pitch,id);
-    engineRef.current?.releaseSource(prefix);
+    const resets=engineRef.current?.releaseSource(prefix)??[];
+    const legacy=new Map(before.filter(state=>state.source&&matches(state.source)&&!["controlChange","macro","sustain"].includes(state.event.type)).map(state=>[`${state.trackId}:${performanceKey(state.event)}`,state]));
+    for(const state of legacy.values()){
+      const fallback=[...controllerStates.current.values()].filter(other=>other.trackId===state.trackId&&performanceKey(other.event)===performanceKey(state.event)).sort((a,b)=>b.sequence-a.sequence)[0];
+      const event={...state.event,value:fallback?.event.value??(state.event.type==="expression"?1:0)},at=engineRef.current?.expression(state.trackId,event);
+      resets.push({trackId:state.trackId,event,at:at??0});
+    }
+    for(const {trackId,event,at}of resets){
+      const previous=before.find(state=>state.trackId===trackId&&performanceKey(state.event)===performanceKey(event))?.event??{...event,value:0};
+      controllerStates.current.set(`cleanup:${trackId}:${performanceKey(event)}`,{trackId,event,at,previous,sequence:controllerSequence.current++});
+      const session=takeSession.current,take=midiTake.current;
+      if(take&&session?.phase==="capturing"&&take.trackId===trackId)take.events.push({...event,tick:Math.round(secondsToTick(Math.max(0,at-session.startTime),session.tempo))});
+    }
   }
   const controlTargets = useRef(new Map<string,string>());
-  const controllerStates = useRef(new Map<string,{trackId:string;event:PerformanceEvent}>());
+  const controllerSequence=useRef(0);
+  const controllerStates = useRef(new Map<string,{trackId:string;event:PerformanceEvent;at?:number;previous?:PerformanceEvent;source?:string;sequence:number}>());
   function expression(type: PerformanceEvent["type"], value: number, source="performance") {
     captureStarted();
     const session=takeSession.current;
     const heldTrack=[...heldInputs.current].find(([id])=>id.startsWith(source+":"))?.[1].trackId;
     const target=controlTargets.current.get(source) ?? heldTrack ?? (session?.kind==="midi"?session.trackId:selectedTrackRef.current?.id);
     if(!target) return; if((type==="sustain" && value>=0.5)||heldTrack) controlTargets.current.set(source,target);
-    const event={tick:0,type,value}; controllerStates.current.set(source+":"+type,{trackId:target,event}); engineRef.current?.expression(target,event,undefined,false,source);
+    const event={tick:0,type,value}; const at=engineRef.current?.expression(target,event,undefined,false,source);controllerStates.current.set(source+":"+performanceKey(event),{trackId:target,event,at,source,sequence:controllerSequence.current++});
+    if(type==="sustain")movement.current?.pedal(source,target,value>=.5,projectRef.current);
     const take=midiTake.current;
     if(take && session?.phase==="capturing" && target===take.trackId) take.events.push({...event,tick:Math.round(takeTick())});
     if(type==="sustain" && value<0.5) controlTargets.current.delete(source);
   }
+  function performMacro(index:number,value:number){
+    if(index<0||index>3||!Number.isFinite(value))return;
+    captureStarted();
+    const target=takeSession.current?.kind==="midi"?takeSession.current.trackId:selectedTrackRef.current?.id;
+    const track=projectRef.current.tracks.find(t=>t.id===target);if(!track)return;
+    const values=[...(runtimeMacrosRef.current[track.id]??track.modulation?.macros??[0,0,0,0])] as [number,number,number,number];
+    const previous:PerformanceEvent={tick:0,type:"macro",macroId:MACRO_IDS[index],value:values[index]};values[index]=Math.max(0,Math.min(1,value));
+    runtimeMacrosRef.current={...runtimeMacrosRef.current,[track.id]:values};setRuntimeMacros(runtimeMacrosRef.current);
+    const event:PerformanceEvent={tick:0,type:"macro",macroId:MACRO_IDS[index],value:values[index]};
+    const at=engineRef.current?.expression(track.id,event);
+    controllerStates.current.set(`macro:${track.id}:${MACRO_IDS[index]}`,{trackId:track.id,event,at,previous,sequence:controllerSequence.current++});
+    const take=midiTake.current,session=takeSession.current;if(take&&session?.phase==="capturing"&&take.trackId===track.id)take.events.push({...event,tick:Math.round(at===undefined?takeTick():secondsToTick(Math.max(0,at-session.startTime),session.tempo))});
+  }
+  function controlChange(cc:number,value:number,channel:number,source:string){
+    if(cc<0||cc>119||!Number.isFinite(value))return;
+    captureStarted();
+    const learned=midiLearn.current;if(learned){cancelMidiLearn();learned(cc,channel);}
+    const target=controlTargets.current.get(source)??[...heldInputs.current].find(([id])=>id.startsWith(source+":"))?.[1].trackId??(takeSession.current?.kind==="midi"?takeSession.current.trackId:selectedTrackRef.current?.id);
+    if(!target)return;const event:PerformanceEvent={tick:0,type:"controlChange",cc,channel,value:Math.max(0,Math.min(1,value))};
+    const key=source+":"+performanceKey(event),previous=controllerStates.current.get(key)?.event??{...event,value:0};
+    const at=engineRef.current?.expression(target,event,undefined,false,source);
+    controllerStates.current.set(key,{trackId:target,event,at,previous,source,sequence:controllerSequence.current++});
+    const take=midiTake.current,session=takeSession.current;if(take&&session?.phase==="capturing"&&take.trackId===target)take.events.push({...event,tick:Math.round(at===undefined?takeTick():secondsToTick(Math.max(0,at-session.startTime),session.tempo))});
+  }
+  function cancelMidiLearn(){midiLearn.current=null;setMidiLearning(false);}
+  async function beginMidiLearn(callback:(cc:number,channel:number)=>void){
+    if(takeSession.current)return;
+    const trackId=selectedTrackRef.current?.id,projectId=projectRef.current.id;
+    await enableMidi();
+    if(!midiAccess.current||takeSession.current||selectedTrackRef.current?.id!==trackId||projectRef.current.id!==projectId)return;
+    midiLearn.current=callback;setMidiLearning(true);notify("Move a MIDI control to assign it. Cancel stops learning.");
+  }
   useEffect(() => {
-    if(midiInputId!=="all") for(const [id,input] of heldInputs.current) if(id.startsWith("midi:") && !id.startsWith("midi:"+midiInputId+":")) { inputHandlers.current.noteOff(input.pitch,id); engineRef.current?.releaseSource(id.slice(0,id.lastIndexOf(":"))); }
+    if(midiInputId!=="all")for(const input of midiAccess.current?.inputs.values()??[])if(input.id!==midiInputId)inputHandlers.current.releaseSource(`midi:${input.id}:`);
   },[midiInputId]);
-  const inputHandlers = useRef({ noteOn, noteOff, expression, releaseSource });
+  const inputHandlers = useRef({ noteOn, noteOff, expression, releaseSource,controlChange });
   useLayoutEffect(() => {
-    inputHandlers.current = { noteOn, noteOff, expression, releaseSource };
+    inputHandlers.current = { noteOn, noteOff, expression, releaseSource,controlChange };
   });
   async function enableMidi() {
     try {
@@ -812,6 +935,8 @@ function useStudioController(
             else if (kind === 0x80 || (kind === 0x90 && b === 0))
               inputHandlers.current.noteOff(a,"midi:"+input.id+":"+(status&15)+":"+a);
             else if (kind === 0xb0) {
+              if(a>=120){inputHandlers.current.releaseSource("midi:"+input.id+":"+(status&15)+":");return;}
+              inputHandlers.current.controlChange(a,b/127,status&15,"midi:"+input.id+":"+(status&15));
               if (a === 64)
                 inputHandlers.current.expression("sustain", b / 127,"midi:"+input.id+":"+(status&15));
               if (a === 1)
@@ -998,7 +1123,7 @@ function useStudioController(
     if(newTrack && doc.tracks.length>=64) { report(new Error("This project already has 64 tracks.")); return; }
     const session: TakeSession={id:uid(),owner,projectId:doc.id,trackId:newTrack?.id??target!.id,startTick:engineRef.current?.state.tick??0,tempo:doc.tempo,
       kind:recordKind,phase:"preparing",startTime:Infinity,reset:false,clipId:uid(),assetId:uid(),newTrack};
-    takeSession.current=session; phase(session,"preparing"); cancelPreview();
+    takeSession.current=session; phase(session,"preparing"); cancelPreview();cancelMidiLearn();
     try {
       const audio=await getEngine(); if(takeSession.current!==session) return;
       audio.setLoop(false); audio.setMetronome(metronome);
@@ -1011,6 +1136,7 @@ function useStudioController(
       await audio.play(session.startTick,1);
       if(takeSession.current!==session) return;
       session.startTime=audio.recordingStartTime;
+      audio.beginLiveModulationClock(session.startTime,tickToSeconds(session.startTick,session.tempo));
       recordingAt.current=session.startTime; recordingTick.current=session.startTick;
       if(session.kind==="audio") recorder.current!.start(session.startTime,audio.rawContext!);
       else midiTake.current={trackId:session.trackId,startTick:session.startTick,open:new Map(),notes:[],events:[]};
@@ -1031,18 +1157,20 @@ function useStudioController(
     session.reset ||= reset;
     const audio=engineRef.current, now=audio?.rawContext?.currentTime??0;
     if(session.phase==="preparing" || now<=session.startTime) {
+      movement.current?.clear();
       takeSession.current=null; recorder.current?.dispose(); recorder.current=null; midiTake.current=null;
       audio?.stop(); heldInputs.current.clear(); syncHeld(); setRecording(false); setRecordingPhase("idle"); setBusy("");
       notify("Recording cancelled before capture."); return Promise.resolve();
     }
     if(session.endTime===undefined) {
+      movement.current?.clear();
       session.endTime=now;
       const take=midiTake.current;
       if(take) {
         const end=secondsToTick(now-session.startTime,session.tempo);
         for(const open of take.open.values()) if(end>open.tick) take.notes.push({id:open.id,pitch:open.pitch,tick:Math.round(open.tick),duration:Math.max(1,Math.round(end-open.tick)),velocity:open.velocity});
         take.open.clear();
-        session.clip={...emptyClip(session.startTick,Math.max(1,end),"MIDI take"),id:session.clipId,notes:take.notes,events:take.events};
+        session.clip={...emptyClip(session.startTick,Math.max(1,end),"MIDI take"),id:session.clipId,notes:take.notes.filter(n=>n.tick<end).map(n=>({...n,duration:Math.max(1,Math.min(n.duration,Math.round(end-n.tick)))})),events:take.events.filter(e=>e.tick<=end)};
       }
       recorder.current?.muteMonitoring();
       if(session.reset) { audio?.stop(false); heldInputs.current.clear(); syncHeld(); } else audio?.pause();
@@ -1068,11 +1196,14 @@ function useStudioController(
         }
         if(!session.clip || (session.kind==="midi" && !session.clip.notes.length && !session.clip.events.length)) notify("No MIDI notes were recorded.");
         else {
-          const target=current.tracks.find(t=>t.id===session.trackId)??session.newTrack;
-          if(!target) throw new Error("The recording destination is missing.");
+          const originalTarget=current.tracks.find(t=>t.id===session.trackId)??session.newTrack;
+          if(!originalTarget) throw new Error("The recording destination is missing.");
+          const extensionEvents=session.clip.events.some(e=>e.type==="macro"||e.type==="controlChange");
+          const patch=originalTarget.modulation??(extensionEvents?emptyPatch(current.seed):undefined);
+          const target={...originalTarget,...(patch?{modulation:{...patch,macros:runtimeMacrosRef.current[originalTarget.id]??patch.macros}}:{})};
           const clip=session.clip;
           const next={...current,assets:asset&&!current.assets.some(a=>a.id===asset!.id)?[...current.assets,asset]:current.assets,
-            tracks:current.tracks.some(t=>t.id===target.id)?current.tracks.map(t=>t.id===target.id?{...t,clips:t.clips.some(c=>c.id===clip.id)?t.clips:[...t.clips,clip]}:t):[...current.tracks,{...target,clips:[clip]}]};
+            tracks:current.tracks.some(t=>t.id===target.id)?current.tracks.map(t=>t.id===target.id?{...target,clips:t.clips.some(c=>c.id===clip.id)?t.clips:[...t.clips,clip]}:t):[...current.tracks,{...target,clips:[clip]}]};
           const details=meta.current.get(current.id);
           const receipt=await preserveTake({owner:session.owner,document:next,revision:details?.revision??0,savedFingerprint:details?.fingerprint??"",updatedAt:new Date().toISOString()},
             {takeId:session.id,projectId:session.projectId,clipId:clip.id},asset?{owner:session.owner,projectId:session.projectId,asset,blob:session.result!.blob}:undefined);
@@ -1313,6 +1444,8 @@ function useStudioController(
     noteOn,
     noteOff,
     expression,
+    performMacro,performanceMacros:runtimeMacros[selectedTrack?.id??""]??selectedTrack?.modulation?.macros??([0,0,0,0] as [number,number,number,number]),
+    beginMidiLearn,cancelMidiLearn,midiLearning,
     beginRecording,
     finishRecording,
     addAudio,

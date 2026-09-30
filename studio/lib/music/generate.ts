@@ -9,6 +9,7 @@ import {
 } from "./types";
 import {resolveHarmony,harmonyAt,tonicHarmony} from "./harmony";
 import { scaleNotes, pitchClass } from "./theory";
+import { evaluateMovement, MAX_GENERATED_NOTES } from "./chord-movement";
 
 export function randomGenerator(seed: number) {
   let value = seed >>> 0;
@@ -32,6 +33,17 @@ export function generatePart(
   const scale = scaleNotes(project.key, project.mode);
   const spans=resolveHarmony(project,section),fallback=tonicHarmony(project);
   const octaveBase=(options.register+1)*12;
+  if (options.chordMovement?.enabled && ["chords", "strings", "arpeggio"].includes(options.role)) {
+    const movement = options.chordMovement;
+    const generated: NoteEvent[] = [];
+    for (const span of spans) {
+      if (!span.notes) continue;
+      const voicing = span.notes.map((pitch, index) => octaveBase + (pitch % 12) + (index > 0 && pitch % 12 < span.notes![0] % 12 ? 12 : 0));
+      const part = evaluateMovement(voicing, movement, { startTick: span.startTick - section.startTick, lengthTick: span.endTick - span.startTick, velocity: .35 + options.energy * .45, seed: options.seed + movement.seed, maxNotes: MAX_GENERATED_NOTES - generated.length });
+      generated.push(...part.map(note => options.role === "strings" ? { ...note, articulation: "sustain" } : note));
+    }
+    return generated;
+  }
   let pitches:number[]=fallback,voicing:number[]=[];
   function setHarmony(tick:number){pitches=[...(harmonyAt(spans,tick)?.notes??fallback)];voicing=pitches.map((p,i)=>octaveBase+(p%12)+(i>0&&p%12<pitches[0]%12?12:0)).sort((a,b)=>a-b); }
   let lastPitch = (options.register + 1) * 12 + pitchClass(project.key);

@@ -1,0 +1,50 @@
+{
+  "checkedLocally": "2026-10-01",
+  "analyzer": "FFT.js 4.0.4, FIR downsampling, harmonic/percussive separation",
+  "limits": "Tempo periodicity and tonal correlations are heuristic ranking scores, not probabilities. Exact chord progressions and human listening are unverified. RMS/sample peaks are not LUFS/true-peak measurements.",
+  "audioCommitted": false,
+  "references": [
+    {
+      "file": "sample1.mp3",
+      "seconds": 367.280839,
+      "sampleRate": 44100,
+      "channels": 2,
+      "rmsDbfs": -9.1,
+      "samplePeakDbfs": 0.8,
+      "rmsPercentilesDbfs": [-14.2, -8.7, -8.2],
+      "stereoCorrelation": 0.924,
+      "sideToMidDb": -14.1,
+      "tempos": [{ "bpm": 68.99, "periodicity": 0.603 }, { "bpm": 138.14, "periodicity": 0.525 }],
+      "tonalCandidates": [{ "key": "Eb", "mode": "minor", "score": 0.469 }, { "key": "Bb", "mode": "minor", "score": 0.407 }, { "key": "Gb", "mode": "major", "score": 0.367 }],
+      "tonalStatus": "tentative"
+    },
+    {
+      "file": "sample2.mp3",
+      "seconds": 389.976259,
+      "sampleRate": 44100,
+      "channels": 2,
+      "rmsDbfs": -8.3,
+      "samplePeakDbfs": 2.0,
+      "rmsPercentilesDbfs": [-10.7, -7.9, -7.5],
+      "stereoCorrelation": 0.978,
+      "sideToMidDb": -19.5,
+      "tempos": [{ "bpm": 139.89, "periodicity": 0.854 }, { "bpm": 69.98, "periodicity": 0.839 }],
+      "tonalCandidates": [{ "key": "B", "mode": "minor", "score": 0.544 }, { "key": "A", "mode": "major", "score": 0.495 }, { "key": "B", "mode": "major", "score": 0.441 }],
+      "tonalStatus": "tentative; differs from earlier broad-chroma candidates"
+    },
+    {
+      "file": "sample3.mp3",
+      "seconds": 256.111625,
+      "sampleRate": 48000,
+      "channels": 2,
+      "rmsDbfs": -8.2,
+      "samplePeakDbfs": 1.6,
+      "rmsPercentilesDbfs": [-18.9, -6.7, -6.2],
+      "stereoCorrelation": 0.847,
+      "sideToMidDb": -10.8,
+      "tempos": [{ "bpm": 75.06, "periodicity": 0.467 }, { "bpm": 149.97, "periodicity": 0.459 }],
+      "tonalCandidates": [{ "key": "A", "mode": "major", "score": 0.842 }, { "key": "A", "mode": "minor", "score": 0.645 }, { "key": "E", "mode": "major", "score": 0.532 }],
+      "tonalStatus": "supported by the analyzer heuristic; manually editable"
+    }
+  ]
+}

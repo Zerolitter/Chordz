@@ -5,6 +5,7 @@ import {
   type PerformanceEvent,
   type ProjectDocument,
   type Track,
+  type NoteEvent,
 } from "../music/types";
 import {
   projectEnd,
@@ -25,9 +26,13 @@ import {
   makeVoice,
   scheduleAudio,
   scheduleAutomation,
+  configureModulation,
+  modulationEvent,
+  scheduleModulation,
   type SongGraph,
   type Voice,
 } from "./graph";
+import { changedMacroEvents, controlEventId, effectiveControlTime, musicalControlTime } from "./modulation";
 
 export interface TransportState {
   playing: boolean;
@@ -38,6 +43,7 @@ export interface TransportState {
   previewId: string | null;
 }
 type AssetResolver = (id: string) => Promise<Blob>;
+const voiceSignature=(track:Track)=>JSON.stringify({sound:track.sound,modulation:track.modulation});
 export class StudioEngine {
   private project: ProjectDocument;
   private context: AudioContext | null = null;
@@ -55,6 +61,15 @@ export class StudioEngine {
   private voiceSettings = new WeakMap<Voice,string>();
   private activity: TransportState["activity"] = "idle";
   private previewTimer: ReturnType<typeof setInterval> | null = null;
+  private liveModTimer: ReturnType<typeof setInterval> | null = null;
+  private liveModVoices = new Set<Voice>();
+  private liveModEvents: (PerformanceEvent&{trackId:string;at:number;source:string})[] = [];
+  private ccOwners=new Map<string,{trackId:string;event:PerformanceEvent;source:string;sequence:number}>();
+  private controlSequence=0;
+  private liveModOrigin = 0;
+  private previewModOrigin = 0;
+  private liveModSongOrigin = 0;
+  private liveModClockStarted = false;
   private liveOwners = new Map<string, { trackId: string; pitch: number; token: symbol }>();
   private pedals = new Map<string, { trackId: string; down: boolean }>();
   private clicks = new Set<OscillatorNode>();
@@ -109,6 +124,17 @@ export class StudioEngine {
   }
   get outputNode() { return this.analyser; }
   get monitorDestination() { return this.output; }
+  modulationSample(trackId:string) {
+    const at=this.context?.currentTime??0;
+    const performing=[...this.liveModVoices].some(v=>v.trackId===trackId&&v.start<=at&&v.end>at);
+    const graph=performing?this.liveGraph:this.playing||this.previewId||this.activity==="tail"?this.graph:this.liveGraph;
+    const mod=graph?.modulation,binding=mod?.tracks.get(trackId);
+    if(!binding||!mod||!this.context)return null;
+    const seconds=Math.max(0,at-mod.audioOrigin+mod.songOrigin);
+    const voices=graph===this.liveGraph?[...this.liveModVoices]:this.voices;
+    const voice=voices.find(v=>v.trackId===trackId&&v.start<=at&&v.end>at)?.modulation?.context;
+    return {...binding.evaluator.sample(seconds,voice),seconds};
+  }
   instrumentReadiness(trackId:string):{state:"unloaded"|"loading"|"ready"|"failed";error?:string}{
     const track=this.project.tracks.find(t=>t.id===trackId);if(!track)return {state:"unloaded"};
     const keys=instrumentFor(this.project,track).zones.map(z=>z.assetId??z.url!).filter(Boolean);
@@ -267,14 +293,42 @@ export class StudioEngine {
     this.graph?.dispose();
     this.graph = makeGraph(this.context, this.project, undefined, this.output!, false);
   }
+  private modulationEvents(project=this.project) {
+    return compileSong(project).events.map(e=>({...e,seconds:tickToSeconds(e.tick,project.tempo)}));
+  }
+  private configureLiveModulation() {
+    if(!this.liveGraph)return;
+    const events=this.liveModEvents.map(e=>({...e,seconds:Math.max(0,e.at-this.liveModOrigin+this.liveModSongOrigin)}));
+    configureModulation(this.liveGraph,{...this.project,tracks:this.project.tracks.map(t=>({...t,automation:[]}))},events,this.liveModOrigin,this.liveModSongOrigin);
+  }
+  private previewModulationEvents() {
+    return this.liveModEvents.map(e=>({...e,seconds:Math.max(0,e.at-this.previewModOrigin)}));
+  }
+  private liveModulation() {
+    if(!this.liveGraph||!this.context)return;
+    const now=this.context.currentTime;
+    for(const voice of this.liveModVoices)if(voice.end<=now)this.liveModVoices.delete(voice);
+    scheduleModulation(this.liveGraph,now,now+.16,[...this.liveModVoices],true);
+    if(!this.liveModVoices.size&&this.liveModTimer){clearInterval(this.liveModTimer);this.liveModTimer=null;}
+  }
+  private monitorLiveVoice(voice:Voice) {
+    this.liveModVoices.add(voice);
+    this.liveModulation();
+    if(this.liveGraph?.modulation?.tracks.size&&!this.liveModTimer)this.liveModTimer=setInterval(()=>this.liveModulation(),25);
+  }
+  /** Capture starts a reproducible song clock; callers pass the same native recording origin. */
+  beginLiveModulationClock(at:number,songSeconds=0) {
+    this.liveModOrigin=at;this.liveModSongOrigin=songSeconds;this.liveModClockStarted=true;
+    this.configureLiveModulation();this.liveModulation();
+  }
   private previewProject(){return {...this.project,tracks:this.project.tracks.map(t=>({...t,automation:[]}))};}
   private tunePreviewVoices(){
     if(!this.context||!this.graph||!this.previewTrackId)return;
     const track=this.project.tracks.find(t=>t.id===this.previewTrackId);if(!track)return;
-    const now=this.context.currentTime,settings=JSON.stringify(track.sound);
+    const now=this.context.currentTime,settings=voiceSignature(track);
     for(const [voice,binding]of this.previewVoices){
       if(binding.settings===settings)continue;
-      const old=JSON.parse(binding.settings) as Track["sound"];
+      const old=(JSON.parse(binding.settings) as {sound:Track["sound"]}).sound;
       if(voice.start>now+.04&&(old.algorithm!==track.sound.algorithm||old.articulation!==track.sound.articulation)){
         voice.cancel(now);
         const replacement=makeVoice(this.graph,track,instrumentFor(this.project,track),binding.note,binding.at,binding.duration,this.buffers);
@@ -284,6 +338,7 @@ export class StudioEngine {
     }
   }
   updateProject(project: ProjectDocument) {
+    const macroChanges=changedMacroEvents(this.project.tracks,project.tracks);
     const busesChanged =
       this.project.master.reverbDecay !== project.master.reverbDecay;
     const tempoChanged = this.project.tempo !== project.tempo;
@@ -307,7 +362,7 @@ export class StudioEngine {
       for(const [id,voices] of this.live) {
         for(const voice of voices) {
           const target=this.liveGraph.tracks.get(voice.trackId);
-          if(target) { voice.gain.disconnect(); voice.gain.connect(target.input); }
+          if(target) { (voice.output??voice.gain).disconnect(); (voice.output??voice.gain).connect(target.input); }
           else { voice.cancel(this.context.currentTime); this.live.delete(id); this.liveOwners.delete(id); this.heldKeys.delete(id); }
         }
       }
@@ -318,8 +373,11 @@ export class StudioEngine {
         const tg = this.liveGraph.tracks.get(track.id);
         if (tg) applyTrack(tg, track, project, this.context.currentTime, tick);
       }
-      for(const voices of this.live.values())for(const voice of voices){const track=project.tracks.find(t=>t.id===voice.trackId);if(track){const settings=JSON.stringify(track.sound);if(this.voiceSettings.get(voice)!==settings){voice.updateSound?.(track,this.context.currentTime);this.applyBend(voice,track,Math.max(this.context.currentTime,voice.start));this.voiceSettings.set(voice,settings);}}}
+      this.configureLiveModulation();
+      for(const voice of this.liveModVoices){const track=project.tracks.find(t=>t.id===voice.trackId);if(track){const settings=voiceSignature(track);if(this.voiceSettings.get(voice)!==settings){voice.updateSound?.(track,this.context.currentTime);this.applyBend(voice,track,Math.max(this.context.currentTime,voice.start));this.voiceSettings.set(voice,settings);}}}
     }
+    this.liveModulation();
+    for(const change of macroChanges)this.expression(change.trackId,change.event,this.context?.currentTime??0);
     this.applyLiveControls();
     this.emit();
     if (!this.graph || !this.context) return;
@@ -329,7 +387,8 @@ export class StudioEngine {
     if (changedTracks || busesChanged) {
       if(this.previewId){
         const old=this.graph;this.graph=makeGraph(this.context,this.previewProject(),undefined,this.output!,false,true);
-        for(const voice of this.voices){const target=this.graph.tracks.get(voice.trackId);if(target){voice.gain.disconnect();voice.gain.connect(target.input);}}
+        for(const voice of this.voices){const target=this.graph.tracks.get(voice.trackId);if(target){(voice.output??voice.gain).disconnect();(voice.output??voice.gain).connect(target.input);}}
+        configureModulation(this.graph,this.previewProject(),this.previewModulationEvents(),this.previewModOrigin);
         this.retireGraph(old);this.tunePreviewVoices();this.applyLiveControls();return;
       }
       const wasPlaying = this.playing;
@@ -346,6 +405,8 @@ export class StudioEngine {
       if (this.playing)
         scheduleAutomation(tg, track, project, this.context.currentTime, tick);
     }
+    configureModulation(this.graph,this.previewId?this.previewProject():project,this.previewId?this.previewModulationEvents():this.modulationEvents(),
+      this.previewId?this.previewModOrigin:this.baseTime,this.previewId?0:tickToSeconds(this.startTick,project.tempo));
     this.graph.master.gain.setTargetAtTime(
       1,
       this.context.currentTime,
@@ -395,6 +456,7 @@ export class StudioEngine {
     );
     this.baseTime = context.currentTime + 0.075 + countIn;
     this.countInUntil = this.baseTime;
+    configureModulation(this.graph!,this.project,this.modulationEvents(),this.baseTime,tickToSeconds(this.startTick,this.project.tempo));
     this.loopPrimed = false;
 
     this.playing = true;
@@ -480,6 +542,7 @@ export class StudioEngine {
         this.applyBend(voice, track, time, start);
         this.voices.push(voice);
       }
+      scheduleModulation(this.graph,Math.max(now,this.baseTime),Math.min(horizon,endTime),this.voices,true);
       while (this.audioCursor < this.compiled.audio.length) {
         const clip = this.compiled.audio[this.audioCursor],
           at =
@@ -530,6 +593,7 @@ export class StudioEngine {
         this.startTick = this.loopStart;
         this.baseTime = endTime;
         this.loopPrimed = true;
+        configureModulation(this.graph,this.project,this.modulationEvents(),this.baseTime,tickToSeconds(this.startTick,this.project.tempo));
         this.nextClick = endTime;
         this.resetCursors(this.startTick, true);
         for (const track of this.project.tracks) {
@@ -553,11 +617,17 @@ export class StudioEngine {
         this.playing = false;
         this.activity = "tail";
         const token = this.epoch;
-        setTimeout(() => { if (token === this.epoch) this.pause(); }, Math.max(this.project.master.reverbDecay * 2, 4) * 1000);
+        const tail=Math.max(this.project.master.reverbDecay*2,4,...this.voices.map(v=>v.end-now));
+        setTimeout(() => { if (token === this.epoch) this.pause(); }, tail * 1000);
         if (this.timer) {
           clearInterval(this.timer);
           this.timer = null;
         }
+        if(this.graph.modulation?.tracks.size)this.timer=setInterval(()=>{
+          if(token!==this.epoch||!this.context||!this.graph)return;
+          const at=this.context.currentTime;this.voices=this.voices.filter(v=>v.end>at);
+          scheduleModulation(this.graph,at,at+.16,this.voices,true);
+        },25);
         this.emit();
         return;
       }
@@ -622,6 +692,8 @@ export class StudioEngine {
     this.live.clear(); this.liveOwners.clear(); this.pedals.clear();
     this.heldKeys.clear(); this.controls.clear(); this.heldPedal.clear();
     this.retireGraph(this.liveGraph); this.liveGraph = null;
+    if(this.liveModTimer)clearInterval(this.liveModTimer);this.liveModTimer=null;
+    this.liveModVoices.clear();this.liveModEvents=[];this.ccOwners.clear();this.liveModOrigin=0;this.liveModSongOrigin=0;this.liveModClockStarted=false;
     if (reset) this.pausedTick = 0; this.emit();
   }
   async seek(tick: number) {
@@ -693,36 +765,106 @@ export class StudioEngine {
               );
         }
   }
-  async noteOn(trackId: string, pitch: number, velocity = 0.75, inputId = trackId + ":" + pitch) {
+  async noteOn(trackId: string, pitch: number, velocity = 0.75, inputId = trackId + ":" + pitch,identity?:{id:string;tick:number}) {
     this.noteOff(trackId, pitch, inputId, true);
     const token = Symbol(inputId);
     this.liveOwners.set(inputId, { trackId, pitch, token });
     this.heldKeys.add(inputId);
     await this.ensureBuffers(this.project, [trackId]);
     if (this.liveOwners.get(inputId)?.token !== token) return;
-    if (!this.liveGraph) this.liveGraph = makeGraph(this.context!, this.project, undefined, this.output!, false);
+    if (!this.liveGraph) {
+      this.liveGraph = makeGraph(this.context!, this.project, undefined, this.output!, false);
+      if(!this.liveModClockStarted){this.liveModOrigin=this.context!.currentTime;this.liveModClockStarted=true;}
+      this.configureLiveModulation();
+    }
     const track = this.project.tracks.find(t => t.id === trackId);
     if (!track) return;
     const at = this.context!.currentTime;
     const voice = makeVoice(this.liveGraph, track, instrumentFor(this.project, track),
-      { trackId, pitch, tick: 0, duration: 0, velocity, index: this.previewIndex++ }, at, undefined, this.buffers);
+      { id:identity?.id,trackId, pitch, tick: identity?.tick??0, duration: 0, velocity, index: this.previewIndex++ }, at, undefined, this.buffers,0,
+      identity?{songStart:tickToSeconds(identity.tick,this.project.tempo),key:identity.id+":"+identity.tick}:undefined);
     this.applyBend(voice, track, at);
     this.applyLiveControls();
     this.live.set(inputId, [voice]);
-    this.voiceSettings.set(voice,JSON.stringify(track.sound));
+    this.voiceSettings.set(voice,voiceSignature(track));
+    this.monitorLiveVoice(voice);
     return at;
+  }
+  rebindLiveNote(inputId:string,noteId:string,tick:number) {
+    for(const voice of this.live.get(inputId)??[]) {
+      voice.enableModulation?.();if(!voice.modulation)continue;
+      const prior=voice.modulation.context;
+      this.liveGraph?.modulation?.tracks.get(voice.trackId)?.evaluator.forgetVoice(prior.key);
+      voice.modulation.context={...prior,key:noteId+":"+tick,start:tickToSeconds(tick,this.project.tempo)};
+    }
+    this.liveModulation();
+  }
+  async scheduleLiveNote(trackId:string,note:NoteEvent,at:number,duration:number,inputId:string):Promise<void> {
+    this.noteOff(trackId,note.pitch,inputId,true);
+    const token=Symbol(inputId);this.liveOwners.set(inputId,{trackId,pitch:note.pitch,token});
+    const epoch=this.epoch;
+    try { await this.ensureBuffers(this.project,[trackId]); } catch(error) {
+      if(this.liveOwners.get(inputId)?.token===token)this.liveOwners.delete(inputId);
+      throw error;
+    }
+    if(this.epoch!==epoch||this.liveOwners.get(inputId)?.token!==token)return;
+    if(!this.liveGraph) {
+      this.liveGraph=makeGraph(this.context!,this.project,undefined,this.output!,false);
+      if(!this.liveModClockStarted){this.liveModOrigin=at-tickToSeconds(note.tick,this.project.tempo);this.liveModClockStarted=true;}
+      this.configureLiveModulation();
+    }
+    const track=this.project.tracks.find(t=>t.id===trackId);if(!track)return;
+    const when=Math.max(at,this.context!.currentTime),remaining=duration-Math.max(0,when-at);
+    if(remaining<=0){this.liveOwners.delete(inputId);return;}
+    const voice=makeVoice(this.liveGraph,track,instrumentFor(this.project,track),{...note,trackId,index:this.previewIndex++},
+      when,remaining,this.buffers,Math.max(0,when-at),{songStart:tickToSeconds(note.tick,this.project.tempo),key:note.id+":"+note.tick});
+    this.applyBend(voice,track,when,note.tick);
+    this.live.set(inputId,[voice]);this.voiceSettings.set(voice,voiceSignature(track));
+    this.monitorLiveVoice(voice);
+    // Ownership persists through the release tail, so source release can cancel both queued and sounding notes.
+    const timer=setTimeout(()=>{
+      if(this.liveOwners.get(inputId)?.token===token){this.live.delete(inputId);this.liveOwners.delete(inputId);}
+    },Math.max(0,voice.end-this.context!.currentTime)*1000+10);
+    // Browser timers do not keep the audio context alive; desktop/node test timers should not either.
+    (timer as ReturnType<typeof setTimeout>&{unref?:()=>void}).unref?.();
   }
   noteOff(trackId: string, pitch: number, inputId = trackId + ":" + pitch, force = false) {
     this.heldKeys.delete(inputId);
     const owner = this.liveOwners.get(inputId);
     if (!force && owner && this.live.has(inputId) && [...this.pedals.values()].some(p => p.trackId === owner.trackId && p.down)) return;
-    for (const voice of this.live.get(inputId) ?? []) voice.release(this.context?.currentTime ?? 0);
+    const now=this.context?.currentTime??0;
+    for (const voice of this.live.get(inputId) ?? []) {
+      if(force&&voice.start>now)voice.cancel(now);else voice.release(now);
+    }
     this.live.delete(inputId); this.liveOwners.delete(inputId);
   }
   releaseSource(prefix: string) {
+    const resets:{trackId:string;event:PerformanceEvent;at:number}[]=[];
     for (const [id, owner] of this.liveOwners) if (id.startsWith(prefix)) this.noteOff(owner.trackId, owner.pitch, id, true);
     for (const id of this.pedals.keys()) if (id.startsWith(prefix)) this.pedals.delete(id);
     for (const [id, owner] of this.liveOwners) if (!this.heldKeys.has(id)) this.noteOff(owner.trackId, owner.pitch, id);
+    const owned=[...this.ccOwners.values()],affected=new Map<string,{trackId:string;cc:number;channel:number}>();
+    for(const control of owned)if(control.source.startsWith(prefix)) {
+      const key=`${control.trackId}:${control.event.channel}:${control.event.cc}`;
+      affected.set(key,{trackId:control.trackId,cc:control.event.cc!,channel:control.event.channel!});
+    }
+    for(const [key,control]of this.ccOwners)if(control.source.startsWith(prefix))this.ccOwners.delete(key);
+    const remaining=[...this.ccOwners.values()],restoreAll=new Map<string,{trackId:string;cc:number}>();
+    for(const {trackId,cc,channel}of affected.values()) {
+      const current=owned.filter(c=>c.trackId===trackId&&c.event.cc===cc&&c.event.channel===channel).sort((a,b)=>b.sequence-a.sequence)[0];
+      if(!current?.source.startsWith(prefix))continue;
+      const fallback=remaining.filter(c=>c.trackId===trackId&&c.event.cc===cc&&c.event.channel===channel).sort((a,b)=>b.sequence-a.sequence)[0];
+      const event:PerformanceEvent={tick:0,type:"controlChange",cc,channel,value:fallback?.event.value??0};
+      const at=this.applyControlEvent(trackId,event,this.context?.currentTime??0,fallback?.source??`released:${prefix}`);
+      resets.push({trackId,event,at});
+      restoreAll.set(`${trackId}:${cc}`,{trackId,cc});
+    }
+    // A channel reset also touches cc:all; restore the most recent surviving input.
+    for(const {trackId,cc}of restoreAll.values()) {
+      const latest=remaining.filter(c=>c.trackId===trackId&&c.event.cc===cc).sort((a,b)=>b.sequence-a.sequence)[0];
+      if(latest){const at=this.applyControlEvent(trackId,latest.event,this.context?.currentTime??0,latest.source);resets.push({trackId,event:{...latest.event},at});}
+    }
+    return resets;
   }
   async preview(trackId: string, pitches: number[], duration = 0.9, identity = JSON.stringify([trackId,pitches,duration])) {
     return this.previewNotes(trackId, pitches.map((pitch,index) => ({ trackId,pitch,tick:0,duration:secondsToTick(duration,this.project.tempo),velocity:0.68,index })), identity);
@@ -743,6 +885,8 @@ export class StudioEngine {
       if (!track) { this.pause(); return; }
       this.activity = "audition";
       const start = this.context!.currentTime + 0.04;
+      this.previewModOrigin=start;
+      configureModulation(this.graph,this.previewProject(),this.previewModulationEvents(),start);
       const ordered = [...notes].sort((a,b) => a.tick-b.tick);
       const end = start + tickToSeconds(Math.max(0,...notes.map(n=>n.tick+n.duration)),project.tempo);
       let cursor = 0;
@@ -754,13 +898,14 @@ export class StudioEngine {
           const note = ordered[cursor++];
           const at=Math.max(now,start+tickToSeconds(note.tick,project.tempo)),duration=tickToSeconds(note.duration,project.tempo);
           const voice=makeVoice(this.graph,currentTrack,instrumentFor(this.project,currentTrack),note,at,duration,this.buffers);
-          this.applyBend(voice,currentTrack,at);this.voices.push(voice);this.previewVoices.set(voice,{note,at,duration,settings:JSON.stringify(currentTrack.sound)});
+          this.applyBend(voice,currentTrack,at);this.voices.push(voice);this.previewVoices.set(voice,{note,at,duration,settings:voiceSignature(currentTrack)});
         }
         this.voices = this.voices.filter(v=>v.end>now);
         for(const voice of this.previewVoices.keys())if(voice.end<=now)this.previewVoices.delete(voice);
         this.applyLiveControls();
+        scheduleModulation(this.graph,Math.max(now,start),now+.16,this.voices,true);
         if (now >= end) this.activity = "tail";
-        if (now >= end + Math.max(this.project.master.reverbDecay*2,4)) { this.pause(); return; }
+        if (now >= Math.max(end+Math.max(this.project.master.reverbDecay*2,4),...this.voices.map(v=>v.end))) { this.pause(); return; }
         this.emit();
       };
       this.previewTimer = setInterval(()=>{ try { schedule(); } catch(error) { if(token===this.epoch) { this.pause(); this.onStatus(error instanceof Error?error.message:"Preview failed. Retry the sound."); } } },25); schedule();
@@ -780,6 +925,26 @@ export class StudioEngine {
     fromArrangement = false,
     source = "performance",
   ) {
+    if(!fromArrangement&&event.type==="controlChange") {
+      this.ccOwners.set(`${trackId}:${event.channel}:${event.cc}:${source}`,{trackId,event:{...event},source,sequence:this.controlSequence++});
+    }
+    if(!fromArrangement&&controlEventId({...event,seconds:0}))at=this.applyControlEvent(trackId,event,at,source);
+    return this.applyExpression(trackId,event,at,fromArrangement,source);
+  }
+  private applyControlEvent(trackId:string,event:PerformanceEvent,at:number,source:string) {
+    if(this.context&&(event.type==="macro"||event.type==="controlChange")) {
+      const clock=this.liveGraph?.modulation??(this.previewId?this.graph?.modulation:undefined);
+      at=musicalControlTime(effectiveControlTime(at,this.context.currentTime,this.context.sampleRate),this.project.tempo,
+        clock?.audioOrigin??this.liveModOrigin,clock?.songOrigin??this.liveModSongOrigin);
+    }
+    this.liveModEvents.push({...event,trackId,at,source});
+    for(const graph of [this.liveGraph,this.previewId?this.graph:null])if(graph) {
+      modulationEvent(graph,trackId,event,at);
+      scheduleModulation(graph,at,at+.16,graph===this.liveGraph?[...this.liveModVoices]:this.voices,true);
+    }
+    return at;
+  }
+  private applyExpression(trackId:string,event:PerformanceEvent,at:number,fromArrangement:boolean,source:string) {
     if (
       fromArrangement &&
       event.type === "pitchBend" &&
@@ -787,7 +952,7 @@ export class StudioEngine {
         .find((t) => t.id === trackId)
         ?.automation.some((l) => l.parameter === "pitchBend" && l.points.length)
     )
-      return;
+      return at;
     const control = this.controls.get(trackId) ?? {
       bend: 0,
       expression: 1,
@@ -827,6 +992,7 @@ export class StudioEngine {
       for (const [id, owner] of this.liveOwners) if (owner.trackId === trackId && !this.heldKeys.has(id)) this.noteOff(trackId,owner.pitch,id);
     }
     if(!fromArrangement) this.controls.set(trackId, control);
+    return at;
   }
   meter() {
     if (!this.analyser) return { master: 0, tracks: {} as Record<string, number> };
@@ -858,7 +1024,7 @@ export class StudioEngine {
       duration =
         durationOverride ??
         tickToSeconds(projectEnd(project), project.tempo) +
-          Math.max(project.master.reverbDecay * 2, 4);
+          Math.max(project.master.reverbDecay * 2, 4,...project.tracks.map(t=>t.modulation?.enabled&&t.modulation.routes.some(r=>r.enabled&&r.target==="voice.release")?15:0));
     const native = new OfflineAudioContext(
         2,
         Math.ceil(duration * 48000),
@@ -866,7 +1032,9 @@ export class StudioEngine {
       ),
       offline = new Tone.OfflineContext(native),
       graph = makeGraph(native, project, onlyTrack);
+    configureModulation(graph,project,song.events.map(e=>({...e,seconds:tickToSeconds(e.tick,project.tempo)})),0);
     const tracks = new Map(project.tracks.map((t) => [t.id, t]));
+    let renderVoices:Voice[]=[],modulationUntil=0;
     let noteIndex = 0,
       audioIndex = 0;
     const title = onlyTrack ? tracks.get(onlyTrack)?.name : "your song";
@@ -943,6 +1111,7 @@ export class StudioEngine {
           this.buffers,
         );
         bend(voice, track, note.tick);
+        if(graph.modulation?.tracks.has(track.id))renderVoices.push(voice);
       }
       while (audioIndex < song.audio.length) {
         const clip = song.audio[audioIndex],
@@ -964,6 +1133,8 @@ export class StudioEngine {
           clip.region.fadeOutSec,
         );
       }
+      scheduleModulation(graph,modulationUntil,Math.min(limit,duration),renderVoices,true);
+      modulationUntil=Math.min(limit,duration);renderVoices=renderVoices.filter(v=>v.end>modulationUntil);
     };
     try {
       for (const track of project.tracks)

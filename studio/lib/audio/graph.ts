@@ -9,6 +9,8 @@ import {
 import { randomGenerator } from "../music/generate";
 import { tickToSeconds } from "../music/project";
 import { automationValue, type ScheduledNote } from "./compile";
+import { applyModTarget, compileModulation, ModulationEvaluator, MODULATION_HZ, type ModControlEvent, type ModVoice } from "./modulation";
+import { MOD_TARGETS, type ModTarget } from "../music/modulation-types";
 
 export interface Voice {
   start: number;
@@ -22,6 +24,10 @@ export interface Voice {
   release: (time: number) => void;
   cancel: (time: number) => void;
   updateSound?: (track: Track, time: number) => void;
+  output?: GainNode;
+  modulation?: { context: ModVoice; pitch: ConstantSourceNode; level: GainNode;
+    filter?: BiquadFilterNode; fmMod?: OscillatorNode; fmAmount?: GainNode; sound: Track["sound"]; frequency: number; activeTargets: Set<string> };
+  enableModulation?: () => void;
 }
 export interface TrackGraph {
   input: GainNode;
@@ -39,6 +45,7 @@ export interface TrackGraph {
   lfo: OscillatorNode;
   lfoGain: GainNode;
   nodes: AudioNode[];
+  matrixGain?: GainNode;
 }
 export interface SongGraph {
   context: BaseAudioContext;
@@ -49,8 +56,179 @@ export interface SongGraph {
   noise: AudioBuffer;
   nodes: AudioNode[];
   dispose: () => void;
+  modulation?: { project: ProjectDocument; audioOrigin: number; songOrigin: number;
+    tracks: Map<string,{track:Track;evaluator:ModulationEvaluator;signature:string}> };
 }
 const dbGain = (db: number) => Math.pow(10, db / 20);
+interface ModulationKnot { at: number; value: number }
+const modulationCurves=new WeakMap<AudioParam,ModulationKnot[]>();
+function curveValue(curve:ModulationKnot[],at:number) {
+  let low=0,high=curve.length;
+  while(low<high){const mid=(low+high)>>>1;if(curve[mid].at<=at+1e-9)low=mid+1;else high=mid;}
+  const before=curve[Math.max(0,low-1)],after=curve[low];
+  return after?before.value+(after.value-before.value)*clamp((at-before.at)/(after.at-before.at||1),0,1):before.value;
+}
+/** Preserve already submitted ramps, including ramps on unrelated live controls. */
+function submitModulationCurve(param:AudioParam,curve:ModulationKnot[],reset:boolean) {
+  if(!curve.length)return;
+  const prior=modulationCurves.get(param),start=curve[0].at;
+  let replace=0,append=false;
+  if(prior?.length&&start>=prior[0].at-1e-9&&start<=prior[prior.length-1].at+1e-9) {
+    const end=prior[prior.length-1].at;
+    const changed=curve.findIndex(point=>point.at<=end+1e-9&&
+      Math.abs(curveValue(prior,point.at)-point.value)>1e-10*Math.max(1,Math.abs(point.value)));
+    if(changed<0){replace=curve.findIndex(point=>point.at>end+1e-9);append=true;}
+    else replace=Math.max(0,changed-1);
+    if(replace<0)return;
+  }
+  const submitted=curve.slice(replace),first=submitted[0];
+  if(!append) {
+    if(reset)param.cancelAndHoldAtTime(first.at);
+    param.setValueAtTime(first.value,first.at);
+  } else param.linearRampToValueAtTime(first.value,first.at);
+  for(const point of submitted.slice(1))param.linearRampToValueAtTime(point.value,point.at);
+  const history=prior?.filter(point=>point.at<first.at-1e-9)??[];
+  const combined=history.concat(submitted);
+  // Each graph submits short lookahead windows; retain enough history for offline windows too.
+  modulationCurves.set(param,combined.length>1024?combined.slice(-1024):combined);
+}
+
+/** Bind the exact same evaluator to transport, audition, live input and offline graphs. */
+export function configureModulation(graph:SongGraph,project:ProjectDocument,events:(ModControlEvent&{trackId:string})[],
+  audioOrigin:number,songOrigin=0) {
+  const previous=graph.modulation;
+  const tracks=new Map<string,{track:Track;evaluator:ModulationEvaluator;signature:string}>();
+  for(const track of project.tracks) {
+    const strip=graph.tracks.get(track.id);if(!strip)continue;
+    if(!track.modulation?.enabled) {
+      if(strip.matrixGain){modulationCurves.delete(strip.matrixGain.gain);strip.matrixGain.gain.cancelScheduledValues(graph.context.currentTime);strip.matrixGain.gain.setValueAtTime(1,graph.context.currentTime);}
+      continue;
+    }
+    const lanes=track.automation.filter(l=>l.points.length).map(l=>({id:l.parameter,points:l.points.map(p=>({seconds:tickToSeconds(p.tick,project.tempo),value:p.value}))}));
+    const trackEvents=events.filter(e=>e.trackId===track.id);
+    const signature=JSON.stringify([track.modulation,project.tempo,trackEvents,lanes]);
+    const prior=previous?.tracks.get(track.id);
+    const evaluator=prior?.signature===signature?prior.evaluator:new ModulationEvaluator(compileModulation(track.modulation,track.id,project.tempo,trackEvents,lanes));
+    tracks.set(track.id,{track,evaluator,signature});
+    if(!strip.matrixGain) {
+      const level=graph.context.createGain();level.gain.value=1;
+      strip.volume.disconnect();strip.volume.connect(level);level.connect(strip.pan);
+      strip.matrixGain=level;strip.nodes.push(level);graph.nodes.push(level);
+    }
+    if(!track.modulation.routes.some(r=>r.enabled&&r.target==="track.gain")){
+      modulationCurves.delete(strip.matrixGain.gain);
+      strip.matrixGain.gain.cancelScheduledValues(graph.context.currentTime);strip.matrixGain.gain.setValueAtTime(1,graph.context.currentTime);
+    }
+  }
+  graph.modulation={project,audioOrigin,songOrigin,tracks};
+}
+export function modulationEvent(graph:SongGraph,trackId:string,event:Omit<ModControlEvent,"seconds">,at:number) {
+  const mod=graph.modulation;mod?.tracks.get(trackId)?.evaluator.addEvent({...event,seconds:Math.max(0,at-mod.audioOrigin+mod.songOrigin)});
+}
+function restoreVoiceTarget(voice:Voice,target:string,at:number,graph:SongGraph) {
+  const binding=voice.modulation;if(!binding)return;
+  const sound=binding.sound;
+  const set=(param:AudioParam,value:number)=>{modulationCurves.delete(param);param.cancelScheduledValues(at);param.setValueAtTime(value,at);};
+  if(target==="voice.pitch")set(binding.pitch.offset,0);
+  if(target==="voice.gain")set(binding.level.gain,1);
+  if(target==="voice.fmRatio"&&binding.fmMod)set(binding.fmMod.frequency,sound.fmRatio*binding.frequency);
+  if(target==="voice.fmIndex"&&binding.fmAmount)set(binding.fmAmount.gain,sound.fmIndex*binding.frequency);
+  if(target==="voice.resonance"&&binding.filter)set(binding.filter.Q,sound.resonance);
+  if(target==="voice.cutoff"&&binding.filter) {
+    const onset=(graph.modulation?.audioOrigin??0)+binding.context.start-(graph.modulation?.songOrigin??0);
+    const age=Math.max(0,at-onset),attack=Math.max(.0001,sound.attack),decay=Math.max(.0001,sound.decay);
+    const initial=1-sound.filterEnvelope*.85,settled=1-sound.filterEnvelope*.65;
+    const phase=age<attack?initial+(1-initial)*age/attack:age<attack+decay?1+(settled-1)*(age-attack)/decay:settled;
+    set(binding.filter.frequency,Math.max(20,sound.cutoff*phase));
+    if(onset+attack>at)binding.filter.frequency.linearRampToValueAtTime(sound.cutoff,onset+attack);
+    if(onset+attack+decay>at)binding.filter.frequency.linearRampToValueAtTime(Math.max(20,sound.cutoff*settled),onset+attack+decay);
+  }
+}
+function modulationValue(evaluator:ModulationEvaluator,target:string,seconds:number,base:(seconds:number)=>number,
+  convert:(value:number)=>number=(value)=>value,voice?:ModVoice) {
+  let left=Math.floor(seconds*MODULATION_HZ+1e-8)/MODULATION_HZ;
+  const right=left+1/MODULATION_HZ;
+  if(voice&&voice.start>left)left=voice.start;
+  // One control frame of interpolation latency keeps live input causal: an unknown
+  // controller change can never alter samples that have already reached the speakers.
+  const value=(at:number)=>convert(applyModTarget(target,base(at),evaluator.sample(Math.max(voice?.start??0,at-1/MODULATION_HZ),voice).targets[target]??0));
+  if(seconds<=left+1e-9)return value(left);
+  // Window edges lie on the same native parameter ramp as a single complete pass.
+  return value(left)+(value(right)-value(left))*clamp((seconds-left)/(right-left),0,1);
+}
+export function scheduleModulation(graph:SongGraph,from:number,to:number,voices:Voice[]=[],reset=false) {
+  const mod=graph.modulation;if(!mod||(!mod.tracks.size&&!voices.some(voice=>voice.modulation)))return;
+  from=Math.max(0,from);to=Math.max(from,to);
+  const points:number[]=[from];
+  const songFrom=Math.max(0,from-mod.audioOrigin+mod.songOrigin);
+  for(let frame=Math.floor(songFrom*MODULATION_HZ)+1;;frame++) {
+    const at=mod.audioOrigin+frame/MODULATION_HZ-mod.songOrigin;if(at>=to-1e-9)break;points.push(at);
+  }
+  if(to>from)points.push(to);
+  const curves=new Map<AudioParam,ModulationKnot[]>();
+  const schedule=(param:AudioParam,value:number,at:number)=>{
+    const curve=curves.get(param)??[];curve.push({at,value});curves.set(param,curve);
+  };
+  for(const [id,binding]of mod.tracks) {
+    const {track,evaluator}=binding,strip=graph.tracks.get(id)!;
+    const active=new Set<string>(track.modulation!.routes.filter(r=>r.enabled).map(r=>r.target));
+    for(let i=0;i<points.length;i++) {
+      const at=points[i],seconds=Math.max(0,at-mod.audioOrigin+mod.songOrigin);
+      for(const target of active) {
+        if(!target.startsWith("track."))continue;
+        const auto=(parameter:Parameters<typeof automationValue>[1],fallback:number)=>(time:number)=>automationValue(track,parameter,time*mod.project.tempo/60*960,fallback);
+        const mapping:Record<string,{param:AudioParam;base:(time:number)=>number;convert?:(v:number)=>number}>={
+          "track.cutoff":{param:strip.filter.frequency,base:auto("cutoff",track.sound.cutoff)},
+          "track.resonance":{param:strip.filter.Q,base:()=>track.sound.resonance},
+          "track.gain":{param:strip.matrixGain!.gain,base:()=>0,convert:dbGain},
+          "track.pan":{param:strip.pan.pan,base:auto("pan",track.pan)},
+          "track.low":{param:strip.low.gain,base:()=>track.low},"track.mid":{param:strip.mid.gain,base:()=>track.mid},
+          "track.high":{param:strip.high.gain,base:()=>track.high},
+          "track.reverb":{param:strip.reverb.gain,base:auto("reverb",track.reverb)},
+          "track.delay":{param:strip.delay.gain,base:auto("delay",track.delay)},
+        };
+        const targetBinding=mapping[target];if(!targetBinding)continue;
+        schedule(targetBinding.param,modulationValue(evaluator,target,seconds,targetBinding.base,targetBinding.convert),at);
+      }
+    }
+  }
+  for(const voice of voices) {
+    const binding=mod.tracks.get(voice.trackId);
+    if(!binding) {
+      if(voice.modulation){for(const target of voice.modulation.activeTargets)restoreVoiceTarget(voice,target,from,graph);voice.modulation.activeTargets.clear();}
+      continue;
+    }
+    voice.enableModulation?.();const targets=voice.modulation;if(!targets)continue;
+    const {track,evaluator}=binding;
+    const active=new Set<string>(track.modulation!.routes.filter(r=>r.enabled).map(r=>r.target));
+    for(const target of targets.activeTargets)if(!active.has(target))restoreVoiceTarget(voice,target,from,graph);
+    targets.activeTargets=new Set([...active].filter(t=>t.startsWith("voice.")));
+    if(!active.has("voice.pitch")&&!modulationCurves.has(targets.pitch.offset))targets.pitch.offset.setValueAtTime(0,from);
+    if(!active.has("voice.gain")&&!modulationCurves.has(targets.level.gain))targets.level.gain.setValueAtTime(1,from);
+    const voicePoints=[...new Set(points.concat(voice.start>=from&&voice.start<=to?[voice.start]:[]))].sort((a,b)=>a-b);
+    for(let i=0;i<voicePoints.length;i++) {
+      const at=voicePoints[i];if(at<voice.start-1e-9||at>=voice.end)continue;
+      const seconds=Math.max(0,at-mod.audioOrigin+mod.songOrigin);
+      for(const target of active) {
+        const descriptor=MOD_TARGETS[target as keyof typeof MOD_TARGETS];
+        if(!descriptor||descriptor.scope!=="voice"||descriptor.noteOnOnly)continue;
+        const sound=targets.sound;
+        const attack=Math.max(.0001,sound.attack),decay=Math.max(.0001,sound.decay);
+        const initial=1-sound.filterEnvelope*.85,settled=1-sound.filterEnvelope*.65;
+        const envelope=(time:number)=>{const elapsed=Math.max(0,time-targets.context.start);return elapsed<attack?initial+(1-initial)*elapsed/attack:elapsed<attack+decay?1+(settled-1)*(elapsed-attack)/decay:settled;};
+        const mappings:Partial<Record<ModTarget,{param:AudioParam;base:(time:number)=>number;convert?:(v:number)=>number}>>={
+          "voice.pitch":{param:targets.pitch.offset,base:()=>0},"voice.gain":{param:targets.level.gain,base:()=>0,convert:dbGain},
+          ...(targets.filter?{"voice.cutoff":{param:targets.filter.frequency,base:(time:number)=>Math.max(20,sound.cutoff*envelope(time))},"voice.resonance":{param:targets.filter.Q,base:()=>sound.resonance}}:{}),
+          ...(targets.fmMod?{"voice.fmRatio":{param:targets.fmMod.frequency,base:()=>sound.fmRatio,convert:(v:number)=>v*targets.frequency}}:{}),
+          ...(targets.fmAmount?{"voice.fmIndex":{param:targets.fmAmount.gain,base:()=>sound.fmIndex,convert:(v:number)=>v*targets.frequency}}:{}),
+        };
+        const targetBinding=mappings[target as ModTarget];if(!targetBinding)continue;
+        schedule(targetBinding.param,modulationValue(evaluator,target,seconds,targetBinding.base,targetBinding.convert,targets.context),at);
+      }
+    }
+  }
+  for(const [param,curve]of curves)submitModulationCurve(param,curve,reset);
+}
 export function makeGraph(
   context: BaseAudioContext,
   project: ProjectDocument,
@@ -226,6 +404,7 @@ export function applyTrack(
   const solo = project.tracks.some((t) => t.solo && !t.mute);
   const muted = track.mute || (!onlyTrack && solo && !track.solo);
   const set = (param: AudioParam, value: number) => {
+    modulationCurves.delete(param);
     param.cancelScheduledValues(time);
     if(immediately)param.setValueAtTime(value,time);
     else param.setTargetAtTime(value, time, 0.012);
@@ -333,6 +512,7 @@ export function scheduleAutomation(
             : lane.parameter === "expression"
               ? 1
               : 0;
+    modulationCurves.delete(param);
     param.cancelScheduledValues(audioStart);
     param.setValueAtTime(
       convert(automationValue(track, lane.parameter, startTick, defaultValue)),
@@ -403,10 +583,24 @@ export function makeVoice(
   duration: number | undefined,
   buffers: Map<string, AudioBuffer>,
   offset = 0,
+  motion?: {songStart?:number;key?:string},
 ): Voice {
   const context = graph.context,
     tg = graph.tracks.get(track.id);
   if (!tg) throw new Error("This track is unavailable.");
+  const songStart=motion?.songStart??Math.max(0,time-(graph.modulation?.audioOrigin??time)+(graph.modulation?.songOrigin??0)-offset);
+  const noteId=(note as ScheduledNote&{id?:string}).id;
+  const modContext:ModVoice={key:motion?.key??(noteId?`${noteId}:${note.tick}`:`${note.index}:${note.tick}:${note.pitch}`),pitch:note.pitch,velocity:note.velocity,start:songStart,
+    ...(duration!==undefined?{release:songStart+duration+offset}:{})};
+  let onset=graph.modulation?.tracks.get(track.id)?.evaluator.sample(songStart,modContext);
+  const onsetSound=(settings:Track["sound"])=>{
+    if(!onset)return settings;
+    const sound={...settings};
+    for(const key of ["attack","decay","sustain","release"] as const)
+      if(onset.targets[`voice.${key}`]!==undefined)sound[key]=applyModTarget(`voice.${key}`,settings[key],onset.targets[`voice.${key}`]);
+    return sound;
+  };
+  if(onset)track={...track,sound:onsetSound(track.sound)};
   const gain = context.createGain(),
     sources: (AudioBufferSourceNode | OscillatorNode)[] = [],
     bend: AudioParam[] = [];
@@ -570,7 +764,11 @@ export function makeVoice(
   for (const source of sources)
     source.onended = () => {
       source.disconnect();
-      if (++ended === sources.length) gain.disconnect();
+      if (++ended === sources.length) {
+        gain.disconnect();voice.modulation?.level.disconnect();
+        if(voice.modulation){try{voice.modulation.pitch.stop();}catch{}voice.modulation.pitch.disconnect();}
+        graph.modulation?.tracks.get(track.id)?.evaluator.forgetVoice(voice.modulation?.context.key??modContext.key);
+      }
     };
   const voice: Voice = {
     start: time,
@@ -584,9 +782,21 @@ export function makeVoice(
     sources,
     bend,
     baseBend: bend.map((p) => p.value),
+    enableModulation:()=>{
+      if(voice.modulation)return;
+      const level=context.createGain(),pitch=context.createConstantSource();
+      level.gain.value=1;pitch.offset.value=0;
+      gain.disconnect();gain.connect(level);level.connect(graph.tracks.get(track.id)!.input);
+      for(const param of bend)pitch.connect(param);
+      pitch.start(Math.max(context.currentTime,time));
+      voice.output=level;
+      voice.modulation={context:modContext,pitch,level,filter:synthFilter,fmMod,fmAmount,sound:track.sound,frequency:440*Math.pow(2,(note.pitch-69)/12),activeTargets:new Set()};
+    },
     updateSound: (next, at) => {
       if (percussion || at >= voice.end) return;
-      const settings=next.sound, when=Math.max(at,time), elapsed=Math.max(0,when-time);
+      if(time>at)onset=graph.modulation?.tracks.get(next.id)?.evaluator.sample(songStart,voice.modulation?.context??modContext);
+      const settings=onsetSound(next.sound), when=Math.max(at,time), elapsed=Math.max(0,when-time);
+      next={...next,sound:settings};if(voice.modulation)voice.modulation.sound=settings;
       release=settings.release;
       for(let i=0;i<bend.length;i++){
         const base=waveformOscillators.length?(i-1)*settings.detune:fmMod&&i===1?0:settings.detune;
@@ -594,8 +804,9 @@ export function makeVoice(
         voice.baseBend[i]=base;bend[i].setTargetAtTime(base+expressionBend,when,.008);
       }
       if(settings.algorithm===sound.algorithm)for(const osc of waveformOscillators)osc.type=settings.wave;
-      if(fmMod&&fmAmount){const frequency=440*Math.pow(2,(note.pitch-69)/12);fmMod.frequency.setTargetAtTime(frequency*settings.fmRatio,when,.012);fmAmount.gain.setTargetAtTime(frequency*settings.fmIndex,when,.012);}
+      if(fmMod&&fmAmount){modulationCurves.delete(fmMod.frequency);modulationCurves.delete(fmAmount.gain);const frequency=440*Math.pow(2,(note.pitch-69)/12);fmMod.frequency.setTargetAtTime(frequency*settings.fmRatio,when,.012);fmAmount.gain.setTargetAtTime(frequency*settings.fmIndex,when,.012);}
       if(synthFilter){
+        modulationCurves.delete(synthFilter.Q);modulationCurves.delete(synthFilter.frequency);
         const attack=Math.max(.0001,settings.attack),decay=Math.max(.0001,settings.decay);
         const initial=1-settings.filterEnvelope*.85,settled=1-settings.filterEnvelope*.65;
         const phase=elapsed<attack?initial+(1-initial)*elapsed/attack:elapsed<attack+decay?1+(settled-1)*(elapsed-attack)/decay:settled;
@@ -616,6 +827,7 @@ export function makeVoice(
       }
     },
     cancel: (at) => {
+      if(voice.modulation)voice.modulation.context.release=at-(graph.modulation?.audioOrigin??0)+(graph.modulation?.songOrigin??0);
       gain.gain.cancelAndHoldAtTime(at);
       gain.gain.linearRampToValueAtTime(0, at + 0.02);
       for (const source of sources) { try { source.stop(at + 0.02); } catch {} }
@@ -623,6 +835,7 @@ export function makeVoice(
     },
     release: (at: number) => {
       const t = Math.max(at, context.currentTime);
+      if(voice.modulation)voice.modulation.context.release=t-(graph.modulation?.audioOrigin??0)+(graph.modulation?.songOrigin??0);
       gain.gain.cancelScheduledValues(t);
       gain.gain.setTargetAtTime(0.00001, t, Math.max(0.008, release / 4));
       for (const source of sources) {
@@ -633,6 +846,7 @@ export function makeVoice(
       voice.end = t + release + 0.05;
     },
   };
+  if(graph.modulation?.tracks.has(track.id))voice.enableModulation?.();
   return voice;
 }
 export function scheduleAudio(

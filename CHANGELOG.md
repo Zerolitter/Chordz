@@ -1,5 +1,14 @@
 # Changelog
 
+## Studio Modulator — 2026-09-30
+
+- Selected-track Sound rack with eight sources, 32 routes, four named macros, acyclic source routing, MIDI CC assignment, local presets and seeded variation locks.
+- Staged A/B and reference recipes with Apply/Cancel, grouped Undo and protection against audition drafts entering recovery.
+- Shared deterministic modulation for live input, audition, arrangements and offline audio exports; preserved legacy dry behavior when absent or bypassed.
+- Chord movement shared by generation and live arpeggiation, with separate Enable/Hold, editable captured output, count-in/seek/loop handling and input cleanup.
+- Local bounded MP3/WAV reference analysis, cancellable independent FFT worker, confidence/manual corrections, owner-scoped cache and editable curve recipes.
+- Version 1 data compatibility, identified macro/CC events and older-client omission protection. Existing private storage, exports and Windows wrapper retained.
+
 ## Studio UI upgrade — 2026-09-30
 
 - Palette C charcoal surfaces, cream text, amber accents, instrument-coloured rails and blue selection, with compact responsive workspace and persistent transport.

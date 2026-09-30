@@ -1,6 +1,7 @@
 import { PPQ, uid, clamp, type Clip, type ProjectDocument } from "./types";
 import { randomGenerator } from "./generate";
 import { tickToSeconds } from "./project";
+import { performanceKey } from "./performance";
 
 export interface History {
   present: ProjectDocument;
@@ -113,15 +114,9 @@ export function splitClip(
       .filter((e) => e.tick >= split)
       .map((e) => ({ ...e, tick: e.tick - split })),
   };
-  for (const type of [
-    "sustain",
-    "pitchBend",
-    "modulation",
-    "expression",
-    "pressure",
-  ] as const) {
+  for (const key of new Set(events.filter(e=>e.type!=="noteOn"&&e.type!=="noteOff").map(performanceKey))) {
     const previous = events
-      .filter((e) => e.type === type && e.tick < split)
+      .filter((e) => performanceKey(e) === key && e.tick < split)
       .sort((a, b) => b.tick - a.tick)[0];
     if (previous) right.events.unshift({ ...previous, tick: 0 });
   }
