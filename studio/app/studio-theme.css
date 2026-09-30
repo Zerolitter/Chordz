@@ -23,7 +23,8 @@ input[type="range"] { accent-color: var(--amber); }
 ::-webkit-scrollbar-thumb { background: #3d3f3e; border-radius: 5px; border: 2px solid var(--background); }
 .studio-shell { height: 100dvh; min-height: 0; overflow: hidden; }
 .studio-header { height: 50px; min-height: 50px; flex-shrink: 0; background: var(--panel); padding: 0 16px; gap: 16px; }
-.brand { font-size: 27px; letter-spacing: -1px; gap: 0; }
+.brand { font-size: 27px; letter-spacing: -1px; gap: 8px; }
+.brand > svg { width: 22px; height: 24px; flex-shrink: 0; }
 .header-divider { height: 20px; flex-shrink: 0; }
 .project-heading { min-width: 110px; }
 .project-heading input { font-size: 14px; font-weight: 600; }

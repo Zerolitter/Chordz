@@ -12,7 +12,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { StudioProvider, useStudio, type StudioUser } from "./use-studio";
-import { IconButton, Modal } from "./primitives";
+import { BrandMark, IconButton, Modal } from "./primitives";
 import { WritePanel } from "./write-panel";
 import { ArrangePanel } from "./arrange-panel";
 import { SoundPanel } from "./sound-panel";
@@ -60,6 +60,7 @@ function StudioShell() {
       <h1 className="sr-only">Chordz music studio</h1>
       <header className="studio-header">
         <Link href="/" className="brand">
+          <BrandMark />
           <span>
             chordz<span className="brand-dot">.</span>
           </span>
