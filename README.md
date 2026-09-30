@@ -2,7 +2,7 @@
 
 Windows desktop music studio for songwriting, arranging, recording and mixing.
 
-The desktop app opens the live [Chordz Studio](https://www.chordz.zerolitter.net) in a dedicated WebView2 window. It uses the existing studio's piano, chord canvas, orchestral instruments, synthesizers, multitrack arrangement, microphone recording, private cloud projects and WAV/MIDI exports.
+The desktop app opens the live [Chordz Studio](https://www.chordz.zerolitter.net) in a dedicated WebView2 window. It provides piano, chord editing, orchestral instruments, synthesizers, multitrack arrangement, microphone recording, private cloud projects and WAV/MP3/MIDI exports.
 
 **Version 0.1.0 is an online desktop client. Internet access is required.** The complete studio source is included in `studio/` for development; it is not bundled as an offline server.
 
@@ -31,7 +31,7 @@ The hosted studio receives no native command permissions. Navigation stays withi
 
 ## Studio source
 
-`studio/` contains the preserved Chordz Studio source snapshot from commit a682ed6, including the audio engine, browser UI, server, migrations, tests and licensed factory samples. It retains the existing Site identity. Publishing that source remains a separate Sites operation.
+`studio/` contains Chordz Studio, continued from source snapshot a682ed6 and reconciled with the existing published Site before the UI upgrade. The charcoal/cream/amber interface includes device-local Appearance settings, a collapsible performance dock, draggable arrangement clips, interactive automation and stereo MP3 export. The audio engine, private project APIs, version 1 document format and Windows wrapper remain compatible. It retains the existing Site identity; publication uses the matching Studio source.
 
 ```powershell
 cd studio

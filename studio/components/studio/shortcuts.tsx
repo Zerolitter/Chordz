@@ -51,7 +51,7 @@ export function Shortcuts(){
   },[]);
   return <><button className="secondary-button" onClick={()=>setOpen(true)} aria-label="Keyboard shortcuts"><Keyboard size={16}/><span>Shortcuts</span></button>
     <Modal open={open} onClose={()=>{setOpen(false);setCapture(null);setError("");}} title="Keyboard shortcuts" description="Saved in this browser. Stop all sound remains available while typing.">
-      <button className="secondary-button" onClick={s.stop}><Square size={14}/>Stop all sound</button>
+      <button className="secondary-button" data-edit-policy="bypass" onClick={s.stop}><Square size={14}/>Stop all sound</button>
       <details open><summary>Transport and editing bindings</summary><div className="shortcut-list">{(Object.keys(ACTION_LABELS) as ShortcutAction[]).map(action=><div className="shortcut-row" key={action}><span>{ACTION_LABELS[action]}</span><button className="secondary-button" disabled={action==="stop"} onClick={()=>{setCapture(action);setError("");s.releaseSource("computer:");}}>{capture===action?"Press shortcut · Esc cancels":bindingLabel(prefs.bindings[action])}</button>{action!=="stop"&&<button className="text-button" aria-label={"Clear "+ACTION_LABELS[action]+" shortcut"} onClick={()=>save({...prefs,bindings:{...prefs.bindings,[action]:null}})}>Clear</button>}</div>)}</div></details>
       {error&&<p role="alert">{error}</p>}<button className="secondary-button" onClick={()=>{save(structuredClone(DEFAULT_SHORTCUTS));setCapture(null);setError("");}}>Reset shortcuts</button>
     </Modal></>;

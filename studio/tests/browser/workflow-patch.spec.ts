@@ -17,6 +17,7 @@ test("workspace preferences, selected phrases and responsive layout survive navi
 test("accessible piano releases after focus changes and ignores held-key repeats",async({page})=>{
   await page.goto("/");await expect(page.getByLabel("Song title")).toBeEnabled();
   for(const key of ["Play C3","Play C#3"]){
+    if(await page.getByRole("button",{name:"Performance dock",exact:true}).getAttribute("aria-expanded")==="false")await page.getByRole("button",{name:"Performance dock",exact:true}).click();
     const button=page.getByRole("button",{name:key,exact:true});await button.focus();await page.keyboard.down("Enter");await expect(button).toHaveClass(/held/);
     await page.keyboard.down("Enter");await expect(button).toHaveClass(/held/);
     await page.getByLabel("Song title").focus();await page.keyboard.up("Enter");await expect(button).not.toHaveClass(/held/);

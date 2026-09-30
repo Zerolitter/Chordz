@@ -3,6 +3,7 @@ import {DraftInput} from "./draft-field";
 import { useEffect, useState } from "react";
 import { useStudio } from "./use-studio";
 import { Meter, PanelHeading, Range } from "./primitives";
+import { trackDisplayColor } from "../../lib/client/appearance";
 
 export function MixerPanel() {
   const s = useStudio();
@@ -33,7 +34,7 @@ export function MixerPanel() {
                 (track.id === s.selectedTrackId ? "selected" : "")
               }
               key={track.id}
-              style={{ "--track-color": track.color } as React.CSSProperties}
+              style={{ "--track-color": trackDisplayColor(s.project, track) } as React.CSSProperties}
             >
               <button
                 className="channel-title"

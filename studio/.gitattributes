@@ -1,0 +1,2 @@
+# Preserve upstream licence formatting; whitespace checks apply to our source.
+public/audio/licenses/*.txt -whitespace

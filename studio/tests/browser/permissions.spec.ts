@@ -35,6 +35,7 @@ test("denied microphone and MIDI permissions leave keyboard input available", as
     /denied|Permission|allowed/i,
   );
   await page.getByRole("button", { name: "Close", exact: true }).click();
+  await page.getByRole("button", { name: "Performance dock", exact: true }).click();
   await page.getByLabel("Play C3", { exact: true }).click();
   await expect(page.locator(".piano-key.white").first()).toHaveAttribute(
     "aria-pressed",

@@ -4,6 +4,8 @@ import { PPQ, type ProjectDocument } from "../music/types";
 import { projectSchema } from "../music/schema";
 import { compileSong } from "./compile";
 
+export type ExportFormat = "wav" | "mp3" | "stems" | "midi" | "backup";
+
 export function exportMidi(project: ProjectDocument): Uint8Array {
   const midi = new Midi();
   midi.name = project.title;

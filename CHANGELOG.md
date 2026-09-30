@@ -1,5 +1,15 @@
 # Changelog
 
+## Studio UI upgrade — 2026-09-30
+
+- Palette C charcoal surfaces, cream text, amber accents, instrument-coloured rails and blue selection, with compact responsive workspace and persistent transport.
+- Device-local Appearance presets, 2–10px rails and spacing settings; track drawer below 1024px and collapsible performance controls.
+- Snapped same-track clip movement/resizing and interactive automation with one Undo per gesture and cancellation rollback.
+- Separate locally packaged MP3 encoder worker: stereo 48 kHz / 320 kbps CBR, failure cleanup and retry, with complete third-party notices.
+- Recording completion and recovery actions remain accessible while a field is invalid.
+- Next.js and its lint configuration pinned to patched 16.3.8 after the production dependency audit.
+- Existing online Windows client and installers retained. See studio/docs/VALIDATION.md for executed checks and browser/device checks still outstanding.
+
 ## 0.1.0 — 2026-09-30
 
 ### Added

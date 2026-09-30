@@ -53,6 +53,7 @@ export function Transport() {
         <IconButton
           label={state.playing ? "Pause song" : "Play song"}
           className="play-button"
+          data-playing={state.playing}
           disabled={!!s.busy || s.recording}
           onClick={() => void s.play()}
         >
@@ -62,11 +63,12 @@ export function Transport() {
             <Play size={21} fill="currentColor" />
           )}
         </IconButton>
-        <IconButton label="Stop song" onClick={s.stop}>
+        <IconButton label="Stop song" data-edit-policy="bypass" onClick={s.stop}>
           <Square size={17} fill="currentColor" />
         </IconButton>
         <IconButton
           label={s.recording ? "Finish recording" : "Start recording"}
+          data-edit-policy={s.recording ? "bypass" : undefined}
           className={"record-button " + (s.recording ? "active" : "")}
           disabled={!!s.busy}
           onClick={() => void s.beginRecording()}
@@ -101,7 +103,7 @@ export function Transport() {
           <Timer size={19} />
         </IconButton>
       </div>
-      {s.recordingPhase === "recovery-error" && <div role="alert"><span className="tiny">Take kept in memory — not saved to this device or cloud. Retry or download before closing.</span><button className="secondary-button" onClick={()=>void s.retryRecording()}>Retry take save</button><button className="secondary-button" onClick={()=>void s.downloadRecording().catch(s.report)}>Download unsaved take</button></div>}
+      {s.recordingPhase === "recovery-error" && <div role="alert" data-edit-policy="bypass"><span className="tiny">Take kept in memory — not saved to this device or cloud. Retry or download before closing.</span><button className="secondary-button" onClick={()=>void s.retryRecording()}>Retry take save</button><button className="secondary-button" onClick={()=>void s.downloadRecording().catch(s.report)}>Download unsaved take</button></div>}
       <div className="transport-position">
         <span className="mono transport-bars">
           {String(bar).padStart(3, "0")}

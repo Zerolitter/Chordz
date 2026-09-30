@@ -1,23 +1,27 @@
 "use client";
 import {DraftInput} from "./draft-field";
 import Link from "next/link";
+import { useEffect, useState, type CSSProperties } from "react";
 import {
   FolderOpen,
   Download,
   Undo2,
   Redo2,
   Cloud,
-  Upload,
+  ListMusic,
   ChevronRight,
 } from "lucide-react";
 import { StudioProvider, useStudio, type StudioUser } from "./use-studio";
-import { IconButton, BrandMark } from "./primitives";
+import { IconButton, Modal } from "./primitives";
 import { WritePanel } from "./write-panel";
 import { ArrangePanel } from "./arrange-panel";
 import { SoundPanel } from "./sound-panel";
 import { MixerPanel } from "./mixer-panel";
 import { TrackList } from "./track-list";
-import { Piano } from "./piano";
+import { PerformanceDock } from "./performance-dock";
+import { AppearanceSettings } from "./appearance-settings";
+import { usePreference } from "./use-preference";
+import { DEFAULT_APPEARANCE, isAppearance, trackDisplayColor } from "../../lib/client/appearance";
 import { Transport } from "./transport";
 import { Shortcuts } from "./shortcuts";
 import { StudioDialogs } from "./studio-dialogs";
@@ -37,12 +41,25 @@ export default function Studio({
 }
 function StudioShell() {
   const s = useStudio();
+  const [appearance, setAppearance, appearanceError] = usePreference("appearance", DEFAULT_APPEARANCE, isAppearance);
+  const [dockOpen, setDockOpen] = usePreference("performance-dock", false, (value): value is boolean => typeof value === "boolean");
+  const [tracksOpen, setTracksOpen] = useState(false);
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 1023px)");
+    const update = () => { setNarrow(media.matches); if (!media.matches) setTracksOpen(false); };
+    update(); media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  useEffect(() => {
+    for (const [name, value] of Object.entries({ "--amber": appearance.accent, "--primary": appearance.accent, "--ring": appearance.accent, "--rail-width": appearance.railWidth + "px" })) document.documentElement.style.setProperty(name, value);
+    document.documentElement.dataset.density = appearance.density;
+  }, [appearance]);
   return (
-    <main className="studio-shell" onClickCapture={e=>{const target=(e.target as HTMLElement).closest("button");if(target&&!["Undo","Redo","Stop song","Stop all sound","Finish take"].includes(target.getAttribute("aria-label")??target.textContent??"")&&!s.finishEdit()){e.preventDefault();e.stopPropagation();}}}>
+    <main className="studio-shell" data-density={appearance.density} style={{ "--rail-width": appearance.railWidth + "px", "--track-color": s.selectedTrack ? trackDisplayColor(s.project, s.selectedTrack) : appearance.accent } as CSSProperties} onClickCapture={e=>{const target=(e.target as HTMLElement).closest("button");if(target&&!target.closest('[data-edit-policy="bypass"]')&&!s.finishEdit()){e.preventDefault();e.stopPropagation();}}}>
       <h1 className="sr-only">Chordz music studio</h1>
       <header className="studio-header">
         <Link href="/" className="brand">
-          <BrandMark />
           <span>
             chordz<span className="brand-dot">.</span>
           </span>
@@ -64,9 +81,11 @@ function StudioShell() {
           </span>
         </div>
         <div className="header-actions">
+          <AppearanceSettings value={appearance} onChange={setAppearance} storageError={appearanceError} />
           <Shortcuts />
           <IconButton
             label="Undo"
+            data-edit-policy="bypass"
             disabled={!s.history.past.length || s.recording}
             onClick={() => s.dispatch({ type: "undo" })}
           >
@@ -74,6 +93,7 @@ function StudioShell() {
           </IconButton>
           <IconButton
             label="Redo"
+            data-edit-policy="bypass"
             disabled={!s.history.future.length || s.recording}
             onClick={() => s.dispatch({ type: "redo" })}
           >
@@ -88,6 +108,7 @@ function StudioShell() {
           </IconButton>
           <button
             className="secondary-button library-button"
+            data-edit-policy="bypass"
             onClick={() => {
               s.setLibraryOpen(true);
               void s.refreshLibrary();
@@ -126,11 +147,13 @@ function StudioShell() {
         </div>
       </header>
       <div className="workspace-bar">
+        <button className="secondary-button tracks-toggle" aria-label="Show tracks" onClick={() => setTracksOpen(true)}><ListMusic size={15} />Tracks</button>
         <nav aria-label="Studio workspace">
           {(["write", "arrange", "sound", "mix"] as const).map((mode, i) => (
             <button
               key={mode}
               className={s.mode === mode ? "active" : ""}
+              aria-label={"0" + (i + 1) + " " + mode[0].toUpperCase() + mode.slice(1)}
               aria-current={s.mode === mode ? "page" : undefined}
               onClick={() => s.setMode(mode)}
             >
@@ -256,7 +279,7 @@ function StudioShell() {
         className="studio-body"
         inert={!s.hydrated || !!s.busy ? true : undefined}
       >
-        <TrackList />
+        {!narrow && <div className="desktop-tracks"><TrackList /></div>}
         <div className="workspace">
           <div className="workspace-content">
             <div hidden={s.mode!=="write"}><WritePanel /></div>
@@ -264,55 +287,7 @@ function StudioShell() {
             <div hidden={s.mode!=="sound"}><SoundPanel /></div>
             <div hidden={s.mode!=="mix"}><MixerPanel /></div>
           </div>
-          <div className="workspace-bottom">
-            <div className="import-row">
-              <span className="tiny">
-                Perform into {s.selectedTrack?.name ?? "your ensemble"}
-              </span>
-              <label className="text-button file-button">
-                <Upload size={14} />
-                Import audio
-                <DraftInput
-                  type="file"
-                  accept="audio/*"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    e.target.value = "";
-                    if (file)
-                      try {
-                        s.setBusy("Importing audio…");
-                        await s.addAudio(file, file.name);
-                      } catch (error) {
-                        s.report(error);
-                      } finally {
-                        s.setBusy("");
-                      }
-                  }}
-                />
-              </label>
-              <label className="text-button file-button">
-                Map a sample
-                <DraftInput
-                  type="file"
-                  accept="audio/*"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    e.target.value = "";
-                    if (file)
-                      try {
-                        s.setBusy("Mapping sample…");
-                        await s.addAudio(file, file.name, 0, true);
-                      } catch (error) {
-                        s.report(error);
-                      } finally {
-                        s.setBusy("");
-                      }
-                  }}
-                />
-              </label>
-            </div>
-            <Piano />
-          </div>
+          <PerformanceDock open={dockOpen} onOpenChange={setDockOpen} />
         </div>
       </div>
       <div
@@ -332,8 +307,13 @@ function StudioShell() {
         )}
       </div>
       <Transport />
-      {s.editConflict&&<div className="edit-conflict" role="alert">A newer edit was kept. Your proposal is available. <button onClick={s.reapplyEdit}>Reapply</button><button onClick={s.discardEdit}>Discard</button></div>}
+      {s.editConflict&&<div className="edit-conflict" role="alert" data-edit-policy="bypass">A newer edit was kept. Your proposal is available. <button onClick={s.reapplyEdit}>Reapply</button><button onClick={s.discardEdit}>Discard</button></div>}
+      {narrow && <TrackDrawer open={tracksOpen} onClose={() => setTracksOpen(false)} />}
       <StudioDialogs />
     </main>
   );
+}
+
+function TrackDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return <Modal open={open} onClose={onClose} title="Song tracks" description="Choose a track, sound, or mix state."><div className="mobile-tracks"><TrackList onNavigate={onClose} /></div></Modal>;
 }

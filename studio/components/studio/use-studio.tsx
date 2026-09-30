@@ -366,9 +366,12 @@ function useStudioController(
     document: ProjectDocument,
     revision = 0,
     fingerprint = JSON.stringify(document),
+    editPolicy: "finish" | "discard" = "finish",
   ) {
-    if (takeSession.current || importCount.current) { report(new Error("Finish recording or importing before opening another song.")); return; }
-    if(!finishEdit())return;setEditConflict(null);
+    if (takeSession.current || importCount.current) { report(new Error("Finish recording or importing before opening another song.")); return false; }
+    if(editPolicy === "discard") { cancelEdit(); setError(""); }
+    else if(!finishEdit())return false;
+    setEditConflict(null);
     const sameProject=committedRef.current.id===document.id;
     const trackId=sameProject&&document.tracks.some(t=>t.id===selectedTrackId)?selectedTrackId:document.tracks[0]?.id??"";
     const sectionId=sameProject&&document.sections.some(sec=>sec.id===selectedSectionId)?selectedSectionId:document.sections[1]?.id??document.sections[0].id;
@@ -385,7 +388,9 @@ function useStudioController(
     setSelectedClipId(clipId);
     setSelectedNotes(document.chords[0]?.notes ?? []);
     setConflict(null);
+    conflictRef.current = null;
     setSaveStatus(revision ? "Saved to cloud" : "Not saved");
+    return true;
   }
   async function getEngine() {
     if (engineRef.current) return engineRef.current;
@@ -983,8 +988,8 @@ function useStudioController(
     session.phase=value; setRecordingPhase(value); setRecording(value!=="idle");
   }
   async function beginRecording() {
-    if(!finishEdit())return;
     if(takeSession.current) { if(takeSession.current.phase==="recovery-error") await retryRecording(); else await finishRecording(); return; }
+    if(!finishEdit())return;
     if(transportJob.current) return;
     if(importCount.current) { report(new Error("Wait for the audio import to finish before recording.")); return; }
     const doc=projectRef.current, target=selectedTrackRef.current;
@@ -1185,9 +1190,7 @@ function useStudioController(
       id: conflict.recoveryId ?? uid(),
       title: conflict.incoming.title.slice(0, 178) + " · recovered copy",
     };
-    setConflict(null);
-    conflictRef.current = null;
-    loadDocument(document, 0, "");
+    if (!loadDocument(document, 0, "", "discard")) return;
     const saved = await saveNow(document);
     if (saved)
       notify(
@@ -1196,7 +1199,8 @@ function useStudioController(
   }
   function useCloudConflict() {
     if (!conflict) return;
-    loadDocument(conflict.current.document, conflict.current.revision);
+    if (!loadDocument(conflict.current.document, conflict.current.revision,
+      JSON.stringify(conflict.current.document), "discard")) return;
     notify(
       "Cloud version loaded. Your other edit is kept in recovery versions.",
     );

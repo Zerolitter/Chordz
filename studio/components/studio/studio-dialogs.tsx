@@ -10,6 +10,7 @@ import {
   Music2,
 } from "lucide-react";
 import { useStudio } from "./use-studio";
+import { encodeMp3Buffer } from "../../lib/audio/mp3-client";
 import { Modal, IconButton } from "./primitives";
 import {
   downloadBlob,
@@ -17,6 +18,7 @@ import {
   projectBackup,
   restoreBackup,
   safeFilename,
+  type ExportFormat,
 } from "../../lib/audio/export";
 import {
   keepPendingAsset,
@@ -44,7 +46,7 @@ type DirectoryHandle = {
 export function StudioDialogs() {
   const s = useStudio();
   const [deleting, setDeleting] = useState(""),
-    [format, setFormat] = useState("wav"),
+    [format, setFormat] = useState<ExportFormat>("wav"),
     [stem, setStem] = useState("all"),
     [progress, setProgress] = useState(""),
     [versions, setVersions] = useState<
@@ -59,6 +61,7 @@ export function StudioDialogs() {
     [drafts, setDrafts] = useState<RecoveryDraft[]>([]);
   async function runExport() {
     if(!s.finishEdit())return;
+    setProgress("");
     let directory: DirectoryHandle | undefined;
     try {
       if (format === "stems" && stem === "all") {
@@ -132,15 +135,21 @@ export function StudioDialogs() {
           }
         } else {
           setProgress("Rendering stereo mix with effect tails…");
+          const buffer = await engine.render(project);
           downloadBlob(
-            await s.getProcessor().encode(await engine.render(project), 24),
-            name + ".wav",
+            format === "mp3"
+              ? await encodeMp3Buffer(buffer, (percent) =>
+                  setProgress(`Encoding MP3 · ${percent}%`),
+                )
+              : await s.getProcessor().encode(buffer, 24),
+            name + (format === "mp3" ? ".mp3" : ".wav"),
           );
         }
       }
       s.notify("Export complete.");
       setProgress("Export complete.");
     } catch (error) {
+      setProgress("");
       if (!(error instanceof DOMException && error.name === "AbortError"))
         s.report(error);
     } finally {
@@ -241,6 +250,7 @@ export function StudioDialogs() {
           {s.user ? (
             <button
               className="text-button"
+              data-edit-policy="bypass"
               onClick={async () => {
                 try {
                   setDrafts(await listDrafts(s.owner));
@@ -337,10 +347,21 @@ export function StudioDialogs() {
           <select
             aria-label="Export format"
             value={format}
-            onChange={(e) => setFormat(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (
+                value === "wav" ||
+                value === "mp3" ||
+                value === "stems" ||
+                value === "midi" ||
+                value === "backup"
+              )
+                setFormat(value);
+            }}
             disabled={!!s.busy}
           >
             <option value="wav">Stereo WAV · 48 kHz / 24-bit</option>
+            <option value="mp3">Stereo MP3 · 48 kHz / 320 kbps</option>
             <option value="stems">Individual track stems · WAV</option>
             <option value="midi">MIDI · notes & expression</option>
             <option value="backup">
@@ -370,7 +391,9 @@ export function StudioDialogs() {
             ? "Factory instruments reload from Chordz. All your recordings and imported samples are included."
             : format === "stems"
               ? "Stems start at the song beginning, include effects and tails, and export regardless of mute or solo."
-              : "WAV includes the current mix, automation, and effect tails."}
+              : format === "mp3"
+                ? "MP3 includes the current mix, automation, and effect tails at 320 kbps. Encoding stays on your device."
+                : "WAV includes the current mix, automation, and effect tails."}
         </p>
         <button
           className="primary-button"
@@ -384,7 +407,11 @@ export function StudioDialogs() {
               (format === "backup" ? "backup" : format.toUpperCase())}
         </button>
         <output aria-live="polite" className="helper">
-          {s.busy && s.message.startsWith("Rendering ") ? s.message : progress}
+          {s.busy &&
+          !progress.startsWith("Encoding ") &&
+          s.message.startsWith("Rendering ")
+            ? s.message
+            : progress}
         </output>
       </Modal>
       <Modal
@@ -461,11 +488,12 @@ export function StudioDialogs() {
       >
         <button
           className="primary-button"
+          data-edit-policy="bypass"
           onClick={() => void s.keepConflictCopy()}
         >
           Keep my edit as a new song
         </button>
-        <button className="secondary-button" onClick={s.useCloudConflict}>
+        <button className="secondary-button" data-edit-policy="bypass" onClick={s.useCloudConflict}>
           Open the cloud version
         </button>
         <p className="helper">
@@ -487,13 +515,15 @@ export function StudioDialogs() {
         {drafts.map((draft) => (
           <button
             className="recovery-version"
+            data-edit-policy="bypass"
             key={draft.document.id}
             onClick={() => {
-              s.loadDocument(
+              if (!s.loadDocument(
                 draft.document,
                 draft.revision,
                 draft.savedFingerprint,
-              );
+                "discard",
+              )) return;
               setRecoveryOpen(false);
               s.setLibraryOpen(false);
             }}
@@ -506,9 +536,10 @@ export function StudioDialogs() {
         {versions.map((version) => (
           <button
             className="recovery-version"
+            data-edit-policy="bypass"
             key={version.id}
             onClick={() => {
-              s.loadDocument(
+              if (!s.loadDocument(
                 {
                   ...version.document,
                   id: uid(),
@@ -516,7 +547,8 @@ export function StudioDialogs() {
                 },
                 0,
                 "",
-              );
+                "discard",
+              )) return;
               setRecoveryOpen(false);
               s.setLibraryOpen(false);
             }}

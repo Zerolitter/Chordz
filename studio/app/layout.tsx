@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./studio-theme.css";
 
 export const metadata: Metadata = {
   title: "Chordz — your expressive music studio",

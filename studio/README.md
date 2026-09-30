@@ -9,8 +9,12 @@ Start with the original hybrid demo, **Where the light returns**, or choose **So
 - **Write:** play the piano, enter chord symbols, explore inversions and extensions, preview shared notes and voice leading, and write section-linked lyrics. Generate editable melodies, bass, arpeggios, strings and drums with energy, density, register and tension controls. Audition before inserting; existing parts are preserved.
 - **Arrange:** create and move sections; drag, resize, split, duplicate, loop and transpose clips. Edit notes, velocities, drum steps and captured expression. Quantize, swing and humanize phrases. Draw volume, pan, filter, expression, pitch bend and send automation.
 - **Sound:** sampled piano, strings, cello, horn, flute, glockenspiel and orchestral percussion; hybrid drums and subtractive/FM pads, basses and leads. Edit envelopes, filters, LFOs, detuning and articulations. Import and map your own sample by root, range, velocity and sustain loop.
-- **Perform:** use the onscreen piano, computer keys or feature-detected MIDI. Record MIDI and microphone takes with a one-bar count-in and metronome. Import audio, trim source offsets, align takes, adjust gain and fades, and split regions. Monitoring is optional.
-- **Mix and export:** track volume, pan, mute, solo, EQ, saturation, reverb/delay sends, meters and master limiting. Export 48 kHz / 24-bit stereo WAV, aligned track stems, MIDI, or a portable ZIP backup with every user recording and sample.
+- **Perform:** open the collapsible Perform dock for the onscreen piano, devices, monitoring and imports. Computer keys and feature-detected MIDI also work with the dock closed. Record MIDI and microphone takes from the persistent transport with a one-bar count-in and metronome. Import audio, trim source offsets, align takes, adjust gain and fades, and split regions. Monitoring is optional.
+- **Mix and export:** track volume, pan, mute, solo, EQ, saturation, reverb/delay sends, meters and master limiting. Export 48 kHz / 24-bit stereo WAV, 48 kHz / 320 kbps CBR stereo MP3, aligned WAV stems, MIDI, or a portable ZIP backup with every user recording and sample.
+
+**Appearance** offers four amber presets, 2–10px coloured track rails and compact/comfortable spacing. Defaults are amber `#e8b968`, 5px rails and comfortable spacing; Reset appearance restores these values. Preferences stay on this device and do not alter the song. The dock starts closed on a new device. Below 1024px, **Tracks** opens the track drawer.
+
+In Arrange, drag a clip body to move it on its track, or drag its right edge to resize its visible region. The Snap menu chooses the grid. Resizing keeps the loop source and audio offset intact. Arrow keys move the focused clip or resize handle by one grid step; Shift uses a bar. Click the automation curve to add a point; drag a point to move it, or focus it and press Delete. Same-tick points merge, time snaps to the grid and values stay within their parameter bounds. Expandable inspectors retain exact numeric and captured expression editing. Each gesture creates one Undo action; Escape and pointer cancellation restore its starting state.
 
 Sign in with ChatGPT for private cloud projects. Public access to the studio does not grant access to another musician's songs or audio. A device draft is saved while editing; cloud saves use revision checks. Conflicts preserve the incoming edit and the cloud version. **Songs → Recovery versions** opens retained drafts and conflict versions. Backups restore as a new song.
 
@@ -54,7 +58,7 @@ React 19, TypeScript, Vinext and Cloudflare Workers; D1 stores projects/revision
 
 - `lib/music`: versioned document/schema, theory, seeded assistance, history and immutable editing. Musical positions use 960 ticks per quarter note; audio offsets use seconds.
 - `lib/audio`: catalog, compiled arrangement, shared native Web Audio graph, Tone context/clock integration, live scheduler, offline renderer and exports. Four-second render scheduling windows limit the number of simultaneously allocated voices. The UI is outside the audio scheduling loop.
-- `public/audio`: AudioWorklet capture and the generated encoding/waveform worker. Build hooks generate the worker from its TypeScript source.
+- `public/audio`: AudioWorklet capture, generated recording/waveform worker, and a separate lazily loaded MP3 worker/WASM. Build hooks regenerate workers and copy the pinned local WASM. MP3 failures leave recording processing independent and permit a new export attempt.
 - `lib/client`: owner-scoped IndexedDB drafts/assets, upload retries and cloud requests.
 - `lib/server`: bounded validation, ownership checks, parameterized SQL and atomic revision updates. Recordings are streamed to R2; private endpoints return non-cacheable responses.
 - `components/studio`: writing, arrangement, sound, mixer, transport and project workflows.
@@ -75,6 +79,8 @@ The curated factory bank contains 144 CC0 WAV recordings from [VSCO Community](h
 
 `scripts/curate-samples.mjs` rebuilds this bank from pinned upstream revisions. User samples and recordings are private assets; portable backups include them, while factory samples reload from Chordz.
 
+MP3 export uses pinned `wasm-media-encoders@0.7.0` (MIT wrapper and LGPL LAME). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and `public/audio/licenses/` for licence text, matching source/build information and replacement instructions.
+
 ## Verification and current boundaries
 
 See `docs/VALIDATION.md`, `SPEC.md`, `tasks/todo.md` and `tasks/workflow-patch-checklist.md` for scope and evidence. Automated checks cover musical edits, isolation, conflict recovery, sample tuning, browser workflows, AudioWorklet capture, exports and the five-minute reference. Physical microphone latency, MIDI hotplug behavior on real controllers, a human listening session, and a full session with physical devices in Edge remain to be validated by a musician. Automated sign-in tests use the local dispatch simulation; hosted sign-in is handled by Sites.
@@ -84,3 +90,5 @@ Assistance runs locally with deterministic rules and editable patterns. Paid AI 
 The workflow patch passes 46 unit tests, 24 Chrome scenarios and 12 focused Edge scenarios. Its exact generator baselines and both original demos remain compatible. The note editor retains its existing functionality. MIDI files contain ordinary musical notes and controls; runtime input-source ownership is intentionally not exported.
 
 The chord-card follow-up passes 52 unit tests, all 32 Chrome scenarios and 20 focused Edge scenarios, plus TypeScript, zero-warning lint and the production build. See `tasks/chord-card-patch.md` and `docs/evidence/chord-card-patch.json` for the user-reported screenshot, movement and tuning results, and remaining physical-device/listening checks. Earlier fragmented guides retain their timing; new whole-card reordering does not split neighbours.
+
+The UI upgrade's current results are recorded separately in `tasks/ui-upgrade.md` and `docs/VALIDATION.md`. Prior browser results describe the earlier UI; the new browser scenarios have not run because the browser permission service could not verify access. Visual comparison, browser downloads and a reopened native client still need validation.

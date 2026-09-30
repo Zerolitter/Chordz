@@ -17,8 +17,9 @@ import {
 } from "../../lib/audio/catalog";
 import {SoundReadiness} from "./sound-readiness";
 import { IconButton, Modal } from "./primitives";
+import { trackDisplayColor } from "../../lib/client/appearance";
 
-export function TrackList() {
+export function TrackList({ onNavigate }: { onNavigate?: () => void } = {}) {
   const s = useStudio();
   const [soundsOpen, setSoundsOpen] = useState(false),
     [adding, setAdding] = useState(false),
@@ -41,6 +42,7 @@ export function TrackList() {
       );
     }
     setSoundsOpen(false);
+    onNavigate?.();
   }
   return (
     <aside className="track-sidebar" aria-label="Song tracks">
@@ -69,11 +71,11 @@ export function TrackList() {
             className={
               "track-row " + (track.id === s.selectedTrackId ? "selected" : "")
             }
-            style={{ "--track-color": track.color } as React.CSSProperties}
+            style={{ "--track-color": trackDisplayColor(s.project, track) } as React.CSSProperties}
           >
             <button
               className="track-select"
-              onClick={() => s.selectTrack(track.id)}
+              onClick={() => { s.selectTrack(track.id); onNavigate?.(); }}
               aria-label={"Select " + track.name}
             >
               <span className="track-number mono">
@@ -88,8 +90,8 @@ export function TrackList() {
               </span>
               <span className="track-text">
                 <strong>{track.name}</strong>
-                <small>
-                  {track.kind === "audio"
+                <small className={track.mute ? "muted-state" : track.solo ? "solo-state" : ""}>
+                  {track.mute ? "Muted" : track.solo ? "Soloed" : track.kind === "audio"
                     ? "Audio take"
                     : instrumentFor(s.project, track).family}
                 </small>
@@ -143,9 +145,10 @@ export function TrackList() {
           <div className="selected-track-actions">
             <button
               className="text-button"
-              onClick={() =>
-                s.setMode(selected.kind === "audio" ? "mix" : "sound")
-              }
+              onClick={() => {
+                s.setMode(selected.kind === "audio" ? "mix" : "sound");
+                onNavigate?.();
+              }}
             >
               Edit {selected.kind === "audio" ? "mix" : "sound"}
             </button>

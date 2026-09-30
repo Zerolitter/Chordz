@@ -1,0 +1,34 @@
+{
+  "node": "v24.14.1",
+  "encoder": "wasm-media-encoders@0.7.0",
+  "decoder": "mpg123-decoder@1.0.3",
+  "source": "D:/Archive/Codex/Chordz/studio/lib/audio/mp3.ts",
+  "encodedBytes": 81600,
+  "frames": 85,
+  "bitrateKbps": 320,
+  "inputDurationSeconds": 2,
+  "decodedDurationSeconds": 2.04,
+  "durationDifferenceSeconds": 0.040000000000000036,
+  "decodedSampleRate": 48000,
+  "decodeErrors": [],
+  "channelStats": [
+    {
+      "samples": 97920,
+      "rms": 0.21005565781366814,
+      "peak": 0.3001720905303955,
+      "amplitudesAt440And660Hz": [
+        0.3000198991132927,
+        0.0000018084143146506074
+      ]
+    },
+    {
+      "samples": 97920,
+      "rms": 0.2100165900529453,
+      "peak": 0.3000802993774414,
+      "amplitudesAt440And660Hz": [
+        0.0000010854368224648502,
+        0.29996372615366795
+      ]
+    }
+  ]
+}

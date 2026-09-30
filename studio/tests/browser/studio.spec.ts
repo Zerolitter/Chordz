@@ -24,6 +24,7 @@ test("writing, arrangement, keyboard, undo, mixer and responsive layout", async 
   await expect(page.locator(".chord-card")).toHaveCount(0);
   await page.getByLabel("Redo", { exact: true }).click();
   await expect(page.locator(".chord-card")).toHaveCount(1);
+  await page.getByRole("button", { name: "Performance dock", exact: true }).click();
   await page.getByLabel("Play C3", { exact: true }).click();
   await page.getByLabel("Play E", { exact: true }).count();
   await page.getByRole("button", { name: "Insert", exact: true }).click();
