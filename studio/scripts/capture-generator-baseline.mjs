@@ -1,0 +1,10 @@
+import {build} from "esbuild";
+import {readFileSync,writeFileSync} from "node:fs";
+import {createHash} from "node:crypto";
+const result=await build({stdin:{contents:'export {generatorCases} from "./tests/generator-fixtures.ts";export {generatePart} from "./lib/music/generate.ts";export {createDemo} from "./lib/music/project.ts";',resolveDir:process.cwd()},bundle:true,platform:"node",format:"esm",write:false});
+const {generatorCases,generatePart,createDemo}=await import("data:text/javascript;base64,"+Buffer.from(result.outputFiles[0].text).toString("base64"));
+const normalize=notes=>notes.map(({id,...note})=>{void id;return note;});
+const cases=generatorCases().map(c=>({name:c.name,notes:normalize(generatePart(c.project,c.section,c.options))}));
+const demos=[false,true].map(reference=>({reference,tracks:createDemo(reference).tracks.map(t=>({name:t.name,clips:t.clips.map(c=>({name:c.name,count:c.notes.length,hash:createHash("sha256").update(JSON.stringify(normalize(c.notes))).digest("hex")}))}))}));
+writeFileSync("tests/generator-baseline.json",JSON.stringify({sourceHash:createHash("sha256").update(readFileSync("lib/music/generate.ts")).digest("hex"),cases,demos},null,2),{flag:"wx"});
+console.log("Captured "+cases.length+" exact ordered cases and both original demos.");

@@ -1,0 +1,102 @@
+{
+  "date": "2026-09-30",
+  "checks": {
+    "vitest": 52,
+    "chromeScenarios": 32,
+    "edgeFocusedScenarios": 20,
+    "typeScript": true,
+    "lintWarnings": 0,
+    "productionWorkerBuild": true,
+    "unchangedGeneratorBaselines": 48,
+    "unchangedDemoBaselines": 2
+  },
+  "chordCards": {
+    "repeatedFullSectionMoves": true,
+    "chordCountAndDurationsPreserved": true,
+    "undoRestoresGuide": true,
+    "shortSpanGeometry": true,
+    "mouseAndEmulatedTouch": true,
+    "keyboardPlacementAndProtectedStop": true,
+    "resizeGestureGroupingAndCancellation": true,
+    "inspectorOctaveUndo": true,
+    "responsiveWidths": [
+      1346,
+      820,
+      390
+    ],
+    "reportedScreenshot": "chord-move-reported.png",
+    "reportedScreenshotSha256": "3144ea7b7706a88c8fad0fa8cba2072e52fb56c2a500c9234ecb07eef6d4e46a"
+  },
+  "continuousTuning": {
+    "browser": "Edge",
+    "before": 0.01605066404464257,
+    "dark": 0.0000384060838382054,
+    "afterCutoff": "continuous",
+    "reopened": 0.003742918780372847,
+    "quiet": 0.00017307506920747048,
+    "afterBus": "continuous",
+    "afterBusRms": 0.003260197786288033,
+    "futureRms": 0.021941799320065788,
+    "futureState": "continuous",
+    "stopped": 0
+  },
+  "tuningRegressions": {
+    "carrier": 31,
+    "modulator": 0,
+    "attackPeak": 0.09993722289800644,
+    "releaseTailPeak": 0.0000037879526644246653,
+    "queuedBend": [
+      131,
+      100
+    ],
+    "before": 0.002688633743673563,
+    "after": 0.00011899833043571562,
+    "identity": "quiet"
+  },
+  "loadingTuning": {
+    "stillLoading": "loading-tune",
+    "playing": "loading-tune",
+    "peak": 0.0021207742393016815,
+    "afterSwap": {
+      "playing": false,
+      "tick": 0,
+      "countIn": false,
+      "loading": false,
+      "activity": "idle",
+      "previewId": null
+    },
+    "latePeak": 0
+  },
+  "cancellation": {
+    "browser": "Edge",
+    "windowMs": 100,
+    "minimumDelayAfterStopMs": 100,
+    "signalRmsBeforeStop": 0.09317691608211882,
+    "windows": 83,
+    "maximumPeak": 0,
+    "maximumRms": 0,
+    "finite": true,
+    "delayedLoadingMaximumPeak": 0
+  },
+  "reference": {
+    "tracks": 16,
+    "simulatedMicrophoneSeconds": 2.1146666666666665,
+    "exportSeconds": 304.8,
+    "sampleRate": 48000,
+    "bitDepth": 24,
+    "channels": 2,
+    "rms": 0.010180065368833419,
+    "peak": 0.142602801322937,
+    "nonzeroSamples": 29041922,
+    "renderWallSeconds": 64.415
+  },
+  "limitations": [
+    "Existing fragmented guides retain their stored timing; new card movement does not generate fragments.",
+    "Oscillator algorithm, sample articulation and envelope attack/decay changes apply on the next note.",
+    "Physical microphones, MIDI controllers and touch hardware remain unverified; browser inputs are simulated.",
+    "Human listening remains outstanding.",
+    "Hosted sign-in is provided by Sites; local browser tests use the dispatch simulation.",
+    "All-track folder stem export requires a human permission flow; individual stems are tested.",
+    "Runtime input-source identities remain outside v1 MIDI export."
+  ]
+}

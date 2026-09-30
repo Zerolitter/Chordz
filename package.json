@@ -1,0 +1,19 @@
+{
+  "name": "chordz",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Chordz desktop music studio for songwriting, arranging, recording and mixing.",
+  "type": "module",
+  "scripts": {
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "build": "tauri build --bundles nsis -- --locked",
+    "build:portable": "tauri build --no-bundle -- --locked",
+    "test": "cargo test --manifest-path src-tauri/Cargo.toml --locked",
+    "format:check": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
+    "icons": "tauri icon studio/public/favicon.svg --output src-tauri/icons"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

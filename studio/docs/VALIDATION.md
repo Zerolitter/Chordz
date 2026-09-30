@@ -1,0 +1,51 @@
+# Validation record
+
+2026-09-30. This record distinguishes implemented features and automated evidence from real-device validation still outstanding.
+
+## Automated evidence
+
+- TypeScript and ESLint checks pass. Production Worker/client build passes. Production dependency audit reports zero known vulnerabilities.
+- 24 passing Vitest cases cover chord recognition, enharmonic naming, inversions, shared tones, voice leading, deterministic assistance, quantization, clip splits/repetitions, undo/redo, document boundaries, WAV sizing, MIDI contents, backup validation, and private cloud data.
+- SQLite-backed repository tests verify that a second owner cannot list/read/save/delete a project or use its audio. Atomic revision checks retain both edits. Retried creates and interrupted pending uploads preserve their identities. Assets shared with recovered copies survive deletion of another copy.
+- 12 passing isolated Chrome browser workflows cover songwriting/arrangement, responsive overflow, sign-in continuation, cloud save and another browser-context reopen, forged identity rejection, imports, trimming, backup restoration, stem/MIDI downloads, failed samples/uploads and conflict recovery including audio still pending locally.
+- Native Web Audio checks verify nonzero finite PCM, correct onset, looping, sustain release, worker encoding and AudioWorklet recording. A4 sample fundamentals measured 438–442 Hz across piano, strings, cello, horn, flute and glockenspiel.
+- The reference fixture is 150 bars / 300 seconds at 120 BPM, with 16 mixed instrument/audio tracks, multiple sections, automation and a simulated microphone take. Save, second-browser reopen and stereo export pass. The export is stereo 48 kHz / 24-bit, 304.8 seconds including effect tails, with peak below clipping and finite, nonzero PCM in the musical arrangement. Reference evidence is saved separately from source under ignored `output/playwright/`.
+- Denied microphone access is tested through Chrome permissions. MIDI denial uses an injected NotAllowedError because headless Chrome's non-sysex permission behavior differs. Recording uses a browser-provided fake microphone; no physical microphone or controller is used.
+
+## Review
+
+Correctness: recovered edits retain pending audio; scheduling uses ticks/audio seconds consistently; live and offline graphs share instruments/effects and deterministic variation indices. Keyboard/MIDI notes are released if selection or connectivity changes.
+
+Readability: theory, editing, storage, repository, rendering and worker processing have explicit module boundaries and TypeScript contracts. Arrangement editors are separate components within their panel. The main studio controller is sizable because it owns project/save/input lifecycles; future work should split that lifecycle only with focused behavior checks.
+
+Architecture: no audio scheduling relies on React renders. Native AudioContext is wrapped by Tone, allowing AudioWorklet capture and native per-voice detuning. Offline scheduling creates voices incrementally to keep dense long songs bounded.
+
+Security: every cloud operation requires dispatch authentication and an owner match. SQL is parameterized. JSON and ZIP inputs are validated and bounded; ZIP declared expansion sizes are checked before decompression. R2 keys are private and uploads stream without holding full audio in Worker memory. No source credentials or user recordings are committed.
+
+Performance: autosave is debounced and uses revision checks; playback lookahead runs outside the UI; encoding and waveform generation use a worker. Finished voices disconnect. Full five-minute rendering completed in approximately 66 seconds in the measured run. Application optimization did not change hardware or operating-system configuration.
+
+## Remaining real-world checks
+
+A musician should audition the full reference and their own instruments, test an actual microphone/controller including disconnects, confirm perceptual timing and take alignment, and run an Edge session. Tablet/mobile layout checks are automated; physical touch-device verification is outstanding. All-track folder stems use browser File System Access; automated checks exercise individual stem downloads. Cloud authorization is tested locally; production publication success is confirmed separately by Sites deployment status.
+
+## Deferred by the approved scope
+
+Paid AI services, native plugin hosting, automatic vocal tuning, time-stretching and live collaboration.
+
+## Fluid workflow patch — 2026-09-30
+
+The prior evidence above is retained. The five ordered checkpoints are recorded in tasks/workflow-patch-checklist.md against the approved tasks/workflow-patch.md. Final verification covers 46 Vitest cases, 24 Chrome scenarios, 12 focused Edge scenarios, TypeScript, zero-warning lint and the production Worker/client build. Numeric evidence is in docs/evidence/workflow-patch.json. One ambiguous reopen test locator was corrected and rerun separately; no application change was needed.
+
+The patch verifies cancellable previews, common-output silence beyond scheduled events and effect tails, delayed loading, independent input owners, combined sustain/disconnection release, exact audio-frame cutoff and idempotent recording preservation. Device-storage failure and repeated Retry retain one take/clip. Preview settings, grouped fields, guide timing commands, overlap resolution, deterministic baselines, alternative tracks and the existing note-editor handoff pass.
+
+Cloud and backup round-trips preserve six v1 document variants and exact recorded asset bytes. Private ownership, interrupted uploads and concurrent revision recovery remain covered. The complete reference workflow still records, saves, reopens in another browser and exports a five-minute, 16-track arrangement. Desktop/tablet/mobile overflow and local preference restoration pass. The Edge checks use a separate headless profile; physical microphone/controller, touch hardware and human listening remain outstanding. Runtime input-source identities remain outside MIDI export.
+
+## Chord cards and continuous tuning — 2026-09-30
+
+The follow-up annotations and user-reported movement screenshot are recorded in `tasks/chord-card-patch.md`; numeric evidence is in `docs/evidence/chord-card-patch.json`. All 52 Vitest cases, 32 Chrome scenarios and 20 focused Edge scenarios pass, along with TypeScript, zero-warning lint and the production Worker/client build. Previous results above remain intact.
+
+Click-to-hear palette cards replace the suggestion action buttons and global insertion form. Mouse, emulated touch and keyboard placement use the same validated guide commands. Existing cards reorder at whole-chord boundaries, converting the displayed target into after-removal time, without splitting neighbours. Full-section repeated moves, Undo, ambiguous legacy refusal, rest insertion and short-span layout are verified. Resize boundaries commit one history action, reject invalid ends and stay cancelled after Escape. The inspector uses musical names/octaves and retains advanced exact pitches.
+
+Sound/mixer tuning keeps preview identity and scheduled playback. Native audio checks verify held filter/expression changes, future notes, FM pitch bases, queued performance bend, release shortening during attack, quiet bus migration, delayed sample tuning and instrument-swap cancellation. Stop retains the defined silence thresholds. Both demos and 48 exact seeded generator fixtures remain unchanged. The five-minute, 16-track reference exports a finite stereo 48 kHz/24-bit WAV of 304.8 seconds, saves and reopens in another browser. Existing imports, stems, MIDI, backup/asset-byte restoration, ownership and recording recovery pass.
+
+Existing fragmented guides remain editable with their original timing. Attack/decay, oscillator algorithm and sample articulation changes apply to the next note. Physical input devices and human listening remain unverified. No Zrythm material, new sound bank, note-editor overhaul, hardware or OS changes were included.

@@ -1,0 +1,62 @@
+name: Build Chordz
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    runs-on: windows-latest
+    env:
+      RUSTUP_TOOLCHAIN: '1.94.1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install desktop dependencies
+        run: npm ci
+      - name: Install Rust toolchain
+        run: rustup toolchain install 1.94.1 --profile minimal --component rustfmt
+      - name: Check Rust formatting
+        run: cargo +1.94.1 fmt --manifest-path src-tauri/Cargo.toml -- --check
+      - name: Test desktop navigation
+        run: cargo +1.94.1 test --manifest-path src-tauri/Cargo.toml --locked
+      - name: Build Windows installer
+        run: npm run build
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Chordz-Windows
+          path: |
+            src-tauri/target/release/chordz.exe
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error
+
+  studio:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: studio
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: studio/package-lock.json
+      - name: Install studio dependencies
+        run: npm run install:ci
+      - name: Type check
+        run: npm run typecheck
+      - name: Test music and persistence logic
+        run: npm test
+      - name: Lint
+        run: npm run lint -- --max-warnings=0
+      - name: Build studio
+        run: npm run build

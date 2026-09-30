@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Chordz",
+  "version": "0.1.0",
+  "identifier": "net.zerolitter.chordz",
+  "build": {
+    "devUrl": "https://www.chordz.zerolitter.net",
+    "frontendDist": "https://www.chordz.zerolitter.net"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "create": false,
+        "title": "Chordz",
+        "url": "https://www.chordz.zerolitter.net",
+        "width": 1440,
+        "height": 1000,
+        "minWidth": 960,
+        "minHeight": 720,
+        "resizable": true,
+        "fullscreen": false,
+        "backgroundColor": "#242827"
+      }
+    ],
+    "security": {
+      "capabilities": ["desktop"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "Zerolitter",
+    "homepage": "https://www.chordz.zerolitter.net",
+    "shortDescription": "Write, arrange, record and mix music in Chordz.",
+    "icon": ["icons/icon.ico", "icons/icon.png"],
+    "windows": {"nsis": {"installMode": "currentUser"}}
+  }
+}

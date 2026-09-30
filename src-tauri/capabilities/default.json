@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop",
+  "description": "The hosted studio receives no native command permissions.",
+  "windows": ["main"],
+  "permissions": []
+}

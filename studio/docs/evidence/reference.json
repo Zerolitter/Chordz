@@ -1,0 +1,15 @@
+{
+  "date": "2026-09-30",
+  "browser": "Chrome 153",
+  "tracks": 16,
+  "recordedSeconds": 2.12,
+  "bytes": 1428735,
+  "exportSeconds": 304.8,
+  "rate": 48000,
+  "depth": 24,
+  "channels": 2,
+  "rms": 0.010181777104626179,
+  "peak": 0.1425940990447998,
+  "nonzero": 29041948,
+  "renderWallSeconds": 66.323
+}

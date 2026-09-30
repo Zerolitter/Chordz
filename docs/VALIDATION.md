@@ -1,0 +1,34 @@
+# Windows desktop preview validation
+
+Date: 2026-09-30. Version: 0.1.0.
+
+## Source
+
+The desktop client was built in the requested Chordz workspace. The unrelated screen magnifier was backed up under the ignored local `work/center-zoom-original/` directory. It is excluded from the repository and release.
+
+The complete studio source snapshot is `a682ed6fa167f131e764794416c1396d7034fbd9`. Its original checkout and published Site were unchanged. The client loads `https://www.chordz.zerolitter.net`; internet access is required.
+
+## Checks completed
+
+- Fresh desktop npm installation: passed; zero npm vulnerabilities reported.
+- Native navigation/security tests: 5 passed.
+- Rust formatting: passed.
+- Release executable and NSIS x64 installer: built successfully with the committed Cargo lockfile.
+- Executable Windows metadata: ProductName and FileDescription are Chordz, version 0.1.0.
+- Fresh studio dependency installation: passed from the committed npm lockfile.
+- Studio TypeScript: passed.
+- Studio unit suite: 52 tests passed across 9 files.
+- Studio lint: passed with zero warnings.
+- Studio production build: passed.
+- Public source audit: no obvious credentials, private recordings, environment files or database state are tracked. All 144 factory sample checksums match their CC0 provenance; no individual source file exceeds GitHub's file-size limit.
+- Independent desktop review: completed. The opener plugin's injected link interception was disabled so native external-link handlers work without granting web pages native IPC permissions.
+
+The Tauri CLI emitted a deprecation warning for its legacy `STATIC_VCRUNTIME` build variable. Compilation and bundling succeeded.
+
+## Limits
+
+The desktop window, hosted sign-in, physical microphone, MIDI devices, actual downloaded exports and listening experience have not been exercised in this native runtime. The existing studio's earlier browser results remain recorded under `studio/docs/` and do not substitute for desktop checks.
+
+The preview is unsigned and requires WebView2. Browser and desktop sessions are separate. Providers that refuse embedded sign-in can be used through the browser studio instead. This build contains an online desktop client, not an offline studio server.
+
+GitHub workflow results are separate from these completed local checks.

@@ -1,0 +1,50 @@
+{
+  "date": "2026-09-30",
+  "checks": {
+    "vitest": 46,
+    "chromeScenarios": 24,
+    "edgeFocusedScenarios": 12,
+    "exactGeneratorBaselines": 48,
+    "originalDemoBaselines": 2,
+    "version1RoundtripKinds": [
+      "blank",
+      "demo",
+      "gapped",
+      "overlap",
+      "crossing",
+      "recorded"
+    ]
+  },
+  "reference": {
+    "tracks": 16,
+    "simulatedMicrophoneSeconds": 2.104,
+    "exportSeconds": 304.8,
+    "sampleRate": 48000,
+    "bitDepth": 24,
+    "channels": 2,
+    "rms": 0.010178911733064967,
+    "peak": 0.1426103115081787,
+    "nonzeroSamples": 29041987,
+    "renderWallSeconds": 71.651
+  },
+  "cancellation": {
+    "browser": "Edge",
+    "windowMs": 100,
+    "minimumDelayAfterStopMs": 100,
+    "signalRmsBeforeStop": 0.10091158224427346,
+    "windows": 83,
+    "maximumPeak": 0,
+    "maximumRms": 0,
+    "finite": true,
+    "delayedLoadingWindows": 11,
+    "delayedLoadingMaximumPeak": 0
+  },
+  "limitations": [
+    "Microphone input is simulated; physical microphone latency remains unverified.",
+    "Controller input and disconnections are simulated; physical MIDI controller remains unverified.",
+    "Human listening and physical touch-device verification remain outstanding.",
+    "Hosted sign-in is provided by Sites; local browser tests use the dispatch simulation.",
+    "Individual stem downloads are tested; all-track folder export still needs a human browser permission flow.",
+    "MIDI v1 does not preserve runtime input-source identities."
+  ]
+}

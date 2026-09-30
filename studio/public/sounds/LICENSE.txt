@@ -1,0 +1,7 @@
+Curated samples from VSCO 2 Community Edition and the Versilian Community Sample Library (VCSL), by Versilian Studios and their contributing performers.
+Both source collections are dedicated under CC0 1.0 Universal.
+https://creativecommons.org/publicdomain/zero/1.0/
+https://versilian-studios.com/vsco-community/
+https://github.com/sgossner/VCSL
+See provenance.json for original paths, source revisions and checksums.
+Sample filenames use C3 for MIDI 60; manifests convert to scientific MIDI numbering.

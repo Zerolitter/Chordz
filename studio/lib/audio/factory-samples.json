@@ -1,0 +1,1658 @@
+[
+  {
+    "id": "piano",
+    "name": "Kawai grand piano",
+    "family": "Keys",
+    "description": "Warm acoustic grand, with two recorded dynamic layers.",
+    "kind": "sample",
+    "zones": [
+      {
+        "url": "/sounds/piano/sustain-24-0-0.wav",
+        "root": 24,
+        "low": 0,
+        "high": 33,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/piano/sustain-24-1-0.wav",
+        "root": 24,
+        "low": 0,
+        "high": 33,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/piano/sustain-43-0-0.wav",
+        "root": 43,
+        "low": 34,
+        "high": 48,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/piano/sustain-43-1-0.wav",
+        "root": 43,
+        "low": 34,
+        "high": 48,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/piano/sustain-53-0-0.wav",
+        "root": 53,
+        "low": 49,
+        "high": 58,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/piano/sustain-53-1-0.wav",
+        "root": 53,
+        "low": 49,
+        "high": 58,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/piano/sustain-64-0-0.wav",
+        "root": 64,
+        "low": 59,
+        "high": 67,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/piano/sustain-64-1-0.wav",
+        "root": 64,
+        "low": 59,
+        "high": 67,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/piano/sustain-71-0-0.wav",
+        "root": 71,
+        "low": 68,
+        "high": 76,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/piano/sustain-71-1-0.wav",
+        "root": 71,
+        "low": 68,
+        "high": 76,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/piano/sustain-81-0-0.wav",
+        "root": 81,
+        "low": 77,
+        "high": 86,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/piano/sustain-81-1-0.wav",
+        "root": 81,
+        "low": 77,
+        "high": 86,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/piano/sustain-91-0-0.wav",
+        "root": 91,
+        "low": 87,
+        "high": 99,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/piano/sustain-91-1-0.wav",
+        "root": 91,
+        "low": 87,
+        "high": 99,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/piano/sustain-108-0-0.wav",
+        "root": 108,
+        "low": 100,
+        "high": 127,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/piano/sustain-108-1-0.wav",
+        "root": 108,
+        "low": 100,
+        "high": 127,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      }
+    ],
+    "articulations": [
+      "sustain"
+    ],
+    "license": "CC0-1.0",
+    "source": "https://github.com/sgossner/VCSL",
+    "defaults": {
+      "attack": 0.003,
+      "release": 0.9,
+      "cutoff": 14000
+    }
+  },
+  {
+    "id": "strings",
+    "name": "Chamber strings",
+    "family": "Strings",
+    "description": "Violin ensemble with sustained and spiccato articulations.",
+    "kind": "sample",
+    "zones": [
+      {
+        "url": "/sounds/strings/sustain-55-0-0.wav",
+        "root": 55,
+        "low": 0,
+        "high": 58,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 3.3187,
+        "loopEnd": 10.6198
+      },
+      {
+        "url": "/sounds/strings/sustain-55-1-0.wav",
+        "root": 55,
+        "low": 0,
+        "high": 58,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 3.8,
+        "loopEnd": 12.16
+      },
+      {
+        "url": "/sounds/strings/sustain-62-0-0.wav",
+        "root": 62,
+        "low": 59,
+        "high": 65,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.922,
+        "loopEnd": 9.3504
+      },
+      {
+        "url": "/sounds/strings/sustain-62-1-0.wav",
+        "root": 62,
+        "low": 59,
+        "high": 65,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 3.4834,
+        "loopEnd": 11.1468
+      },
+      {
+        "url": "/sounds/strings/sustain-69-0-0.wav",
+        "root": 69,
+        "low": 66,
+        "high": 74,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.679,
+        "loopEnd": 8.5727
+      },
+      {
+        "url": "/sounds/strings/sustain-69-1-0.wav",
+        "root": 69,
+        "low": 66,
+        "high": 74,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.3691,
+        "loopEnd": 7.5812
+      },
+      {
+        "url": "/sounds/strings/sustain-79-0-0.wav",
+        "root": 79,
+        "low": 75,
+        "high": 82,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 3.3024,
+        "loopEnd": 10.5678
+      },
+      {
+        "url": "/sounds/strings/sustain-79-1-0.wav",
+        "root": 79,
+        "low": 75,
+        "high": 82,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 3.0472,
+        "loopEnd": 9.751
+      },
+      {
+        "url": "/sounds/strings/sustain-86-0-0.wav",
+        "root": 86,
+        "low": 83,
+        "high": 127,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.9993,
+        "loopEnd": 9.5978
+      },
+      {
+        "url": "/sounds/strings/sustain-86-1-0.wav",
+        "root": 86,
+        "low": 83,
+        "high": 127,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.8008,
+        "loopEnd": 8.9625
+      },
+      {
+        "url": "/sounds/strings/short-55-0-0.wav",
+        "root": 55,
+        "low": 0,
+        "high": 58,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-55-0-1.wav",
+        "root": 55,
+        "low": 0,
+        "high": 58,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-55-1-0.wav",
+        "root": 55,
+        "low": 0,
+        "high": 58,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-55-1-1.wav",
+        "root": 55,
+        "low": 0,
+        "high": 58,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-62-0-0.wav",
+        "root": 62,
+        "low": 59,
+        "high": 65,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-62-0-1.wav",
+        "root": 62,
+        "low": 59,
+        "high": 65,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-62-1-0.wav",
+        "root": 62,
+        "low": 59,
+        "high": 65,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-62-1-1.wav",
+        "root": 62,
+        "low": 59,
+        "high": 65,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-69-0-0.wav",
+        "root": 69,
+        "low": 66,
+        "high": 74,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-69-0-1.wav",
+        "root": 69,
+        "low": 66,
+        "high": 74,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-69-1-0.wav",
+        "root": 69,
+        "low": 66,
+        "high": 74,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-69-1-1.wav",
+        "root": 69,
+        "low": 66,
+        "high": 74,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-79-0-0.wav",
+        "root": 79,
+        "low": 75,
+        "high": 82,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-79-0-1.wav",
+        "root": 79,
+        "low": 75,
+        "high": 82,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-79-1-0.wav",
+        "root": 79,
+        "low": 75,
+        "high": 82,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-79-1-1.wav",
+        "root": 79,
+        "low": 75,
+        "high": 82,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-86-0-0.wav",
+        "root": 86,
+        "low": 83,
+        "high": 127,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-86-0-1.wav",
+        "root": 86,
+        "low": 83,
+        "high": 127,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-86-1-0.wav",
+        "root": 86,
+        "low": 83,
+        "high": 127,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/strings/short-86-1-1.wav",
+        "root": 86,
+        "low": 83,
+        "high": 127,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      }
+    ],
+    "articulations": [
+      "sustain",
+      "short"
+    ],
+    "license": "CC0-1.0",
+    "source": "https://github.com/sgossner/VSCO-2-CE",
+    "defaults": {
+      "attack": 0.035,
+      "release": 0.4,
+      "cutoff": 14000
+    }
+  },
+  {
+    "id": "cello",
+    "name": "Cello ensemble",
+    "family": "Strings",
+    "description": "Expressive cello ensemble, with sustained and spiccato bowing.",
+    "kind": "sample",
+    "zones": [
+      {
+        "url": "/sounds/cello/sustain-36-0-0.wav",
+        "root": 36,
+        "low": 0,
+        "high": 41,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.2178,
+        "loopEnd": 7.097
+      },
+      {
+        "url": "/sounds/cello/sustain-36-1-0.wav",
+        "root": 36,
+        "low": 0,
+        "high": 41,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 3.1518,
+        "loopEnd": 10.0859
+      },
+      {
+        "url": "/sounds/cello/sustain-47-0-0.wav",
+        "root": 47,
+        "low": 42,
+        "high": 52,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.2415,
+        "loopEnd": 7.1729
+      },
+      {
+        "url": "/sounds/cello/sustain-47-1-0.wav",
+        "root": 47,
+        "low": 42,
+        "high": 52,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 3.1868,
+        "loopEnd": 10.1978
+      },
+      {
+        "url": "/sounds/cello/sustain-57-0-0.wav",
+        "root": 57,
+        "low": 53,
+        "high": 62,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.2078,
+        "loopEnd": 7.0648
+      },
+      {
+        "url": "/sounds/cello/sustain-57-1-0.wav",
+        "root": 57,
+        "low": 53,
+        "high": 62,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.9125,
+        "loopEnd": 9.3201
+      },
+      {
+        "url": "/sounds/cello/sustain-67-0-0.wav",
+        "root": 67,
+        "low": 63,
+        "high": 72,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.2974,
+        "loopEnd": 7.3516
+      },
+      {
+        "url": "/sounds/cello/sustain-67-1-0.wav",
+        "root": 67,
+        "low": 63,
+        "high": 72,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 3.1517,
+        "loopEnd": 10.0853
+      },
+      {
+        "url": "/sounds/cello/sustain-77-0-0.wav",
+        "root": 77,
+        "low": 73,
+        "high": 127,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 1.8168,
+        "loopEnd": 5.8138
+      },
+      {
+        "url": "/sounds/cello/sustain-77-1-0.wav",
+        "root": 77,
+        "low": 73,
+        "high": 127,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.5759,
+        "loopEnd": 8.2428
+      },
+      {
+        "url": "/sounds/cello/short-36-0-0.wav",
+        "root": 36,
+        "low": 0,
+        "high": 41,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-36-0-1.wav",
+        "root": 36,
+        "low": 0,
+        "high": 41,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-36-1-0.wav",
+        "root": 36,
+        "low": 0,
+        "high": 41,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-36-1-1.wav",
+        "root": 36,
+        "low": 0,
+        "high": 41,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-47-0-0.wav",
+        "root": 47,
+        "low": 42,
+        "high": 52,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-47-0-1.wav",
+        "root": 47,
+        "low": 42,
+        "high": 52,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-47-1-0.wav",
+        "root": 47,
+        "low": 42,
+        "high": 52,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-47-1-1.wav",
+        "root": 47,
+        "low": 42,
+        "high": 52,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-57-0-0.wav",
+        "root": 57,
+        "low": 53,
+        "high": 62,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-57-0-1.wav",
+        "root": 57,
+        "low": 53,
+        "high": 62,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-57-1-0.wav",
+        "root": 57,
+        "low": 53,
+        "high": 62,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-57-1-1.wav",
+        "root": 57,
+        "low": 53,
+        "high": 62,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-67-0-0.wav",
+        "root": 67,
+        "low": 63,
+        "high": 72,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-67-0-1.wav",
+        "root": 67,
+        "low": 63,
+        "high": 72,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-67-1-0.wav",
+        "root": 67,
+        "low": 63,
+        "high": 72,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-67-1-1.wav",
+        "root": 67,
+        "low": 63,
+        "high": 72,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-77-0-0.wav",
+        "root": 77,
+        "low": 73,
+        "high": 127,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-77-0-1.wav",
+        "root": 77,
+        "low": 73,
+        "high": 127,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-77-1-0.wav",
+        "root": 77,
+        "low": 73,
+        "high": 127,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/cello/short-77-1-1.wav",
+        "root": 77,
+        "low": 73,
+        "high": 127,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      }
+    ],
+    "articulations": [
+      "sustain",
+      "short"
+    ],
+    "license": "CC0-1.0",
+    "source": "https://github.com/sgossner/VSCO-2-CE",
+    "defaults": {
+      "attack": 0.035,
+      "release": 0.4,
+      "cutoff": 14000
+    }
+  },
+  {
+    "id": "horn",
+    "name": "French horn",
+    "family": "Brass",
+    "description": "Recorded French horn with sustain and staccato.",
+    "kind": "sample",
+    "zones": [
+      {
+        "url": "/sounds/horn/sustain-33-0-0.wav",
+        "root": 33,
+        "low": 0,
+        "high": 38,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 1.3423,
+        "loopEnd": 4.2955
+      },
+      {
+        "url": "/sounds/horn/sustain-33-1-0.wav",
+        "root": 33,
+        "low": 0,
+        "high": 38,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 1.3423,
+        "loopEnd": 4.2955
+      },
+      {
+        "url": "/sounds/horn/sustain-43-0-0.wav",
+        "root": 43,
+        "low": 39,
+        "high": 46,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.8893,
+        "loopEnd": 9.2457
+      },
+      {
+        "url": "/sounds/horn/sustain-43-1-0.wav",
+        "root": 43,
+        "low": 39,
+        "high": 46,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 1.3345,
+        "loopEnd": 4.2703
+      },
+      {
+        "url": "/sounds/horn/sustain-50-0-0.wav",
+        "root": 50,
+        "low": 47,
+        "high": 55,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 3.5435,
+        "loopEnd": 11.3393
+      },
+      {
+        "url": "/sounds/horn/sustain-50-1-0.wav",
+        "root": 50,
+        "low": 47,
+        "high": 55,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 1.6528,
+        "loopEnd": 5.2889
+      },
+      {
+        "url": "/sounds/horn/sustain-60-0-0.wav",
+        "root": 60,
+        "low": 56,
+        "high": 68,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 3.5706,
+        "loopEnd": 11.4259
+      },
+      {
+        "url": "/sounds/horn/sustain-60-1-0.wav",
+        "root": 60,
+        "low": 56,
+        "high": 68,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.4967,
+        "loopEnd": 7.9893
+      },
+      {
+        "url": "/sounds/horn/sustain-77-0-0.wav",
+        "root": 77,
+        "low": 69,
+        "high": 127,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.094,
+        "loopEnd": 6.7006
+      },
+      {
+        "url": "/sounds/horn/sustain-77-1-0.wav",
+        "root": 77,
+        "low": 69,
+        "high": 127,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.094,
+        "loopEnd": 6.7006
+      },
+      {
+        "url": "/sounds/horn/short-33-0-0.wav",
+        "root": 33,
+        "low": 0,
+        "high": 38,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-33-0-1.wav",
+        "root": 33,
+        "low": 0,
+        "high": 38,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-33-1-0.wav",
+        "root": 33,
+        "low": 0,
+        "high": 38,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-33-1-1.wav",
+        "root": 33,
+        "low": 0,
+        "high": 38,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-43-0-0.wav",
+        "root": 43,
+        "low": 39,
+        "high": 46,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-43-0-1.wav",
+        "root": 43,
+        "low": 39,
+        "high": 46,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-43-1-0.wav",
+        "root": 43,
+        "low": 39,
+        "high": 46,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-43-1-1.wav",
+        "root": 43,
+        "low": 39,
+        "high": 46,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-50-0-0.wav",
+        "root": 50,
+        "low": 47,
+        "high": 55,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-50-0-1.wav",
+        "root": 50,
+        "low": 47,
+        "high": 55,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-50-1-0.wav",
+        "root": 50,
+        "low": 47,
+        "high": 55,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-50-1-1.wav",
+        "root": 50,
+        "low": 47,
+        "high": 55,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-60-0-0.wav",
+        "root": 60,
+        "low": 56,
+        "high": 68,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-60-0-1.wav",
+        "root": 60,
+        "low": 56,
+        "high": 68,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-60-1-0.wav",
+        "root": 60,
+        "low": 56,
+        "high": 68,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-60-1-1.wav",
+        "root": 60,
+        "low": 56,
+        "high": 68,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-77-0-0.wav",
+        "root": 77,
+        "low": 69,
+        "high": 127,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-77-0-1.wav",
+        "root": 77,
+        "low": 69,
+        "high": 127,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/horn/short-77-1-0.wav",
+        "root": 77,
+        "low": 69,
+        "high": 127,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      }
+    ],
+    "articulations": [
+      "sustain",
+      "short"
+    ],
+    "license": "CC0-1.0",
+    "source": "https://github.com/sgossner/VSCO-2-CE",
+    "defaults": {
+      "attack": 0.035,
+      "release": 0.4,
+      "cutoff": 14000
+    }
+  },
+  {
+    "id": "flute",
+    "name": "Concert flute",
+    "family": "Woodwinds",
+    "description": "Natural flute with sustained and staccato phrases.",
+    "kind": "sample",
+    "zones": [
+      {
+        "url": "/sounds/flute/sustain-60-0-0.wav",
+        "root": 60,
+        "low": 0,
+        "high": 64,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.4961,
+        "loopEnd": 7.9874
+      },
+      {
+        "url": "/sounds/flute/sustain-60-1-0.wav",
+        "root": 60,
+        "low": 0,
+        "high": 64,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.5785,
+        "loopEnd": 8.2512
+      },
+      {
+        "url": "/sounds/flute/sustain-69-0-0.wav",
+        "root": 69,
+        "low": 65,
+        "high": 75,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.5563,
+        "loopEnd": 8.1801
+      },
+      {
+        "url": "/sounds/flute/sustain-69-1-0.wav",
+        "root": 69,
+        "low": 65,
+        "high": 75,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.6125,
+        "loopEnd": 8.36
+      },
+      {
+        "url": "/sounds/flute/sustain-81-0-0.wav",
+        "root": 81,
+        "low": 76,
+        "high": 84,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 3.2693,
+        "loopEnd": 10.4616
+      },
+      {
+        "url": "/sounds/flute/sustain-81-1-0.wav",
+        "root": 81,
+        "low": 76,
+        "high": 84,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.0284,
+        "loopEnd": 6.4908
+      },
+      {
+        "url": "/sounds/flute/sustain-88-0-0.wav",
+        "root": 88,
+        "low": 85,
+        "high": 92,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.793,
+        "loopEnd": 8.9377
+      },
+      {
+        "url": "/sounds/flute/sustain-88-1-0.wav",
+        "root": 88,
+        "low": 85,
+        "high": 92,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 2.0036,
+        "loopEnd": 6.4115
+      },
+      {
+        "url": "/sounds/flute/sustain-96-0-0.wav",
+        "root": 96,
+        "low": 93,
+        "high": 127,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 1.5282,
+        "loopEnd": 4.8904
+      },
+      {
+        "url": "/sounds/flute/sustain-96-1-0.wav",
+        "root": 96,
+        "low": 93,
+        "high": 127,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain",
+        "loopStart": 1.5282,
+        "loopEnd": 4.8904
+      },
+      {
+        "url": "/sounds/flute/short-69-0-0.wav",
+        "root": 69,
+        "low": 0,
+        "high": 72,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-69-0-1.wav",
+        "root": 69,
+        "low": 0,
+        "high": 72,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-69-1-0.wav",
+        "root": 69,
+        "low": 0,
+        "high": 72,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-69-1-1.wav",
+        "root": 69,
+        "low": 0,
+        "high": 72,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-76-0-0.wav",
+        "root": 76,
+        "low": 73,
+        "high": 80,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-76-0-1.wav",
+        "root": 76,
+        "low": 73,
+        "high": 80,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-76-1-0.wav",
+        "root": 76,
+        "low": 73,
+        "high": 80,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-76-1-1.wav",
+        "root": 76,
+        "low": 73,
+        "high": 80,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-84-0-0.wav",
+        "root": 84,
+        "low": 81,
+        "high": 86,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-84-0-1.wav",
+        "root": 84,
+        "low": 81,
+        "high": 86,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-84-1-0.wav",
+        "root": 84,
+        "low": 81,
+        "high": 86,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-84-1-1.wav",
+        "root": 84,
+        "low": 81,
+        "high": 86,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-88-0-0.wav",
+        "root": 88,
+        "low": 87,
+        "high": 92,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-88-0-1.wav",
+        "root": 88,
+        "low": 87,
+        "high": 92,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-88-1-0.wav",
+        "root": 88,
+        "low": 87,
+        "high": 92,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-88-1-1.wav",
+        "root": 88,
+        "low": 87,
+        "high": 92,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-96-0-0.wav",
+        "root": 96,
+        "low": 93,
+        "high": 127,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-96-0-1.wav",
+        "root": 96,
+        "low": 93,
+        "high": 127,
+        "velocityLow": 0,
+        "velocityHigh": 0.56,
+        "roundRobin": 1,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-96-1-0.wav",
+        "root": 96,
+        "low": 93,
+        "high": 127,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "short"
+      },
+      {
+        "url": "/sounds/flute/short-96-1-1.wav",
+        "root": 96,
+        "low": 93,
+        "high": 127,
+        "velocityLow": 0.56,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "short"
+      }
+    ],
+    "articulations": [
+      "sustain",
+      "short"
+    ],
+    "license": "CC0-1.0",
+    "source": "https://github.com/sgossner/VSCO-2-CE",
+    "defaults": {
+      "attack": 0.035,
+      "release": 0.4,
+      "cutoff": 14000
+    }
+  },
+  {
+    "id": "glock",
+    "name": "Glockenspiel",
+    "family": "Percussion",
+    "description": "Bright orchestral bells.",
+    "kind": "sample",
+    "zones": [
+      {
+        "url": "/sounds/glock/sustain-79-0-0.wav",
+        "root": 79,
+        "low": 0,
+        "high": 81,
+        "velocityLow": 0,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/glock/sustain-84-0-0.wav",
+        "root": 84,
+        "low": 82,
+        "high": 90,
+        "velocityLow": 0,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/glock/sustain-96-0-0.wav",
+        "root": 96,
+        "low": 91,
+        "high": 99,
+        "velocityLow": 0,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/glock/sustain-103-0-0.wav",
+        "root": 103,
+        "low": 100,
+        "high": 105,
+        "velocityLow": 0,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/glock/sustain-108-0-0.wav",
+        "root": 108,
+        "low": 106,
+        "high": 127,
+        "velocityLow": 0,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      }
+    ],
+    "articulations": [
+      "sustain"
+    ],
+    "license": "CC0-1.0",
+    "source": "https://github.com/sgossner/VSCO-2-CE",
+    "defaults": {
+      "attack": 0.003,
+      "release": 0.4,
+      "cutoff": 14000
+    }
+  },
+  {
+    "id": "percussion",
+    "name": "Orchestral percussion",
+    "family": "Percussion",
+    "description": "Recorded orchestral bass drum and snare; synthetic cymbals complete the kit.",
+    "kind": "sample",
+    "zones": [
+      {
+        "url": "/sounds/percussion/bass-0.wav",
+        "root": 36,
+        "low": 36,
+        "high": 36,
+        "velocityLow": 0,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/percussion/bass-1.wav",
+        "root": 36,
+        "low": 36,
+        "high": 36,
+        "velocityLow": 0,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/percussion/snare-0.wav",
+        "root": 38,
+        "low": 38,
+        "high": 38,
+        "velocityLow": 0,
+        "velocityHigh": 1,
+        "roundRobin": 0,
+        "articulation": "sustain"
+      },
+      {
+        "url": "/sounds/percussion/snare-1.wav",
+        "root": 38,
+        "low": 38,
+        "high": 38,
+        "velocityLow": 0,
+        "velocityHigh": 1,
+        "roundRobin": 1,
+        "articulation": "sustain"
+      }
+    ],
+    "articulations": [
+      "sustain"
+    ],
+    "license": "CC0-1.0",
+    "source": "https://github.com/sgossner/VSCO-2-CE",
+    "defaults": {
+      "attack": 0.001,
+      "release": 0.3
+    }
+  }
+]

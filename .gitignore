@@ -1,0 +1,12 @@
+node_modules/
+src-tauri/target/
+dist/
+work/
+outputs/
+src-tauri/gen/
+*.log
+.env*
+*.pem
+src-tauri/icons/*
+!src-tauri/icons/icon.ico
+!src-tauri/icons/icon.png

@@ -1,0 +1,1305 @@
+{
+  "license": "CC0-1.0",
+  "sources": {
+    "VCSL": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+    "VSCO-2-CE": "440300901dfe9275fd84e0b7763af1f8443ae62e"
+  },
+  "files": [
+    {
+      "repo": "VCSL",
+      "sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "file": "Chordophones/Zithers/Grand Piano, Kawai - Legacy/Sustains/GrandPno_Main_Sus_C0_v1_rr1.wav",
+      "instrument": "piano",
+      "bytes": 3455174,
+      "sha256": "a00db808ce2fb698153c75d4aac0f84c766869843148a19a23b6f62035e6e230",
+      "path": "public/sounds/piano/sustain-24-0-0.wav"
+    },
+    {
+      "repo": "VCSL",
+      "sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "file": "Chordophones/Zithers/Grand Piano, Kawai - Legacy/Sustains/GrandPno_Main_Sus_C0_v4_rr1.wav",
+      "instrument": "piano",
+      "bytes": 5953186,
+      "sha256": "568cca026452dfe3343cd1af158690fb05dee9b2e07280b85f432c9e74585935",
+      "path": "public/sounds/piano/sustain-24-1-0.wav"
+    },
+    {
+      "repo": "VCSL",
+      "sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "file": "Chordophones/Zithers/Grand Piano, Kawai - Legacy/Sustains/GrandPno_Main_Sus_G1_v1_rr1.wav",
+      "instrument": "piano",
+      "bytes": 2688802,
+      "sha256": "a7e18a06a7b442d42bc6a0bd959cb4f6ccd09fea4c7debb148a6fdf830a4ab5a",
+      "path": "public/sounds/piano/sustain-43-0-0.wav"
+    },
+    {
+      "repo": "VCSL",
+      "sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "file": "Chordophones/Zithers/Grand Piano, Kawai - Legacy/Sustains/GrandPno_Main_Sus_G1_v4_rr1.wav",
+      "instrument": "piano",
+      "bytes": 5078066,
+      "sha256": "6b842b12d398a42048f190b52376d9a75fed73b7228cbcd9b858fc6874d9b2bf",
+      "path": "public/sounds/piano/sustain-43-1-0.wav"
+    },
+    {
+      "repo": "VCSL",
+      "sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "file": "Chordophones/Zithers/Grand Piano, Kawai - Legacy/Sustains/GrandPno_Main_Sus_F2_v1_rr1.wav",
+      "instrument": "piano",
+      "bytes": 2355722,
+      "sha256": "95ee0d42953c12f263cd57020fe07a3723381219dee51c7c7aed7f31a47f8c37",
+      "path": "public/sounds/piano/sustain-53-0-0.wav"
+    },
+    {
+      "repo": "VCSL",
+      "sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "file": "Chordophones/Zithers/Grand Piano, Kawai - Legacy/Sustains/GrandPno_Main_Sus_F2_v4_rr1.wav",
+      "instrument": "piano",
+      "bytes": 5217718,
+      "sha256": "e1cefbae3f2d9ec8583205f946139f4d5b826000a03503bdacfd39202f1c497c",
+      "path": "public/sounds/piano/sustain-53-1-0.wav"
+    },
+    {
+      "repo": "VCSL",
+      "sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "file": "Chordophones/Zithers/Grand Piano, Kawai - Legacy/Sustains/GrandPno_Main_Sus_E3_v1_rr1.wav",
+      "instrument": "piano",
+      "bytes": 2157170,
+      "sha256": "894002b512103f7b52d9411c42ba861af3c6187d710097f33fc0ce155025e39f",
+      "path": "public/sounds/piano/sustain-64-0-0.wav"
+    },
+    {
+      "repo": "VCSL",
+      "sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "file": "Chordophones/Zithers/Grand Piano, Kawai - Legacy/Sustains/GrandPno_Main_Sus_E3_v4_rr1.wav",
+      "instrument": "piano",
+      "bytes": 3070558,
+      "sha256": "5670086258732dc25191aa251df9d429ce94b9998491fd837330810be8cf7311",
+      "path": "public/sounds/piano/sustain-64-1-0.wav"
+    },
+    {
+      "repo": "VCSL",
+      "sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "file": "Chordophones/Zithers/Grand Piano, Kawai - Legacy/Sustains/GrandPno_Main_Sus_B3_v1_rr1.wav",
+      "instrument": "piano",
+      "bytes": 1565174,
+      "sha256": "d7175c3ef027e99aba95307f6ce30d753eb65892d49be12b343fe5d77f8a95dc",
+      "path": "public/sounds/piano/sustain-71-0-0.wav"
+    },
+    {
+      "repo": "VCSL",
+      "sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "file": "Chordophones/Zithers/Grand Piano, Kawai - Legacy/Sustains/GrandPno_Main_Sus_B3_v4_rr1.wav",
+      "instrument": "piano",
+      "bytes": 2544594,
+      "sha256": "b8bfc1f9d8ae77edd83ac11a768ff8e3f380cadbd42eace471ccf94534264aab",
+      "path": "public/sounds/piano/sustain-71-1-0.wav"
+    },
+    {
+      "repo": "VCSL",
+      "sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "file": "Chordophones/Zithers/Grand Piano, Kawai - Legacy/Sustains/GrandPno_Main_Sus_A4_v1_rr1.wav",
+      "instrument": "piano",
+      "bytes": 1520014,
+      "sha256": "aa029d46969323712de3b609509a305e9c78fa5f11f8baece9809de82b49293d",
+      "path": "public/sounds/piano/sustain-81-0-0.wav"
+    },
+    {
+      "repo": "VCSL",
+      "sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "file": "Chordophones/Zithers/Grand Piano, Kawai - Legacy/Sustains/GrandPno_Main_Sus_A4_v4_rr1.wav",
+      "instrument": "piano",
+      "bytes": 1318686,
+      "sha256": "87f12fef6acc0e5f3fbe6bb62f7e7355183ab47f419a611c5e2db739bdfa167f",
+      "path": "public/sounds/piano/sustain-81-1-0.wav"
+    },
+    {
+      "repo": "VCSL",
+      "sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "file": "Chordophones/Zithers/Grand Piano, Kawai - Legacy/Sustains/GrandPno_Main_Sus_G5_v1_rr1.wav",
+      "instrument": "piano",
+      "bytes": 866094,
+      "sha256": "fb2686b4d423afaad5ebfa80329ce537e621c48f5b952d0bc41cf622e4897355",
+      "path": "public/sounds/piano/sustain-91-0-0.wav"
+    },
+    {
+      "repo": "VCSL",
+      "sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "file": "Chordophones/Zithers/Grand Piano, Kawai - Legacy/Sustains/GrandPno_Main_Sus_G5_v4_rr1.wav",
+      "instrument": "piano",
+      "bytes": 1273274,
+      "sha256": "eb7a99d48d5dd87479043b8f6d7d715f66c2d68da1f23053482301ecc981a3ea",
+      "path": "public/sounds/piano/sustain-91-1-0.wav"
+    },
+    {
+      "repo": "VCSL",
+      "sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "file": "Chordophones/Zithers/Grand Piano, Kawai - Legacy/Sustains/GrandPno_Main_Sus_C7_v3_rr1.wav",
+      "instrument": "piano",
+      "bytes": 293026,
+      "sha256": "56e4ceb33bd820886d9f2d1b40aed4fa6a009961111c354f11fc0e7746615093",
+      "path": "public/sounds/piano/sustain-108-0-0.wav"
+    },
+    {
+      "repo": "VCSL",
+      "sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "file": "Chordophones/Zithers/Grand Piano, Kawai - Legacy/Sustains/GrandPno_Main_Sus_C7_v4_rr1.wav",
+      "instrument": "piano",
+      "bytes": 299822,
+      "sha256": "c1e74545b77c64699736831e1ad37022f223c0f353db08144d02531bac87496f",
+      "path": "public/sounds/piano/sustain-108-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/susVib/VlnEns_susVib_G2_v1.wav",
+      "instrument": "strings",
+      "bytes": 2341712,
+      "sha256": "feb96c5064fbef43087c495d61a9cab9f70ff1be5b22905147c1f86d5f89547c",
+      "path": "public/sounds/strings/sustain-55-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/susVib/VlnEns_susVib_G2_v2.wav",
+      "instrument": "strings",
+      "bytes": 2681324,
+      "sha256": "c0b06a23f0245c042f0609dc0db704adc14bfc9ea8a34cb5c97d80096715a0e6",
+      "path": "public/sounds/strings/sustain-55-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/susVib/VlnEns_susVib_D3_v1.wav",
+      "instrument": "strings",
+      "bytes": 2061808,
+      "sha256": "583e660bc5daa4e094aef5fc014fbb92751040be8741ed7a16847306a1fe0a99",
+      "path": "public/sounds/strings/sustain-62-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/susVib/VlnEns_susVib_D3_v2.wav",
+      "instrument": "strings",
+      "bytes": 2457908,
+      "sha256": "77893dbf1ea1be8c40ad756d16b916298e6b1b0742495e9853e020375592357c",
+      "path": "public/sounds/strings/sustain-62-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/susVib/VlnEns_susVib_A3_v1.wav",
+      "instrument": "strings",
+      "bytes": 1890316,
+      "sha256": "72817a53dfd2eb61eca94658c14e1cab6017629ca2f27bab8e394c6675bfaad7",
+      "path": "public/sounds/strings/sustain-69-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/susVib/VlnEns_susVib_A3_v2.wav",
+      "instrument": "strings",
+      "bytes": 1671704,
+      "sha256": "3fc4a9e22037643fce11e755da72c61c664893f83e637c24a7b5c2d3824ab986",
+      "path": "public/sounds/strings/sustain-69-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/susVib/VlnEns_susVib_G4_v1.wav",
+      "instrument": "strings",
+      "bytes": 2330236,
+      "sha256": "ed2a89cf254432d2af073699fa43ebfa16cfbc5552c7fc964a184fc434eaaa39",
+      "path": "public/sounds/strings/sustain-79-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/susVib/VlnEns_susVib_G4_v2.wav",
+      "instrument": "strings",
+      "bytes": 2150136,
+      "sha256": "a1d6d5a0397541692e2f88a0cd9820eabe90407784ee631aa3bfa74772637a65",
+      "path": "public/sounds/strings/sustain-79-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/susVib/VlnEns_susVib_D5_v1.wav",
+      "instrument": "strings",
+      "bytes": 2116352,
+      "sha256": "f8d870457826c94270b9c3ead8e8ec02cb7e6c4a3481cded055641b7fab7df62",
+      "path": "public/sounds/strings/sustain-86-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/susVib/VlnEns_susVib_D5_v2.wav",
+      "instrument": "strings",
+      "bytes": 1976276,
+      "sha256": "0c2ca9de723bed0a0968e32126b934f778cd678b367a29e7fde91004daf84daf",
+      "path": "public/sounds/strings/sustain-86-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_G2_v1_rr1.wav",
+      "instrument": "strings",
+      "bytes": 544838,
+      "sha256": "3b0784e5d90da698df7b02cfb312b87ff0090ed503f85c125dc7017683c0a447",
+      "path": "public/sounds/strings/short-55-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_G2_v1_rr2.wav",
+      "instrument": "strings",
+      "bytes": 565874,
+      "sha256": "79b19927e7189fa0a51bca73d4f7f02d50da99861a28b70c05a6d91343736f97",
+      "path": "public/sounds/strings/short-55-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_G2_v2_rr1.wav",
+      "instrument": "strings",
+      "bytes": 435542,
+      "sha256": "a6bee065f0a171d3fabc42b218e941f66916a6de53a55809da724eeefeae2653",
+      "path": "public/sounds/strings/short-55-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_G2_v2_rr2.wav",
+      "instrument": "strings",
+      "bytes": 428774,
+      "sha256": "287b66d9a215ce5ea1787a8b691f61d58a482eef0320eea9cf792a6f1ff8f7e8",
+      "path": "public/sounds/strings/short-55-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_D3_v1_rr1.wav",
+      "instrument": "strings",
+      "bytes": 212730,
+      "sha256": "d94e088560784d6ecd6a927e8101d7e460e6d79168ab9eb52842c58891fae8da",
+      "path": "public/sounds/strings/short-62-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_D3_v1_rr2.wav",
+      "instrument": "strings",
+      "bytes": 251726,
+      "sha256": "bb8a8c6661e060c3fddf5d66880c6789c16139747caaa121133f2a03a27fe605",
+      "path": "public/sounds/strings/short-62-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_D3_v2_rr1.wav",
+      "instrument": "strings",
+      "bytes": 311850,
+      "sha256": "36105c7bc208181a10b41a468aab1e8ca4f31a9eae43834dd90d8d533a48e650",
+      "path": "public/sounds/strings/short-62-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_D3_v2_rr2.wav",
+      "instrument": "strings",
+      "bytes": 290746,
+      "sha256": "d456becd26000dce6e7b9551f4d2b0ce6160f823d49a21d1580a26ad260d5a71",
+      "path": "public/sounds/strings/short-62-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_A3_v1_rr1.wav",
+      "instrument": "strings",
+      "bytes": 167582,
+      "sha256": "63ac2de6113b1f12822ea84a30a49c4a326e89027139b8a5e0369542ce6f74ad",
+      "path": "public/sounds/strings/short-69-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_A3_v1_rr2.wav",
+      "instrument": "strings",
+      "bytes": 158622,
+      "sha256": "bbbd7d67ea45c17958828efe4c3a5059d85e67be80bbdb637031bcce01bc412c",
+      "path": "public/sounds/strings/short-69-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_A3_v2_rr1.wav",
+      "instrument": "strings",
+      "bytes": 213126,
+      "sha256": "ce5d025e7c2ac71e220a3f6487c5a2ce431a150e808c93276570f19536568a5e",
+      "path": "public/sounds/strings/short-69-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_A3_v2_rr2.wav",
+      "instrument": "strings",
+      "bytes": 246210,
+      "sha256": "f64465f4248514f785abab573a3b1440ee016b525f6550612c0fcb189e67ba47",
+      "path": "public/sounds/strings/short-69-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_G4_v1_rr1.wav",
+      "instrument": "strings",
+      "bytes": 193166,
+      "sha256": "ae748a8421f32e0e490fbf298b6bc32ec5534c2210ba2d6d9f65fd77726e1107",
+      "path": "public/sounds/strings/short-79-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_G4_v1_rr2.wav",
+      "instrument": "strings",
+      "bytes": 221382,
+      "sha256": "17fed4ff1985b556e9153fe0b00c6e8650b84f7249ff720d58dc1aa770212dde",
+      "path": "public/sounds/strings/short-79-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_G4_v2_rr1.wav",
+      "instrument": "strings",
+      "bytes": 162898,
+      "sha256": "3345451be62b9bdfbbf6bb03f22f410484abb75585992336d530215fc4df7141",
+      "path": "public/sounds/strings/short-79-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_G4_v2_rr2.wav",
+      "instrument": "strings",
+      "bytes": 154078,
+      "sha256": "f41d60066c6d0fa7d21308e97f237a34d6ac2765e477cc330ffb7e8821e4cc3c",
+      "path": "public/sounds/strings/short-79-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_D5_v1_rr1.wav",
+      "instrument": "strings",
+      "bytes": 107654,
+      "sha256": "32775e9472faeb816701b633949ce7870a405b7ef24ff6ec28023eb441f2b9c6",
+      "path": "public/sounds/strings/short-86-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_D5_v1_rr2.wav",
+      "instrument": "strings",
+      "bytes": 124034,
+      "sha256": "806aa46d43684b33e0e608c439ecf5f6d25617558b17ab8789d40ea7947f5053",
+      "path": "public/sounds/strings/short-86-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_D5_v2_rr1.wav",
+      "instrument": "strings",
+      "bytes": 136734,
+      "sha256": "959a93165a9271657b4bc97c75eded62deab37b03128f71f0f1f4c8903e50b84",
+      "path": "public/sounds/strings/short-86-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Violin Section/Spic/VlnEns_Spic_D5_v2_rr2.wav",
+      "instrument": "strings",
+      "bytes": 124686,
+      "sha256": "703d7eda8a0e6502a95eee3a1f3bbdcdea28a74211762a0a409525482b44009d",
+      "path": "public/sounds/strings/short-86-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/susvib/susvib_C1_v1_1.wav",
+      "instrument": "cello",
+      "bytes": 2347376,
+      "sha256": "abdcea431f384e135c469b0f3e4ac2a437f282f521dc5bcbe22abc221536e8de",
+      "path": "public/sounds/cello/sustain-36-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/susvib/susvib_C1_v3_1.wav",
+      "instrument": "cello",
+      "bytes": 3335948,
+      "sha256": "19195ab85ab71626bd11e7100febdaeeba1c237ff5887b934fd0ffd8dfad82cb",
+      "path": "public/sounds/cello/sustain-36-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/susvib/susvib_B1_v1_1.wav",
+      "instrument": "cello",
+      "bytes": 2372492,
+      "sha256": "4f95c087c4b8d87ee591e9d39c3c9caf085c6f1b9125eac3ca9e4e637da628ee",
+      "path": "public/sounds/cello/sustain-47-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/susvib/susvib_B1_v3_1.wav",
+      "instrument": "cello",
+      "bytes": 3372962,
+      "sha256": "8331a0e13f41243efab111f9b5e9185524c27ee48631269acecafc954ab7eaa8",
+      "path": "public/sounds/cello/sustain-47-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/susvib/susvib_A2_v1_1.wav",
+      "instrument": "cello",
+      "bytes": 2336738,
+      "sha256": "c97a003184fdcb153d6b6c0bae8d82a90592a1b04b06bd7caaeda8b9776d5284",
+      "path": "public/sounds/cello/sustain-57-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/susvib/susvib_A2_v3_1.wav",
+      "instrument": "cello",
+      "bytes": 3082676,
+      "sha256": "b7f226f19b9616abe5fa4a27ef50116667e19eb0127f30eacfa6d1a83e9149f0",
+      "path": "public/sounds/cello/sustain-57-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/susvib/susvib_G3_v1_1.wav",
+      "instrument": "cello",
+      "bytes": 2431598,
+      "sha256": "8d658346b8d2054fd534b3222b5d7a23196d22a83a68c3a04ffb76b21853a3db",
+      "path": "public/sounds/cello/sustain-67-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/susvib/susvib_G3_v3_1.wav",
+      "instrument": "cello",
+      "bytes": 3335768,
+      "sha256": "17df597c259a849870aa25e9fbfa6093371851f83ba7b9deb9cb9e1ec11463a7",
+      "path": "public/sounds/cello/sustain-67-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/susvib/susvib_F4_v1_1.wav",
+      "instrument": "cello",
+      "bytes": 1922948,
+      "sha256": "a9888547b4b684c7649a882e693d61964848f18401a18e4646a8449b40c08bad",
+      "path": "public/sounds/cello/sustain-77-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/susvib/susvib_F4_v3_1.wav",
+      "instrument": "cello",
+      "bytes": 2726342,
+      "sha256": "24ea4a0f892cb60c4a52d6a5b1ef8281e4e9a9f78b5f938e078da7cbbfd5ba19",
+      "path": "public/sounds/cello/sustain-77-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_C1_v1_RR1.wav",
+      "instrument": "cello",
+      "bytes": 825956,
+      "sha256": "3c583eb33a74d04a51a12a933bc9c6b8cf5af0d828f14d374791d8a5c98a06d5",
+      "path": "public/sounds/cello/short-36-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_C1_v1_RR2.wav",
+      "instrument": "cello",
+      "bytes": 851288,
+      "sha256": "61d4f046df040b0ed911b170e5709e5c098483434012996805f4e36928150678",
+      "path": "public/sounds/cello/short-36-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_C1_v2_RR1.wav",
+      "instrument": "cello",
+      "bytes": 853964,
+      "sha256": "92de035cdbfab6e41f94115b2c23716a9e93554a4c23c1cc4b946f7492d9c927",
+      "path": "public/sounds/cello/short-36-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_C1_v2_RR2.wav",
+      "instrument": "cello",
+      "bytes": 926798,
+      "sha256": "3ddc16dc8f2a95c80388e20ebaa2e5a418bc66255927dd8b2b92cc0e4976f045",
+      "path": "public/sounds/cello/short-36-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_B1_v1_RR1.wav",
+      "instrument": "cello",
+      "bytes": 460220,
+      "sha256": "f0c46e179f8b76c07097ff6ae1fe7582b05865cdbb6ff3bba9bec51c68fcb99f",
+      "path": "public/sounds/cello/short-47-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_B1_v1_RR2.wav",
+      "instrument": "cello",
+      "bytes": 503720,
+      "sha256": "43e7f6f85ca9786063853f2d285918937e446cc076be032db1fbbf4434ff24e2",
+      "path": "public/sounds/cello/short-47-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_B1_v2_RR1.wav",
+      "instrument": "cello",
+      "bytes": 476396,
+      "sha256": "3883a65c6d301bf6f61b21d5ec6e27f9740ba219b5b022a9e5f3a67c62aeaa2a",
+      "path": "public/sounds/cello/short-47-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_B1_v2_RR2.wav",
+      "instrument": "cello",
+      "bytes": 527474,
+      "sha256": "d59af5e67b221405d69294434f72b2e3523cbf88f378bc888136839a5f4eff7a",
+      "path": "public/sounds/cello/short-47-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_A2_v1_RR1.wav",
+      "instrument": "cello",
+      "bytes": 421418,
+      "sha256": "9d7cde1e9785f468091783946954c390556b72f1e80098f69b0cab38fd64ed08",
+      "path": "public/sounds/cello/short-57-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_A2_v1_RR2.wav",
+      "instrument": "cello",
+      "bytes": 356546,
+      "sha256": "d465597ad9b4ca4ae97b7a510e21fed0376de99654708251c065eea8e1a27fd6",
+      "path": "public/sounds/cello/short-57-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_A2_v2_RR1.wav",
+      "instrument": "cello",
+      "bytes": 893588,
+      "sha256": "a0f0d6a225e5a31debd902b518b96987b322e064bd38c29f891196c06ed4b7be",
+      "path": "public/sounds/cello/short-57-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_A2_v2_RR2.wav",
+      "instrument": "cello",
+      "bytes": 871292,
+      "sha256": "ddec2ced000c1e948a32c9d4d1dc8625ff52c60fd37df89948aace604c736df2",
+      "path": "public/sounds/cello/short-57-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_G3_v1_RR1.wav",
+      "instrument": "cello",
+      "bytes": 359354,
+      "sha256": "aac27cd80015ace78dc9024ddce88932ca6b725dc13c8b7ee11fd30ce26a1bb8",
+      "path": "public/sounds/cello/short-67-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_G3_v1_RR2.wav",
+      "instrument": "cello",
+      "bytes": 392348,
+      "sha256": "2261707d07ba63532b3d3d3f1d920bce41fd3cbd85ede7500cda498988d4b29e",
+      "path": "public/sounds/cello/short-67-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_G3_v2_RR1.wav",
+      "instrument": "cello",
+      "bytes": 400208,
+      "sha256": "adedb635e08e72f6e06e31dc1355edca528de2753f06eea271ec004e6a3b44f5",
+      "path": "public/sounds/cello/short-67-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_G3_v2_RR2.wav",
+      "instrument": "cello",
+      "bytes": 515834,
+      "sha256": "56f59a67ac8ec56ce37b0de04ecb8bc1b86570660e55553a6e70a79cc81dee9e",
+      "path": "public/sounds/cello/short-67-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_F4_v1_RR1.wav",
+      "instrument": "cello",
+      "bytes": 207674,
+      "sha256": "bba1a88682ff245f5a32bc7757f2351b15ff1b2d806c87e640fcff18c3006a48",
+      "path": "public/sounds/cello/short-77-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_F4_v1_RR2.wav",
+      "instrument": "cello",
+      "bytes": 233954,
+      "sha256": "12c8fe9eedecfdf739f7f57a45e4f1fd93b9a52fb3f9fb3a5ca6bb4b001e044f",
+      "path": "public/sounds/cello/short-77-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_F4_v2_RR1.wav",
+      "instrument": "cello",
+      "bytes": 204488,
+      "sha256": "bae94c2ee8f140997542b60d0aaea722b63dfec6700ca1a783b46ae7466bc4f1",
+      "path": "public/sounds/cello/short-77-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Strings/Cello Section/spic/spic_F4_v2_RR2.wav",
+      "instrument": "cello",
+      "bytes": 356792,
+      "sha256": "b54fbb9f59fe043210fff288508f966f6e8aaf65309a920856fd39702e97788f",
+      "path": "public/sounds/cello/short-77-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/sus/MOHorn_sus_A0_v1_1.wav",
+      "instrument": "horn",
+      "bytes": 947196,
+      "sha256": "cf71214116045722b401d12867c1c4ea0c52314834e5fc0538eeae8b7da6acad",
+      "path": "public/sounds/horn/sustain-33-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/sus/MOHorn_sus_A0_v1_1.wav",
+      "instrument": "horn",
+      "bytes": 947196,
+      "sha256": "cf71214116045722b401d12867c1c4ea0c52314834e5fc0538eeae8b7da6acad",
+      "path": "public/sounds/horn/sustain-33-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/sus/MOHorn_sus_G1_v1_1.wav",
+      "instrument": "horn",
+      "bytes": 2038728,
+      "sha256": "f26c86c4ed934343c37291c33324c4797db1de62f5030dee1670d2d6e64dcb65",
+      "path": "public/sounds/horn/sustain-43-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/sus/MOHorn_sus_G1_v3_1.wav",
+      "instrument": "horn",
+      "bytes": 941656,
+      "sha256": "10bf965bc7ea2db883983e93bf52fa44590ec8dc812801b564863640ee3cedce",
+      "path": "public/sounds/horn/sustain-43-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/sus/MOHorn_sus_D2_v1_1.wav",
+      "instrument": "horn",
+      "bytes": 2500360,
+      "sha256": "c8a320cff7c6d19f7089c374e3041b1cbbc73718ba9de37149a82a1117866015",
+      "path": "public/sounds/horn/sustain-50-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/sus/MOHorn_sus_D2_v4_1.wav",
+      "instrument": "horn",
+      "bytes": 1166236,
+      "sha256": "0acdf87ea416c52dd5178a62279f03b2014f32c98a6a2ea517a481c7365cf292",
+      "path": "public/sounds/horn/sustain-50-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/sus/MOHorn_sus_C3_v1_1.wav",
+      "instrument": "horn",
+      "bytes": 2519448,
+      "sha256": "d96bc1821e46352e620fc0e3eaa9bbc415824e0f84f19aac6373c54c6aaa34da",
+      "path": "public/sounds/horn/sustain-60-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/sus/MOHorn_sus_C3_v4_1.wav",
+      "instrument": "horn",
+      "bytes": 1761688,
+      "sha256": "e8668437838648d4cb6a0fd9e7b207de399bfb87ab1e0e025b5d14e3175aff7d",
+      "path": "public/sounds/horn/sustain-60-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/sus/MOHorn_sus_F4_v1_1.wav",
+      "instrument": "horn",
+      "bytes": 1477536,
+      "sha256": "580b2e57aa42f5fd6e4ecb65dcb79f01dfe510e98ddc2bea0a77fca1cba8d424",
+      "path": "public/sounds/horn/sustain-77-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/sus/MOHorn_sus_F4_v1_1.wav",
+      "instrument": "horn",
+      "bytes": 1477536,
+      "sha256": "580b2e57aa42f5fd6e4ecb65dcb79f01dfe510e98ddc2bea0a77fca1cba8d424",
+      "path": "public/sounds/horn/sustain-77-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_A0_v1_rr1.wav",
+      "instrument": "horn",
+      "bytes": 243804,
+      "sha256": "a34f47c1b1c71ae6c782e0ca348892375321e98b991424de97b87b59a725e02b",
+      "path": "public/sounds/horn/short-33-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_A0_v1_rr2.wav",
+      "instrument": "horn",
+      "bytes": 295924,
+      "sha256": "5aeea07a1130b0a675f9ae6806c4447bb5e5395454b9e5ff7642cf48baac2d5a",
+      "path": "public/sounds/horn/short-33-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_A0_v1_rr1.wav",
+      "instrument": "horn",
+      "bytes": 243804,
+      "sha256": "a34f47c1b1c71ae6c782e0ca348892375321e98b991424de97b87b59a725e02b",
+      "path": "public/sounds/horn/short-33-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_A0_v1_rr2.wav",
+      "instrument": "horn",
+      "bytes": 295924,
+      "sha256": "5aeea07a1130b0a675f9ae6806c4447bb5e5395454b9e5ff7642cf48baac2d5a",
+      "path": "public/sounds/horn/short-33-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_G1_v1_rr1.wav",
+      "instrument": "horn",
+      "bytes": 248164,
+      "sha256": "4f6809debdca46493c7e477cff6258eb2ea78ec89287c34d0b45e74489e649af",
+      "path": "public/sounds/horn/short-43-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_G1_v1_rr2.wav",
+      "instrument": "horn",
+      "bytes": 266484,
+      "sha256": "a8b79e56de5e6c5a5d9c94e6c3b9df018ca56f959d5ddf1a315a66c6afa1a4cd",
+      "path": "public/sounds/horn/short-43-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_G1_v2_rr1.wav",
+      "instrument": "horn",
+      "bytes": 203244,
+      "sha256": "2c63af39d2de44df7f6ceb1dabded4b1c640566a5c7e7966eaaaea6e8b7f7bfe",
+      "path": "public/sounds/horn/short-43-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_G1_v2_rr2.wav",
+      "instrument": "horn",
+      "bytes": 185444,
+      "sha256": "8a936669bf49b77d461e5d71657dcf7ffaad9d28c2ec1fbf2a1d36f040f99d45",
+      "path": "public/sounds/horn/short-43-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_D2_v1_rr1.wav",
+      "instrument": "horn",
+      "bytes": 198688,
+      "sha256": "a253fa6b7e27762e81e7ca255c687fdb738a420e98bb9adb7a20082e4ce44cff",
+      "path": "public/sounds/horn/short-50-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_D2_v1_rr2.wav",
+      "instrument": "horn",
+      "bytes": 214420,
+      "sha256": "56e68aaa4a3e8fbfe9505eed99908e669abc018ca08a0a8268e25afe67dc8c5d",
+      "path": "public/sounds/horn/short-50-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_D2_v3_rr1.wav",
+      "instrument": "horn",
+      "bytes": 141252,
+      "sha256": "1960b9d7f8c3cd4e0532fc540d60c3b323e8c91e9e5d3a0b0bf2fbf0803f0951",
+      "path": "public/sounds/horn/short-50-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_D2_v3_rr2.wav",
+      "instrument": "horn",
+      "bytes": 294828,
+      "sha256": "27bb5ce82f25a12ca7cc0ef3cd6e38ff3dc8288fc5e6725c7c5160e73e192ecd",
+      "path": "public/sounds/horn/short-50-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_C3_v1_rr1.wav",
+      "instrument": "horn",
+      "bytes": 311768,
+      "sha256": "207dfd22aa76f803e52db44eda3ab76d6700bd86482be3c552b3d185bb14b014",
+      "path": "public/sounds/horn/short-60-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_C3_v1_rr2.wav",
+      "instrument": "horn",
+      "bytes": 270908,
+      "sha256": "edfb1457b6c5f0589eda0c8d72695634605a52e5483ee379fb0fbb678b94f2a8",
+      "path": "public/sounds/horn/short-60-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_C3_v3_rr1.wav",
+      "instrument": "horn",
+      "bytes": 280932,
+      "sha256": "7ea5a48590310d32b29aa3046f7ca2708b8f233067352001e6043095d6dac1b6",
+      "path": "public/sounds/horn/short-60-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_C3_v3_rr2.wav",
+      "instrument": "horn",
+      "bytes": 293568,
+      "sha256": "404a4a516d397bc64f2dd1986dc3efa69ab361763ff814c562ce29e6d64ba3d8",
+      "path": "public/sounds/horn/short-60-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_F4_v1_rr1.wav",
+      "instrument": "horn",
+      "bytes": 258680,
+      "sha256": "e79f38f75f32035966dc7630d9ef0eb747ef6a6b165425eea47f3c82d35d118b",
+      "path": "public/sounds/horn/short-77-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_F4_v1_rr2.wav",
+      "instrument": "horn",
+      "bytes": 275956,
+      "sha256": "4b2f9dd64b2c2f8f6ff8e9eb68d699e1fa1d80947df991c4dab419cc0c437cc9",
+      "path": "public/sounds/horn/short-77-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Brass/F Horn/stac/MOHorn_stac_F4_v3_rr1.wav",
+      "instrument": "horn",
+      "bytes": 176088,
+      "sha256": "22cf85150dd1f1d4bc60b83fd63109c2e434afa19c9eb94e961a14c10711dc7b",
+      "path": "public/sounds/horn/short-77-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/susNV/LDFlute_susNV_C3_v1_1.wav",
+      "instrument": "flute",
+      "bytes": 2642490,
+      "sha256": "4f221909317e257e4d0bc49f10479643c80cb213a0486455c1bdc1d6ed13a450",
+      "path": "public/sounds/flute/sustain-60-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/susNV/LDFlute_susNV_C3_v3_1.wav",
+      "instrument": "flute",
+      "bytes": 2729730,
+      "sha256": "8e0549fb44827c7379b74bba4d8402671c863e483cc1ea85a73407ce27ca3bd6",
+      "path": "public/sounds/flute/sustain-60-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/susNV/LDFlute_susNV_A3_v1_1.wav",
+      "instrument": "flute",
+      "bytes": 2706216,
+      "sha256": "6fc8d707afddfaaf3003551b95a83b52f514adbe488bfea1c8c5250080a07278",
+      "path": "public/sounds/flute/sustain-69-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/susNV/LDFlute_susNV_A3_v3_1.wav",
+      "instrument": "flute",
+      "bytes": 2765718,
+      "sha256": "8a24758e25e1b6036fc8ca55cdff129d18d70b0719cdb63f6eb6dc756b41cfc7",
+      "path": "public/sounds/flute/sustain-69-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/susNV/LDFlute_susNV_A4_v1_1.wav",
+      "instrument": "flute",
+      "bytes": 3460842,
+      "sha256": "c8fd15bb561dbdac6d35ffd9c5e49413131d96f8948d5bdf03d4a03fa344c5c0",
+      "path": "public/sounds/flute/sustain-81-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/susNV/LDFlute_susNV_A4_v3_1.wav",
+      "instrument": "flute",
+      "bytes": 2147490,
+      "sha256": "9958014f58a16b5b28b8a8b3afe2e28a9f5af5b68c9bc9057ea2cbdfcadbf4df",
+      "path": "public/sounds/flute/sustain-81-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/susNV/LDFlute_susNV_E5_v1_1.wav",
+      "instrument": "flute",
+      "bytes": 2956800,
+      "sha256": "660df172b551dfd7859dade283cb1e8dd6eac8095ccaabb5b19416caaacdef87",
+      "path": "public/sounds/flute/sustain-88-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/susNV/LDFlute_susNV_E5_v2_1.wav",
+      "instrument": "flute",
+      "bytes": 2121246,
+      "sha256": "c9617b571d5a40e70b1a1c93120e6ab37691c98902ce319b0a8ca50705858594",
+      "path": "public/sounds/flute/sustain-88-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/susNV/LDFlute_susNV_C6_v1_1.wav",
+      "instrument": "flute",
+      "bytes": 1618152,
+      "sha256": "0d1c902873564fac780ded78ce54788745bc81b0b3113b311169cfee9fdf9357",
+      "path": "public/sounds/flute/sustain-96-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/susNV/LDFlute_susNV_C6_v1_1.wav",
+      "instrument": "flute",
+      "bytes": 1618152,
+      "sha256": "0d1c902873564fac780ded78ce54788745bc81b0b3113b311169cfee9fdf9357",
+      "path": "public/sounds/flute/sustain-96-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_A3_v1_rr1.wav",
+      "instrument": "flute",
+      "bytes": 169494,
+      "sha256": "31dae3abbfa450de1a7dce156e8d966427e7ce562d62151a6a7173d29ef7df88",
+      "path": "public/sounds/flute/short-69-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_A3_v1_rr2.wav",
+      "instrument": "flute",
+      "bytes": 274506,
+      "sha256": "89b0ade4600edeb035de21cf9101b3f7dd0ea915bd136213a0096eaf8fb9d747",
+      "path": "public/sounds/flute/short-69-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_A3_v3_rr1.wav",
+      "instrument": "flute",
+      "bytes": 223920,
+      "sha256": "0c8e086a78635939bd8349f5fb1efe79afed00a65bdd948be003f4c29defdf72",
+      "path": "public/sounds/flute/short-69-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_A3_v3_rr2.wav",
+      "instrument": "flute",
+      "bytes": 190524,
+      "sha256": "6c676db1c3d2a52ad685a4d89556475955b5bbdc48078d795721f879ac4573c7",
+      "path": "public/sounds/flute/short-69-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_E4_v1_rr1.wav",
+      "instrument": "flute",
+      "bytes": 180558,
+      "sha256": "83891b2dade3efda9a3e932915e1f95c73f5d67743fe7db389689ad3b939b6e7",
+      "path": "public/sounds/flute/short-76-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_E4_v1_rr2.wav",
+      "instrument": "flute",
+      "bytes": 176736,
+      "sha256": "ea39bac7a9471255cd4babffa40cb528175d9a0526e8832d00aa907b2a7c8bb9",
+      "path": "public/sounds/flute/short-76-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_E4_v3_rr1.wav",
+      "instrument": "flute",
+      "bytes": 235668,
+      "sha256": "15ec8bc4d519e678289da72cfbbf14e93f38a4b2fa6d4e4be7008a7926f7d427",
+      "path": "public/sounds/flute/short-76-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_E4_v3_rr2.wav",
+      "instrument": "flute",
+      "bytes": 247992,
+      "sha256": "1a99d9a94ecc808d028be34d4daac05f062d7e4cc13b077b729c635ec39d5ef0",
+      "path": "public/sounds/flute/short-76-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_C5_v1_rr1.wav",
+      "instrument": "flute",
+      "bytes": 163326,
+      "sha256": "84adcdbe5387bc134467342c00a3819f9c3d6bb13efd5343a7ec552c02e8cffa",
+      "path": "public/sounds/flute/short-84-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_C5_v1_rr2.wav",
+      "instrument": "flute",
+      "bytes": 193542,
+      "sha256": "47a434e86aecc1be9e6d6e0f0490e5048e59dde6a27d040ff55047d40729428a",
+      "path": "public/sounds/flute/short-84-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_C5_v3_rr1.wav",
+      "instrument": "flute",
+      "bytes": 195378,
+      "sha256": "e1a08c8f8333c6b4cace01bb6a61e852808a6925c0a4dbde358878f313b5cc55",
+      "path": "public/sounds/flute/short-84-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_C5_v3_rr2.wav",
+      "instrument": "flute",
+      "bytes": 185748,
+      "sha256": "731fdf995ff223db441b8bf259a4d5535ddfabc6d3342ae3916d8f3991de1be0",
+      "path": "public/sounds/flute/short-84-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_E5_v1_rr1.wav",
+      "instrument": "flute",
+      "bytes": 208020,
+      "sha256": "44e211b377b4920f77e60f24ed37ef5236b21a34de7c44f03ac42b7007d668da",
+      "path": "public/sounds/flute/short-88-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_E5_v1_rr2.wav",
+      "instrument": "flute",
+      "bytes": 287886,
+      "sha256": "76f07a3f7770418eb18a974aa3e8befaa314f20462fdb19fca9d2e9ce83d7cbc",
+      "path": "public/sounds/flute/short-88-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_E5_v3_rr1.wav",
+      "instrument": "flute",
+      "bytes": 220758,
+      "sha256": "705fd3584fbdbc187c5bf1411683dc6193d62e79a33fad713aed7a28f3af6c65",
+      "path": "public/sounds/flute/short-88-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_E5_v3_rr2.wav",
+      "instrument": "flute",
+      "bytes": 218706,
+      "sha256": "3186669ebfdc3085d123f199061141ae7cee861c380e60cdf52fab888dfe4d8d",
+      "path": "public/sounds/flute/short-88-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_C6_v1_rr1.wav",
+      "instrument": "flute",
+      "bytes": 211494,
+      "sha256": "46923b2094beffec7aee4879b5dbdcab5d46df545f74d9f2fd7c663de657ecf5",
+      "path": "public/sounds/flute/short-96-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_C6_v1_rr2.wav",
+      "instrument": "flute",
+      "bytes": 204558,
+      "sha256": "edcee29fb13f637cfbedacaf83ac9a15173bc857b9853468a93f087d9fd95c1b",
+      "path": "public/sounds/flute/short-96-0-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_C6_v2_rr1.wav",
+      "instrument": "flute",
+      "bytes": 230808,
+      "sha256": "ef37125091975656951d20ff99b671671e4a1d5647b0617bd7a24621ece90681",
+      "path": "public/sounds/flute/short-96-1-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Woodwinds/Flute/stac/LDFlute_stac_C6_v2_rr2.wav",
+      "instrument": "flute",
+      "bytes": 224082,
+      "sha256": "8cfb906d5c80f79ce8d1ab8bc60e519596d6d7c937231b3351c8925747110145",
+      "path": "public/sounds/flute/short-96-1-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Percussion/Glock/glock_medium_G4.wav",
+      "instrument": "glock",
+      "bytes": 1271310,
+      "sha256": "6c4649b13e24fa01e4634edad8fe8edf18aef33facc5d49fe53097b376bac4da",
+      "path": "public/sounds/glock/sustain-79-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Percussion/Glock/glock_medium_C5.wav",
+      "instrument": "glock",
+      "bytes": 1271310,
+      "sha256": "635f898e0bcb6975b96b18efd9c896f6f1b97ff12174a339ada4814e49675660",
+      "path": "public/sounds/glock/sustain-84-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Percussion/Glock/glock_medium_C6.wav",
+      "instrument": "glock",
+      "bytes": 1271310,
+      "sha256": "e942cbf502cf6731df2925945fe3234c876cb63f047d91007b6929887f9e4904",
+      "path": "public/sounds/glock/sustain-96-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Percussion/Glock/glock_medium_G6.wav",
+      "instrument": "glock",
+      "bytes": 843122,
+      "sha256": "a2ba94e59119cd5272c1161fc8b8fbfb94c7b44de45a9a6cc5973b1c332103af",
+      "path": "public/sounds/glock/sustain-103-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "Percussion/Glock/glock_medium_C7.wav",
+      "instrument": "glock",
+      "bytes": 492418,
+      "sha256": "b2ecbe0e60c983bbfaa49a1f45f8a11559f7dba27b8c8a032eb2cb7366a36910",
+      "path": "public/sounds/glock/sustain-108-0-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "VSCO 1 Percussion/drums/bass/bdrum2_pp_1.wav",
+      "instrument": "percussion",
+      "bytes": 925666,
+      "sha256": "78ea19cb270fa5160512e04e04ef040b51a9194c04c4769d691dd47dd767d51e",
+      "path": "public/sounds/percussion/bass-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "VSCO 1 Percussion/drums/bass/bdrum2_pp_2.wav",
+      "instrument": "percussion",
+      "bytes": 995524,
+      "sha256": "435f7192545f2873ab48c457c2b3be1c87a9cf46433aaab55243e19d12d877a7",
+      "path": "public/sounds/percussion/bass-1.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "VSCO 1 Percussion/drums/snare/OldSnare/snare_f.wav",
+      "instrument": "percussion",
+      "bytes": 58134,
+      "sha256": "c332f9548c64202a6740d6ee327b17f87e1fd13fee034a9ad58fc8b4c07a80f2",
+      "path": "public/sounds/percussion/snare-0.wav"
+    },
+    {
+      "repo": "VSCO-2-CE",
+      "sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "VSCO 1 Percussion/drums/snare/OldSnare/snare_f2.wav",
+      "instrument": "percussion",
+      "bytes": 63522,
+      "sha256": "8ebe942636b46a02434907be629b0ce1bd800f60b814ea19d38ee566c499415d",
+      "path": "public/sounds/percussion/snare-1.wav"
+    }
+  ]
+}

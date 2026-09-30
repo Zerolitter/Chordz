@@ -1,0 +1,13 @@
+{
+  "date": "2026-09-30",
+  "browser": "Chrome 153",
+  "rms": 0.05965374613615256,
+  "peak": 0.25542616844177246,
+  "before": 0,
+  "finite": true,
+  "wavBytes": 864044,
+  "sampleRate": 48000,
+  "loopTick": 624,
+  "recordedSeconds": 1.3,
+  "recordedBytes": 187244
+}
