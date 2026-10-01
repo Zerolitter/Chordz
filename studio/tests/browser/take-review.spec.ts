@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { mkdirSync } from "node:fs";
 import type { ProjectDocument } from "../../lib/music/types";
 import { encodeWav } from "../../lib/audio/wav";
 
@@ -82,6 +83,7 @@ test("changing the chosen attempt and protected Stop end isolated take audition"
 
 test("take comparison controls wrap inside the editor at narrow widths", async ({ page }) => {
   await fixture(page);
+  mkdirSync("output/phase3-take-review", { recursive: true });
   for (const [width, height] of [[1366, 768], [1024, 768], [390, 844]]) {
     await page.setViewportSize({ width, height });
     const review = page.getByRole("region", { name: "Audio take comparison", exact: true });
@@ -89,6 +91,7 @@ test("take comparison controls wrap inside the editor at narrow widths", async (
     await expect(review.getByRole("button", { name: "Preview take", exact: true })).toBeVisible();
     expect(await review.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: `output/phase3-take-review/${width}-take.png` });
   }
 });
 

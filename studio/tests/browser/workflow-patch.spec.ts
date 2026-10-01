@@ -165,7 +165,17 @@ test("pre-capture Stop creates no take; failed preservation retries exactly once
   await expect(page.getByLabel("Start recording",{exact:true})).toBeEnabled();
   const empty=await page.evaluate(async()=>{const {latestDraft}=await import("/lib/client/storage.ts" as string);return (await latestDraft("guest")).document.assets.length;});
   expect(empty).toBe(0);
-  await page.evaluate(()=>{const original=IDBDatabase.prototype.transaction;let fail=true;IDBDatabase.prototype.transaction=function(...args:Parameters<typeof original>){if(fail&&Array.isArray(args[0])&&args[0].length===3){fail=false;throw new Error("Injected storage failure");}return original.apply(this,args);};});
+  await page.evaluate(()=>{
+    const original=IDBDatabase.prototype.transaction;let fail=true;
+    IDBDatabase.prototype.transaction=function(...args:Parameters<typeof original>){
+      const stores=args[0];
+      // Ordinary draft autosave also uses three stores. Fail only atomic take preservation.
+      if(fail&&this.name==="chordz-recovery-v1"&&args[1]==="readwrite"&&Array.isArray(stores)&&stores.length===3&&["drafts","assets","pending"].every(store=>stores.includes(store))){
+        fail=false;throw new Error("Injected storage failure");
+      }
+      return original.apply(this,args);
+    };
+  });
   await page.getByLabel("Start recording",{exact:true}).click();
   await expect(page.locator(".transport-position")).toContainText("Recording",{timeout:10000});
   await expect(page.getByRole("button",{name:"Add instrument track",exact:true})).toBeDisabled();

@@ -1,0 +1,81 @@
+{
+  "date": "2026-10-02",
+  "startingCommit": "a9d07d9540795c7017b2a27d123a6ab04e856d1c",
+  "branch": "codex/phase-3-record-finish",
+  "checkpoints": {
+    "recordingAndTakeReview": "2a92617",
+    "scopedCancellableExport": "f4c8a69",
+    "receiptAndFixtures": "Final documentation checkpoint"
+  },
+  "standards": {
+    "typecheck": "passed",
+    "unitTests": { "passed": 324, "files": 37 },
+    "lintWarnings": 0,
+    "productionBuild": "passed",
+    "buildAdvisory": "Existing large client chunk",
+    "diffCheck": "passed",
+    "independentReview": "No remaining material blocker in changed source and documentation"
+  },
+  "chrome": {
+    "distinctVerifiedScenarios": 88,
+    "coverage": "Aggregate affected and focused runs; not one uninterrupted green suite",
+    "affected": { "passed": 75, "total": 77, "elapsedMinutes": 7.4, "output": "output/phase3-affected-final" },
+    "finalCorrectedAndNative": { "passed": 14, "total": 14, "elapsedSeconds": 25.2, "nativeAudioCases": 11, "output": "output/phase3-corrected-and-native-final" },
+    "fixtureCorrections": [
+      "New stems fixture uses the existing accessible Add instrument track name",
+      "Take failure injection targets the exact atomic preservation transaction",
+      "Existing recording fixture returns to Sound after Finish opens Notes / Audio",
+      "Movement release fixture spans a step boundary while preserving measured timing assertions"
+    ],
+    "physicalInput": false,
+    "authentication": "Local dispatch simulation with local D1/R2"
+  },
+  "viewports": {
+    "recordingWidths": [1920, 1366, 850, 390],
+    "exportWidths": [1920, 1366, 1024, 390],
+    "takeComparisonWidths": [1366, 1024, 390],
+    "screenshotsInspected": "Recording, export and take comparison at narrow and larger sizes"
+  },
+  "nativeSection": {
+    "maximumPcmErrorBeforeCutoffBoundaryQuantum": 7.450580596923828e-9,
+    "peak": 0.06351050734519958,
+    "tailPeakAfterFollowingSectionStart": 0.00000369333929484128,
+    "exactFrames": 48000,
+    "framesWithTails": 240000,
+    "sourceDocumentUnchanged": true,
+    "sampleRate": 48000,
+    "downloadedStems": 2,
+    "selectedSectionStemFrames": 768000
+  },
+  "reference": {
+    "tracks": 16,
+    "recordedSeconds": 2.112,
+    "projectDocumentJsonCharacters": 1428736,
+    "exportSeconds": 304.8,
+    "sampleRate": 48000,
+    "bitDepth": 24,
+    "channels": 2,
+    "rms": 0.01018175712802524,
+    "peak": 0.1424245834350586,
+    "nonzeroSamples": 29041980,
+    "renderWallSeconds": 58.871
+  },
+  "assumptions": [
+    "Phase 3 completes remaining recording and finishing workflows around existing capture, editing, mixer and recovery",
+    "Destination and count-in are transient session controls",
+    "Choose a take compares existing audio regions without changing arrangement playback",
+    "Section preroll retains absolute song timing and effect state",
+    "Native offline cancellation disposes owned graph resources and suppresses output; the browser may finish disconnected rendering"
+  ],
+  "humanComparison": "Deferred by the user; unperformed",
+  "unverified": [
+    "Physical microphone and MIDI devices or hotplug",
+    "Physical touch",
+    "Human listening and perceptual timing",
+    "Hosted end-to-end behavior",
+    "Reopened WebView2"
+  ],
+  "delivery": "Local checkpoints only; no push, merge or Site publication",
+  "separateSampleRefinementBranch": "Inspected read-only and preserved separately",
+  "hardwareOrOperatingSystemPerformanceChanges": false
+}
