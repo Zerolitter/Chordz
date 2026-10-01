@@ -26,19 +26,19 @@ async function savedTrack(page: Page) {
 
 test("the shipped reference worker decodes, measures real PCM, cancels and retries in Chrome", async ({ page }) => {
   await page.goto("/");
-  const report = await page.evaluate(async () => {
-    const { StudioEngine } = await import("/lib/audio/engine.ts" as string), { createProject } = await import("/lib/music/project.ts" as string), { encodeWav } = await import("/lib/audio/wav.ts" as string);
+  await expect(page.getByLabel("Song title")).toBeEnabled();
+  const report = await page.evaluate(async fixture => {
+    const { StudioEngine } = await import("/lib/audio/engine.ts" as string), { createProject } = await import("/lib/music/project.ts" as string);
     const { analyzeReferenceBuffer, referenceWaveform } = await import("/lib/audio/reference-analysis-client.ts" as string);
     const engine = new StudioEngine(createProject(), async () => { throw new Error("No assets needed for reference decoding."); });
-    const rate = 12000, seconds = 65, pcm = new Float32Array(rate * seconds);
-    for (let beat = 0; beat < seconds * 2; beat++) for (let i = 0; i < rate * .12; i++) pcm[beat * rate / 2 + i] = .6 * Math.sin(2 * Math.PI * 90 * i / rate) * Math.exp(-i / (rate * .03));
-    const blob = new Blob([encodeWav([pcm], rate, 16)], { type: "audio/wav" }), buffer: AudioBuffer = await engine.decode(blob), metadata = { name: "pulse.wav", fingerprint: "browser-private-test", byteLength: blob.size, sampleRate: buffer.sampleRate, channels: buffer.numberOfChannels, duration: buffer.duration }, range = { startSec: 0, endSec: buffer.duration };
+    const bytes = Uint8Array.from(atob(fixture), byte => byte.charCodeAt(0));
+    const blob = new Blob([bytes], { type: "audio/wav" }), buffer: AudioBuffer = await engine.decode(blob), metadata = { name: "pulse.wav", fingerprint: "browser-private-test", byteLength: blob.size, sampleRate: buffer.sampleRate, channels: buffer.numberOfChannels, duration: buffer.duration }, range = { startSec: 0, endSec: buffer.duration };
     const before = buffer.getChannelData(0)[100], controller = new AbortController();
     const cancelled = analyzeReferenceBuffer(buffer, metadata, range, { signal: controller.signal }).then(() => "unexpected success", (error: Error) => error.name); controller.abort();
     const cancellation = await cancelled, waveform: number[] = await referenceWaveform(buffer), progress: number[] = [], profile: ReferenceProfile = await analyzeReferenceBuffer(buffer, metadata, range, { onProgress: (v: number) => progress.push(v) });
     engine.dispose();
     return { cancellation, waveformLength: waveform.length, waveformPeak: Math.max(...waveform), before, after: buffer.getChannelData(0)[100], tempo: profile.tempo, rms: profile.dynamics.rmsDbfs, points: profile.curve.length, lastProgress: progress.at(-1) };
-  });
+  }, pulseFixture().toString("base64"));
   expect(report.cancellation).toBe("AbortError"); expect(report.waveformLength).toBe(320); expect(report.waveformPeak).toBeGreaterThan(.4);
   expect(report.before).toBe(report.after); expect(report.tempo.confidence).toBe("supported"); expect(report.tempo.candidates.some(c => Math.abs(c.bpm - 120) < 1)).toBe(true); expect(report.rms).toBeLessThan(-10); expect(report.points).toBe(65); expect(report.lastProgress).toBe(100);
 });
@@ -49,7 +49,7 @@ test("private reference proposals stay staged, cancel cleanly, apply once and su
   await page.getByRole("button", { name: "Songs", exact: true }).click(); await page.getByRole("button", { name: "Blank song", exact: true }).click();
   await page.getByRole("navigation").getByRole("button", { name: "03 Sound" }).click();
   const rack = page.getByRole("region", { name: "Selected track modulation rack" });
-  await rack.locator(".mod-reference-inspector>summary").click();
+  await page.getByLabel("Other detail tools").selectOption("reference");
   const panel = rack.getByRole("region", { name: "Reference analysis" });
   await expect.poll(() => savedTrack(page)).toEqual({ routes: 0, movement: false });
   await panel.getByLabel("Reference audio").setInputFiles({ name: "private-pulse.wav", mimeType: "audio/wav", buffer: pulseFixture() });
@@ -58,6 +58,10 @@ test("private reference proposals stay staged, cancel cleanly, apply once and su
   await panel.getByLabel("Reference tempo", { exact: true }).fill("123.5"); await panel.getByRole("button", { name: "Use tempo in song", exact: true }).click(); await expect(page.getByLabel("Tempo", { exact: true })).toHaveValue("123.5");
   await panel.getByLabel("Reference key", { exact: true }).selectOption("Eb"); await panel.getByRole("button", { name: "Use tonal palette in song", exact: true }).click(); await expect(page.getByLabel("Song key", { exact: true })).toHaveValue("Eb");
   await panel.getByRole("button", { name: "Sound proposal", exact: true }).click(); await expect(rack.locator(".mod-route")).toHaveCount(3);
+  await page.getByLabel("Collapse detail dock", { exact: true }).click();
+  await page.getByLabel("Expand detail dock", { exact: true }).click();
+  await expect(panel.getByText("Dynamics", { exact: true })).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Apply proposal", exact: true })).toBeVisible();
   await page.waitForTimeout(650); expect(await savedTrack(page)).toEqual({ routes: 0, movement: false });
   await panel.getByRole("button", { name: "Cancel proposal", exact: true }).click(); await expect(rack.locator(".mod-route")).toHaveCount(0);
   await panel.getByRole("button", { name: "Both", exact: true }).click(); await expect(rack.locator(".mod-route")).toHaveCount(3); await panel.getByRole("button", { name: "Apply proposal", exact: true }).click();

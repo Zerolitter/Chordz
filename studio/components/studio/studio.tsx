@@ -1,24 +1,21 @@
 "use client";
 import {DraftInput} from "./draft-field";
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, type CSSProperties } from "react";
 import {
   FolderOpen,
   Download,
   Undo2,
   Redo2,
   Cloud,
-  ListMusic,
   ChevronRight,
 } from "lucide-react";
 import { StudioProvider, useStudio, type StudioUser } from "./use-studio";
-import { BrandMark, IconButton, Modal } from "./primitives";
-import { WritePanel } from "./write-panel";
-import { ArrangePanel } from "./arrange-panel";
-import { SoundPanel } from "./sound-panel";
-import { MixerPanel } from "./mixer-panel";
-import { TrackList } from "./track-list";
-import { PerformanceDock } from "./performance-dock";
+import { BrandMark, IconButton } from "./primitives";
+import { WorkspacePrototype } from "./workspace-prototype";
+import { releasePerformanceDockInputs } from "./performance-dock";
+import { releaseSoundPanelInputs } from "./sound-panel";
+import { freezeToolGestures } from "./tool-visibility";
 import { AppearanceSettings } from "./appearance-settings";
 import { usePreference } from "./use-preference";
 import { DEFAULT_APPEARANCE, isAppearance, trackDisplayColor } from "../../lib/client/appearance";
@@ -42,15 +39,6 @@ export default function Studio({
 function StudioShell() {
   const s = useStudio();
   const [appearance, setAppearance, appearanceError] = usePreference("appearance", DEFAULT_APPEARANCE, isAppearance);
-  const [dockOpen, setDockOpen] = usePreference("performance-dock", false, (value): value is boolean => typeof value === "boolean");
-  const [tracksOpen, setTracksOpen] = useState(false);
-  const [narrow, setNarrow] = useState(false);
-  useEffect(() => {
-    const media = window.matchMedia("(max-width: 1023px)");
-    const update = () => { setNarrow(media.matches); if (!media.matches) setTracksOpen(false); };
-    update(); media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
   useEffect(() => {
     for (const [name, value] of Object.entries({ "--amber": appearance.accent, "--primary": appearance.accent, "--ring": appearance.accent, "--rail-width": appearance.railWidth + "px" })) document.documentElement.style.setProperty(name, value);
     document.documentElement.dataset.density = appearance.density;
@@ -147,16 +135,17 @@ function StudioShell() {
           )}
         </div>
       </header>
+      <Transport />
       <div className="workspace-bar">
-        <button className="secondary-button tracks-toggle" aria-label="Show tracks" onClick={() => setTracksOpen(true)}><ListMusic size={15} />Tracks</button>
         <nav aria-label="Studio workspace">
-          {(["write", "arrange", "sound", "mix"] as const).map((mode, i) => (
+          {(["arrange", "write", "sound", "mix"] as const).map((mode, i) => (
             <button
               key={mode}
               className={s.mode === mode ? "active" : ""}
               aria-label={"0" + (i + 1) + " " + mode[0].toUpperCase() + mode.slice(1)}
               aria-current={s.mode === mode ? "page" : undefined}
-              onClick={() => s.setMode(mode)}
+              data-edit-policy="bypass"
+              onClick={() => { freezeToolGestures("detail"); freezeToolGestures("mixer"); releasePerformanceDockInputs(s); releaseSoundPanelInputs(s); s.setMode(mode); }}
             >
               <span className="mono">0{i + 1}</span>
               {mode[0].toUpperCase() + mode.slice(1)}
@@ -280,16 +269,7 @@ function StudioShell() {
         className="studio-body"
         inert={!s.hydrated || !!s.busy ? true : undefined}
       >
-        {!narrow && <div className="desktop-tracks"><TrackList /></div>}
-        <div className="workspace">
-          <div className="workspace-content">
-            <div hidden={s.mode!=="write"}><WritePanel /></div>
-            <div hidden={s.mode!=="arrange"}><ArrangePanel /></div>
-            <div hidden={s.mode!=="sound"}><SoundPanel /></div>
-            <div hidden={s.mode!=="mix"}><MixerPanel /></div>
-          </div>
-          <PerformanceDock open={dockOpen} onOpenChange={setDockOpen} />
-        </div>
+        <WorkspacePrototype />
       </div>
       {(!s.hydrated || s.busy || s.error || s.message) && <div
         className={"studio-notice " + (s.error ? "error" : "")}
@@ -306,14 +286,8 @@ function StudioShell() {
           </button>
         )}
       </div>}
-      <Transport />
       {s.editConflict&&<div className="edit-conflict" role="alert" data-edit-policy="bypass">A newer edit was kept. Your proposal is available. <button onClick={s.reapplyEdit}>Reapply</button><button onClick={s.discardEdit}>Discard</button></div>}
-      {narrow && <TrackDrawer open={tracksOpen} onClose={() => setTracksOpen(false)} />}
       <StudioDialogs />
     </main>
   );
-}
-
-function TrackDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
-  return <Modal open={open} onClose={onClose} title="Song tracks" description="Choose a track, sound, or mix state."><div className="mobile-tracks"><TrackList onNavigate={onClose} /></div></Modal>;
 }

@@ -17,6 +17,9 @@ import { clamp, uid, type SoundSettings } from "../../lib/music/types";
 import { clipboardTrackPatchSchema, storedSoundPresetSchema, trackPatchSchema, type TrackPatch } from "../../lib/music/track-patch";
 import { knobModulationBounds } from "../../lib/client/knob-modulation";
 import "./modulation-rack.css";
+import { ToolVisibilityProvider } from "./tool-visibility";
+
+export type SoundPanelSection = "sound" | "movement" | "reference";
 
 type StoredPreset = { name: string; patch: TrackPatch };
 type RuntimeSample = ModSample & { seconds: number; effectiveTargets?: Readonly<Partial<Record<ModTarget, number>>> };
@@ -60,8 +63,9 @@ function baseValue(target: ModTarget, patch: TrackPatch, track: NonNullable<Retu
   return sourceParameter === "rate" && source?.sync ? tempo / 60 / source.division : source?.[sourceParameter as "rate" | "amplitude"] ?? 0;
 }
 
-export function ModulationRack() {
-  const s = useStudio(), transport = useTransport(), track = s.selectedTrack;
+export function ModulationRack({ active = true, section }: { active?: boolean; section?: SoundPanelSection } = {}) {
+  const soundActive = active && (!section || section === "sound");
+  const s = useStudio(), transport = useTransport(soundActive), track = s.selectedTrack;
   const macroPerformance = s.recordingPhase === "count-in" || s.recordingPhase === "capturing";
   const [assignSource, setAssignSource] = useState("M1"), [assignTarget, setAssignTarget] = useState<ModTarget>("track.cutoff"), [selectedTarget, setSelectedTarget] = useState<ModTarget>("track.cutoff");
   const [cc, setCc] = useState(74), [ccChannel, setCcChannel] = useState("all"), [error, setError] = useState("");
@@ -73,16 +77,16 @@ export function ModulationRack() {
   const [runtimeSample, setRuntimeSample] = useState<{ trackId: string; sample: RuntimeSample } | null>(null);
   const owner = `modulation-ab:${track?.id ?? "none"}`;
   useEffect(() => { let active = true; queueMicrotask(() => { if (!active) return; try { const parsed = JSON.parse(localStorage.getItem(PRESET_KEY) ?? "[]"); if (!Array.isArray(parsed)) { setPresetWarning("Saved sound patches could not be read. You can still shape and copy patches."); return; } const checked = parsed.slice(0, 64).map(preset => storedSoundPresetSchema.safeParse(preset)); setPresets(checked.flatMap(result => result.success ? [result.data] : [])); if (checked.some(result => !result.success)) setPresetWarning("Some saved sound patches are invalid and were skipped."); } catch { setPresetWarning("Preset storage is unavailable. You can still shape and copy patches."); } }); return () => { active = false; }; }, []);
-  useEffect(() => { const interval = setInterval(() => { const id = track?.id ?? "", next = s.engine?.meter().tracks[id] ?? 0; if (Math.abs(next - output.current) > .005) { output.current = next; setMeter(next); } const sample = s.engine?.modulationSample(id); setRuntimeSample(sample ? { trackId: id, sample } : null); }, 100); return () => clearInterval(interval); }, [s.engine, track?.id]);
+  useEffect(() => { if (!soundActive) return; const interval = setInterval(() => { const id = track?.id ?? "", next = s.engine?.meter().tracks[id] ?? 0; if (Math.abs(next - output.current) > .005) { output.current = next; setMeter(next); } const sample = s.engine?.modulationSample(id); setRuntimeSample(sample ? { trackId: id, sample } : null); }, 100); return () => clearInterval(interval); }, [soundActive, s.engine, track?.id]);
   useEffect(() => { if (previousTrack.current !== track?.id) { previousTrack.current = track?.id; snapshots.current = null; queueMicrotask(() => { setStaging(false); setAbSlot("A"); setError(""); }); } }, [track?.id]);
   const patch = track ? patchFor(track) : null;
   const trackId = track?.id;
   const modulation = useMemo(() => track?.modulation ?? emptyPatch(), [track?.modulation]);
   const performanceMacros = s.performanceMacros;
   const displayedModulation = useMemo(() => macroPerformance ? { ...modulation, macros: performanceMacros } : modulation, [modulation, macroPerformance, performanceMacros]);
-  const controlEvents = useMemo(() => trackId ? compileSong(s.project, trackId).events.filter(event => event.trackId === trackId).map(event => ({ ...event, seconds: event.tick * 60 / (s.project.tempo * 960) })) : [], [s.project, trackId]);
+  const controlEvents = useMemo(() => soundActive && trackId ? compileSong(s.project, trackId).events.filter(event => event.trackId === trackId).map(event => ({ ...event, seconds: event.tick * 60 / (s.project.tempo * 960) })) : [], [soundActive, s.project, trackId]);
   const controlLanes = useMemo(() => (track?.automation ?? []).filter(lane => [...MACRO_IDS, "modulation", "expression", "pressure", "pitchBend"].includes(lane.parameter)).map(lane => ({ id: lane.parameter, points: lane.points.map(point => ({ seconds: point.tick * 60 / (s.project.tempo * 960), value: point.value })) })), [track?.automation, s.project.tempo]);
-  const evaluator = useMemo(() => trackId ? new ModulationEvaluator(compileModulation(displayedModulation, trackId, s.project.tempo, controlEvents, controlLanes)) : null, [displayedModulation, trackId, s.project.tempo, controlEvents, controlLanes]);
+  const evaluator = useMemo(() => soundActive && trackId ? new ModulationEvaluator(compileModulation(displayedModulation, trackId, s.project.tempo, controlEvents, controlLanes)) : null, [soundActive, displayedModulation, trackId, s.project.tempo, controlEvents, controlLanes]);
   const previewEvaluation = useMemo<ModSample>(() => {
     if (!evaluator) return { sources: {}, targets: {} };
     const seconds = transport.tick * 60 / (s.project.tempo * 960);
@@ -185,6 +189,7 @@ export function ModulationRack() {
     return target.startsWith("source:") ? evaluation.sourceParameters?.[target] ?? base : applyModTarget(target, base, Number(evaluation.targets[target] ?? 0));
   };
   return <section className="modulation-rack" aria-label="Selected track modulation rack">
+    <ToolVisibilityProvider active={soundActive}><div className="modulation-sound-section" hidden={!!section && section !== "sound"}>
     <div className="mod-rack-header" data-edit-policy={stagePolicy}>
       <div className="mod-rack-title"><h2>Modulation</h2><span className="mod-runtime-state" title={nativeSample ? "Graphs and effective values follow the audio engine." : "Playhead preview at middle C and 75% velocity. Audition to follow sounding notes."}>{nativeSample ? "Live" : "Preview"}</span></div>
       <div className="mod-rack-tools">
@@ -227,8 +232,13 @@ export function ModulationRack() {
       </div>
       <details className="mod-vary-inspector"><summary>Vary & locks <span className="tiny">seed {modulation.seed}</span></summary><div className="mod-vary"><button className="secondary-button" onClick={vary}><Dice5 size={14} />Vary</button>{Object.entries(locks).map(([key, locked]) => <button key={key} className="mod-lock" aria-pressed={locked} onClick={() => setLocks(current => ({ ...current, [key]: !locked }))}>{locked ? <LockKeyhole size={13} /> : <Unlock size={13} />}{({ sound: "Sound", movement: "Movement", sourceRates: "Sources", routeDepths: "Depths" } as Record<string, string>)[key]}</button>)}<button className="text-button" onClick={() => settled(() => update(emptyPatch(s.project.seed), "Reset modulation rack"))}>Reset rack</button><span className="tiny">Levels, instrument, tempo and notes stay fixed.</span></div></details>
     </fieldset>
-    <details className="movement-inspector"><summary>Live & generated chord movement</summary><ChordMovementControls value={track.chordMovement ?? DEFAULT_CHORD_MOVEMENT} stageOwner={stageOwner} live disabled={configurationDisabled || track.kind === "audio"} onChange={chordMovement => s.updateTrack(track.id, { chordMovement }, "Shape chord movement")} /></details>
-    <details className="mod-reference-inspector"><summary>Reference audio <span className="tiny">Analyze sound & movement</span></summary><ReferencePanel /></details>
+    </div></ToolVisibilityProvider>
+    <ToolVisibilityProvider active={active && (!section || section === "movement")}><div hidden={!!section && section !== "movement"}>
+      <details className="movement-inspector" open={section === "movement" ? true : undefined}><summary>Live & generated chord movement</summary><ChordMovementControls value={track.chordMovement ?? DEFAULT_CHORD_MOVEMENT} stageOwner={stageOwner} live disabled={configurationDisabled || track.kind === "audio"} onChange={chordMovement => s.updateTrack(track.id, { chordMovement }, "Shape chord movement")} /></details>
+    </div></ToolVisibilityProvider>
+    <ToolVisibilityProvider active={active && (!section || section === "reference")}><div hidden={!!section && section !== "reference"}>
+      <details className="mod-reference-inspector" open={section === "reference" ? true : undefined}><summary>Reference audio <span className="tiny">Analyze sound & movement</span></summary><ReferencePanel /></details>
+    </div></ToolVisibilityProvider>
     {error && <p className="action-error" role="alert">{error}</p>}{!error && presetWarning && <p className="action-error" role="alert">{presetWarning}</p>}
   </section>;
 }

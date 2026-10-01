@@ -10,11 +10,13 @@ test("writing, arrangement, keyboard, undo, mixer and responsive layout", async 
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await expect(page.getByLabel("Song title")).toBeEnabled();
+  await page.getByRole("button", {name:"02 Write", exact:true}).click();
   await expect(
     page.getByRole("heading", { name: "Find the feeling." }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Songs", exact: true }).click();
   await page.getByRole("button", { name: "Blank song" }).click();
+  await page.getByRole("button", {name:"02 Write", exact:true}).click();
   await page.getByText("Custom chord card",{exact:true}).click();
   await page.getByLabel("New chord symbol").fill("Cmaj7");
   await page.getByRole("button",{name:"Chord card Cmaj7",exact:true}).focus();
@@ -24,13 +26,14 @@ test("writing, arrangement, keyboard, undo, mixer and responsive layout", async 
   await expect(page.locator(".chord-card")).toHaveCount(0);
   await page.getByLabel("Redo", { exact: true }).click();
   await expect(page.locator(".chord-card")).toHaveCount(1);
-  await page.getByRole("button", { name: "Performance dock", exact: true }).click();
+  await page.getByLabel("Other detail tools").selectOption("keyboard");
   await page.getByLabel("Play C3", { exact: true }).click();
   await page.getByLabel("Play E", { exact: true }).count();
+  await page.getByRole("button", {name:"02 Write", exact:true}).click();
   await page.getByRole("button", { name: "Insert", exact: true }).click();
   await page
     .getByRole("navigation")
-    .getByRole("button", { name: "02 Arrange" })
+    .getByRole("button", { name: "01 Arrange" })
     .click();
   await expect(page.locator(".timeline-clip")).toHaveCount(1);
   await page.locator(".timeline-clip").click();
@@ -38,6 +41,7 @@ test("writing, arrangement, keyboard, undo, mixer and responsive layout", async 
   await expect(page.locator(".timeline-clip")).toHaveCount(2);
   await expect(page.getByRole("button", { name: "Drum steps", exact: true })).toBeDisabled();
   await page.getByRole("button",{name:"Quantize",exact:true}).click();
+  await page.locator(".clip-editor-metadata > summary").click();
   await page.getByLabel("Clip transpose").fill("2");
   await page
     .getByRole("navigation")
@@ -46,7 +50,7 @@ test("writing, arrangement, keyboard, undo, mixer and responsive layout", async 
   await expect(page.getByLabel("Master volume")).toBeVisible();
   await page
     .getByRole("navigation")
-    .getByRole("button", { name: "01 Write" })
+    .getByRole("button", { name: "02 Write" })
     .click();
   mkdirSync("output/playwright", { recursive: true });
   await page.screenshot({
@@ -322,7 +326,7 @@ test("audio import, trim, private upload, WAV and portable backup exports", asyn
   await expect(page.getByLabel("Song title")).toHaveValue(/restored$/);
   await page
     .getByRole("navigation")
-    .getByRole("button", { name: "02 Arrange" })
+    .getByRole("button", { name: "01 Arrange" })
     .click();
   await page.locator(".timeline-clip").click();
   await expect(page.getByLabel("Source offset")).toHaveValue("0.05");
@@ -458,7 +462,7 @@ test("five-minute 16-track mixed reference records, saves, reopens and exports",
   await expect(second.locator(".track-row")).toHaveCount(16);
   await second
     .getByRole("navigation")
-    .getByRole("button", { name: "02 Arrange" })
+    .getByRole("button", { name: "01 Arrange" })
     .click();
   await second.screenshot({
     path: "output/playwright/reference-arrangement.png",

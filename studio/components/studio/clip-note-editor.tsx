@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { DraftInput } from "./draft-field";
 import { useStudio } from "./use-studio";
@@ -9,12 +9,28 @@ import { ticksPerBar } from "../../lib/music/project";
 import { quantizeClip, humanizeClip } from "../../lib/music/edit";
 import { instrumentFor, isDrumInstrument } from "../../lib/audio/catalog";
 import { noteName } from "../../lib/music/theory";
+import { useToolVisibility } from "./tool-visibility";
 
 export function ClipNoteEditor({ grid, setGrid, swing, setSwing }: { grid: number; setGrid: (value: number) => void; swing: number; setSwing: (value: number) => void }) {
   const s = useStudio(), clip = s.selectedClip, track = s.selectedTrack;
   const bar = ticksPerBar(s.project);
   const [noteId, setNoteId] = useState("");
-  const [editor, setEditor] = useState<"notes" | "drums" | "automation">("notes");
+  const [editor, setEditor] = useState<"notes" | "drums">("notes");
+  const active = useToolVisibility(), roll = useRef<HTMLDivElement>(null), positionedClip = useRef("");
+  useLayoutEffect(() => {
+    const element = roll.current, context = `${s.project.id}:${clip?.id ?? ""}`;
+    if (!active || !clip || !element || positionedClip.current === context) return;
+    const position = () => {
+      if (!element.clientHeight || positionedClip.current === context) return;
+      const pitches = clip.notes.map(note => note.pitch);
+      const middle = pitches.length ? (Math.min(...pitches) + Math.max(...pitches)) / 2 : 48;
+      element.scrollTop = Math.max(0, (84 - clamp(middle, 36, 84)) * 18 + 9 - element.clientHeight / 2);
+      positionedClip.current = context;
+    };
+    position();
+    const observer = new ResizeObserver(position); observer.observe(element);
+    return () => observer.disconnect();
+  }, [active, clip, editor, s.project.id]);
   const chosen = clip?.notes.find(n => n.id === noteId);
   function editNote(update: Partial<NoteEvent>) {
     if (clip && track) s.updateClip(track.id, clip.id, c => ({ ...c,
@@ -37,8 +53,8 @@ export function ClipNoteEditor({ grid, setGrid, swing, setSwing }: { grid: numbe
                   Drum steps
                 </button>
                 <button
-                  className={editor === "automation" ? "active" : ""}
-                  onClick={() => setEditor("automation")}
+                  data-edit-policy="bypass"
+                  onClick={() => s.setDetailTool("automation")}
                 >
                   Automation
                 </button>
@@ -94,7 +110,7 @@ export function ClipNoteEditor({ grid, setGrid, swing, setSwing }: { grid: numbe
               </div>
               {(editor === "notes" || editor==="drums"&&instrumentFor(s.project,track).kind!=="drums") && (
                 <>
-                  <div className="piano-roll-scroll">
+                  <div ref={roll} className="piano-roll-scroll">
                     <div
                       className="piano-roll"
                       style={{

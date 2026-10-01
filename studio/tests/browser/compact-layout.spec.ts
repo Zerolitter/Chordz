@@ -52,7 +52,8 @@ test("empty and populated Sound racks remain compact at reference viewport sizes
   await rack.getByLabel("Add modulation source").selectOption("envelope");
   await rack.getByLabel("Add modulation source").selectOption("step");
   await expect(rack.locator(".mod-source")).toHaveCount(3);
-  await rack.locator(".movement-inspector > summary").click();
+  await page.getByLabel("Other detail tools").selectOption("movement");
+  if(await rack.locator(".movement-inspector").getAttribute("open") === null) await rack.locator(".movement-inspector > summary").click();
   await expect(rack.getByLabel("Movement timing", { exact: true })).toBeVisible();
   await expect(rack.getByLabel("Movement voicing", { exact: true })).toBeVisible();
   await rack.getByLabel("Movement pattern", { exact: true }).selectOption("down");
@@ -61,6 +62,7 @@ test("empty and populated Sound racks remain compact at reference viewport sizes
   await expect(rack.getByLabel("Movement pattern", { exact: true })).toHaveValue("chord");
   mkdirSync("output/compact-layout", { recursive: true });
   await rack.locator(".movement-controls").screenshot({ path: "output/compact-layout/movement.png", animations: "disabled" });
+  await page.getByRole("tab", {name:"Sound",exact:true}).click();
   for (const [width, height] of [[2515, 1138], [1668, 1244], [960, 900], [390, 844]]) {
     await page.setViewportSize({ width, height });
     await page.locator(".workspace-content").evaluate(element => { element.scrollTop = 0; });

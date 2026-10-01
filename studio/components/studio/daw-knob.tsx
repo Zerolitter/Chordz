@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useEffectEvent, useId, useRef, useState, type DragEvent } from "react";
+import { useEffect, useEffectEvent, useId, useLayoutEffect, useRef, useState, type DragEvent } from "react";
 import { MOD_TARGETS, type ModTarget } from "../../lib/music/modulation-types";
 import { KNOB_KEYS, knobArc, knobKeyValue, knobParseNumber, knobQuantize, knobToUnit } from "../../lib/client/knob";
 import { KnobHeadless, type KnobHeadlessHandle } from "./knob-headless";
 import { useStudio } from "./use-studio";
 import "./daw-knob.css";
+import { useToolInputTermination, useToolVisibility } from "./tool-visibility";
 
 export interface DawKnobProps {
   label: string; displayLabel?: string; value: number; min?: number; max?: number; step?: number;
@@ -21,7 +22,8 @@ export function DawKnob({ label, displayLabel, value, min = 0, max = 1, step = .
   unit = "", format, log = false, disabled: disabledProp = false, size = "normal", stageOwner, performance = false,
   effectiveValue, modulationRange, modulationTarget, modulationTargets, trackId, onModulationDrop, onChange }: DawKnobProps) {
   const s = useStudio(), owner = "knob:" + useId(), labelId = useId(), helpId = useId(), inputId = useId();
-  const disabled = disabledProp || (performance ? !["idle","count-in","capturing"].includes(s.recordingPhase) : s.recordingPhase !== "idle");
+  const active = useToolVisibility();
+  const disabled = !active || disabledProp || (performance ? !["idle","count-in","capturing"].includes(s.recordingPhase) : s.recordingPhase !== "idle");
   const headless = useRef<KnobHeadlessHandle>(null), gesture = useRef<Gesture | null>(null), blocked = useRef(false);
   const mounted = useRef(false), displayEpoch = useRef(0);
   const [raw, setRaw] = useState<string | null>(null), [invalid, setInvalid] = useState(false), [dragOver, setDragOver] = useState(false);
@@ -68,7 +70,14 @@ export function DawKnob({ label, displayLabel, value, min = 0, max = 1, step = .
     if (!performance) s.invalidateGesture(null, owner);
     setInvalid(false); onChange(n);
   }
+  useToolInputTermination(() => {
+    if (performance && stopGesture(false)) { setRaw(null); setInvalid(false); }
+  });
   const cancelCurrent = useEffectEvent(cancel);
+  const endOwnedInput = useEffectEvent(() => {
+    // Removing a tool ends its input, without recording a return to the gesture's start.
+    if (performance) stopGesture(false); else cancel();
+  });
   const reconcile = useEffectEvent(() => {
     if (!gesture.current) return false;
     // A take cutoff freezes the last emitted controller value. It must not emit a rollback event.
@@ -85,19 +94,20 @@ export function DawKnob({ label, displayLabel, value, min = 0, max = 1, step = .
     mounted.current = true;
     return () => { endLifetime(); };
   }, []);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!reconcile()) return;
     const epoch = displayEpoch.current;
     queueMicrotask(() => clearReconciledDraft(epoch));
   }, [s.transaction, disabled, performance]);
   useEffect(() => {
+    if (!active) return;
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape" && cancelCurrent()) { event.preventDefault(); event.stopPropagation(); blocked.current = true; }
     };
     const blur = () => { cancelCurrent(); };
     window.addEventListener("keydown", escape, true); window.addEventListener("blur", blur);
-    return () => { window.removeEventListener("keydown", escape, true); window.removeEventListener("blur", blur); cancelCurrent(); };
-  }, []);
+    return () => { window.removeEventListener("keydown", escape, true); window.removeEventListener("blur", blur); endOwnedInput(); };
+  }, [active]);
   function reset() { if (defaultValue !== undefined && begin("reset")) { publish(defaultValue, false); finish(); } }
   function assign(sourceId: string, target: ModTarget, origin: string) {
     if (onModulationDrop) onModulationDrop(sourceId, target);
@@ -122,7 +132,7 @@ export function DawKnob({ label, displayLabel, value, min = 0, max = 1, step = .
       <KnobHeadless ref={headless} className="daw-knob-dial" aria-label={displayLabel ? label : undefined} aria-labelledby={displayLabel ? undefined : labelId} aria-describedby={helpId}
         valueRaw={value} valueMin={min} valueMax={max} log={log} disabled={disabled} valueRawDisplayFn={display}
         onGestureStart={() => begin("pointer")} onValueRawChange={publish}
-        onGestureEnd={canceled => { if (gesture.current?.kind === "pointer") { if (canceled) cancel(); else finish(); } }}
+        onGestureEnd={canceled => { if (gesture.current?.kind === "pointer") { if (!active && performance) stopGesture(false); else if (canceled) cancel(); else finish(); } }}
         onDoubleClick={event => { event.preventDefault(); reset(); }}
         onKeyDown={event => {
           if (event.key === "Escape") { if (cancel()) { event.preventDefault(); event.stopPropagation(); blocked.current = true; } return; }

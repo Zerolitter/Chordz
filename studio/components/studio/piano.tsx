@@ -1,11 +1,35 @@
 "use client";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, type PointerEvent } from "react";
 import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { noteName, recognizeChords, scaleNotes } from "../../lib/music/theory";
 import { useStudio } from "./use-studio";
 import { IconButton } from "./primitives";
+import { useToolInputTermination, useToolVisibility } from "./tool-visibility";
 
 export function Piano() {
   const s = useStudio();
+  const active = useToolVisibility(), pointers = useRef(new Map<number, HTMLButtonElement>());
+  function terminate() {
+    s.releaseSource("pointer:"); s.releaseSource("button:");
+    const captured = [...pointers.current]; pointers.current.clear();
+    for (const [id, element] of captured) if (element.hasPointerCapture(id)) element.releasePointerCapture(id);
+  }
+  const endOwnedInputs = useEffectEvent(terminate);
+  useToolInputTermination(terminate);
+  useLayoutEffect(() => { if (!active) endOwnedInputs(); }, [active]);
+  useEffect(() => () => endOwnedInputs(), []);
+  function pointerDown(event: PointerEvent<HTMLButtonElement>, pitch: number) {
+    if (!active) return;
+    event.preventDefault(); pointers.current.set(event.pointerId, event.currentTarget);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    void s.noteOn(pitch, .75, `pointer:${event.pointerId}:${pitch}`);
+  }
+  function pointerUp(event: PointerEvent<HTMLButtonElement>, pitch: number) {
+    pointers.current.delete(event.pointerId); s.noteOff(pitch, `pointer:${event.pointerId}:${pitch}`);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+  function pointerCancel(event: PointerEvent<HTMLButtonElement>) { pointers.current.delete(event.pointerId); s.releaseSource(`pointer:${event.pointerId}:`); }
+  function captureLost(event: PointerEvent<HTMLButtonElement>) { pointers.current.delete(event.pointerId); s.releaseHeld(`pointer:${event.pointerId}:`); }
   const base = (s.octave + 1) * 12;
   const scale = scaleNotes(s.project.key, s.project.mode);
   const recognized = recognizeChords(s.selectedNotes, s.project.key)[0];
@@ -71,17 +95,13 @@ export function Piano() {
                 (s.selectedNotes.includes(pitch) ? "selected " : "") +
                 (s.heldNotes.has(pitch) ? "held" : "")
               }
-              onPointerDown={(e) => {
-                e.preventDefault();
-                e.currentTarget.setPointerCapture(e.pointerId);
-                void s.noteOn(pitch,0.75,"pointer:"+e.pointerId+":"+pitch);
-              }}
-              onPointerUp={(e) => s.noteOff(pitch,"pointer:"+e.pointerId+":"+pitch)}
-              onPointerCancel={(e) => s.releaseSource("pointer:"+e.pointerId+":")}
+              onPointerDown={event => pointerDown(event, pitch)}
+              onPointerUp={event => pointerUp(event, pitch)}
+              onPointerCancel={pointerCancel}
               onBlur={()=>s.releaseSource("button:")}
-              onLostPointerCapture={e=>s.releaseHeld("pointer:"+e.pointerId+":")}
+              onLostPointerCapture={captureLost}
               onKeyDown={(e) => {
-                if ((e.key === "Enter"||e.key === " ")&&!e.repeat) {
+                if (active && (e.key === "Enter"||e.key === " ")&&!e.repeat) {
                   e.preventDefault();
                   void s.noteOn(pitch,0.75,"button:"+e.code+":"+pitch);
                 }
@@ -117,17 +137,13 @@ export function Piano() {
                     left: `calc(${(preceding / white.length) * 100}% - ${(100 / white.length) * 0.32}%)`,
                     width: `${(100 / white.length) * 0.64}%`,
                   }}
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    e.currentTarget.setPointerCapture(e.pointerId);
-                    void s.noteOn(pitch,0.75,"pointer:"+e.pointerId+":"+pitch);
-                  }}
-                  onPointerUp={(e) => s.noteOff(pitch,"pointer:"+e.pointerId+":"+pitch)}
-                  onPointerCancel={(e) => s.releaseSource("pointer:"+e.pointerId+":")}
+                  onPointerDown={event => pointerDown(event, pitch)}
+                  onPointerUp={event => pointerUp(event, pitch)}
+                  onPointerCancel={pointerCancel}
                   onBlur={()=>s.releaseSource("button:")}
-                  onLostPointerCapture={e=>s.releaseHeld("pointer:"+e.pointerId+":")}
+                  onLostPointerCapture={captureLost}
                   onKeyDown={(e) => {
-                    if ((e.key === "Enter"||e.key === " ")&&!e.repeat) {
+                    if (active && (e.key === "Enter"||e.key === " ")&&!e.repeat) {
                       e.preventDefault();
                       void s.noteOn(pitch,0.75,"button:"+e.code+":"+pitch);
                     }

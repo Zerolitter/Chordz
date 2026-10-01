@@ -48,7 +48,7 @@ export function Transport() {
       .toString()
       .padStart(2, "0")}`;
   return (
-    <footer className="transport">
+    <section className="transport" aria-label="Playback and recording">
       <div className="transport-main">
         <IconButton
           label={state.playing ? "Pause song" : "Play song"}
@@ -116,7 +116,7 @@ export function Transport() {
           )}
         </span>
         <span className="tiny">
-          {s.recordingPhase === "preparing" ? "Preparing recording…" : s.recordingPhase === "finalizing" ? "Saving take…" : s.recordingPhase === "recovery-error" ? "Take held in memory" : state.countIn
+          {s.recordingPhase === "preparing" ? "Preparing recording…" : s.recordingPhase === "finalizing" ? "Saving take…" : s.recordingPhase === "recovery-error" ? "Take held in memory" : s.recordingPhase === "count-in" || state.countIn
             ? "Count-in"
             : s.recording
               ? "Recording · " + format(s.recordSeconds)
@@ -165,6 +165,6 @@ export function Transport() {
           <SlidersHorizontal size={18} />
         </IconButton>
       </div>
-    </footer>
+    </section>
   );
 }

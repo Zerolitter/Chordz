@@ -1,14 +1,28 @@
 "use client";
+import { useEffect, useEffectEvent, useLayoutEffect } from "react";
 import { ChevronDown, Keyboard, SlidersHorizontal, Upload } from "lucide-react";
 import { Piano } from "./piano";
 import { useStudio } from "./use-studio";
 import { DEFAULT_CHORD_MOVEMENT } from "../../lib/music/chord-movement";
+import { ToolVisibilityProvider } from "./tool-visibility";
 
-export function PerformanceDock({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function releasePerformanceDockInputs(studio: Pick<ReturnType<typeof useStudio>, "releaseSource">) {
+  studio.releaseSource("pointer:");
+  studio.releaseSource("button:");
+}
+
+export function PerformanceDock({ open, onOpenChange, embedded = false, active = true, onOpenMovement }: {
+  open: boolean; onOpenChange: (open: boolean) => void; embedded?: boolean; active?: boolean; onOpenMovement?: () => void;
+}) {
   const s = useStudio();
+  const visible = active && open;
+  const releaseOwnedInputs = useEffectEvent(() => releasePerformanceDockInputs(s));
+  useLayoutEffect(() => { if (!visible) releaseOwnedInputs(); }, [visible]);
+  useEffect(() => () => releaseOwnedInputs(), []);
   const movement = s.selectedTrack?.chordMovement ?? DEFAULT_CHORD_MOVEMENT;
   function toggle() {
-    if (open) { s.releaseSource("pointer:"); s.releaseSource("button:"); }
+    if (open) releasePerformanceDockInputs(s);
+    if (!s.finishGesture()) return;
     onOpenChange(!open);
   }
   async function importFile(file: File | undefined, sample: boolean) {
@@ -20,11 +34,11 @@ export function PerformanceDock({ open, onOpenChange }: { open: boolean; onOpenC
     } catch (error) { s.report(error); }
     finally { s.setBusy(""); }
   }
-  return <section className="performance-dock">
-    <button className="performance-toggle" aria-label="Performance dock" aria-expanded={open} aria-controls="performance-controls" onClick={toggle}>
+  return <ToolVisibilityProvider active={visible}><section className={`performance-dock${embedded ? " performance-dock-embedded" : ""}`}>
+    {!embedded && <button data-edit-policy="bypass" className="performance-toggle" aria-label="Performance dock" aria-expanded={open} aria-controls="performance-controls" onClick={toggle}>
       <Keyboard size={15} /><strong>Perform</strong><span>{s.selectedTrack?.name ?? "Choose a track"}</span>{movement.liveEnabled && <span className="performance-arp-state">Arp · {movement.pattern}{movement.hold ? " · Hold" : ""}</span>}<ChevronDown size={14} className={open ? "expanded" : ""} />
-    </button>
-    <div id="performance-controls" hidden={!open} className="workspace-bottom">
+    </button>}
+    <div id="performance-controls" hidden={!visible} className="workspace-bottom">
       <div className="import-row">
         <button className="secondary-button" onClick={() => { s.setDeviceOpen(true); void s.refreshDevices(); }}><SlidersHorizontal size={14} />MIDI & microphone</button>
         <label className="checkbox-label"><input type="checkbox" checked={s.monitor} onChange={event => s.setMonitor(event.target.checked)} />Monitor input · headphones</label>
@@ -38,10 +52,10 @@ export function PerformanceDock({ open, onOpenChange }: { open: boolean; onOpenC
       {s.selectedTrack?.kind === "instrument" && <div className="performance-arp-controls">
         <label className="check-label"><input aria-label="Performance live arpeggiator" type="checkbox" checked={movement.liveEnabled} disabled={s.recording} onChange={e => { if (s.selectedTrack) s.updateTrack(s.selectedTrack.id, { chordMovement: { ...movement, liveEnabled: e.target.checked } }, "Toggle live arpeggiator"); }} />Live arpeggiator</label>
         <label className="check-label"><input aria-label="Performance arpeggiator hold" type="checkbox" checked={movement.hold} disabled={s.recording || !movement.liveEnabled} onChange={e => { if (s.selectedTrack) s.updateTrack(s.selectedTrack.id, { chordMovement: { ...movement, hold: e.target.checked } }, "Hold live arpeggiator input"); }} />Hold input notes</label>
-        <button className="text-button" onClick={() => s.setMode("sound")}>Edit movement</button>
+        <button data-edit-policy="bypass" className="text-button" onClick={() => onOpenMovement ? onOpenMovement() : s.setMode("sound")}>Edit movement</button>
         <span className="tiny">Record captures generated notes. Stop releases held output.</span>
       </div>}
       <Piano />
     </div>
-  </section>;
+  </section></ToolVisibilityProvider>;
 }

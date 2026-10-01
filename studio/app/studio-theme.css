@@ -1,7 +1,7 @@
 /* Palette C: instrument rails carry colour; status and selection have their own hues. */
 :root {
-  --background: #1b1c1c; --panel: #202121; --surface: #242625; --raised: #2a2c2b;
-  --input: #2e302f; --border: #383a39; --border-strong: #4a4c4b;
+  --background: #1b1b1b; --panel: #202020; --surface: #252525; --raised: #2b2b2b;
+  --input: #303030; --border: #393939; --border-strong: #4b4b4b;
   --ink: #eee9e1; --ink-2: #c3c1ba; --ink-3: #9a9893; --soft: var(--ink-3);
   --amber: #e8b968; --selection: #5fa3e8; --playback: #57bf8a; --record: #e2554e;
   --solo: #e8c15a; --mute: #78868f; --loading: #9b8ae0; --destructive: #8f4038;
@@ -46,7 +46,7 @@ input[type="range"] { accent-color: var(--amber); }
 .eyebrow { font-size: 10px; margin-bottom: 5px; }
 .avatar { width: 26px; height: 26px; font-size: 11px; background: var(--raised); }
 .sign-in { font-size: 11.5px; }
-.workspace-bar { min-height: 44px; padding: 0 16px; gap: 16px; flex-shrink: 0; background: #1d1e1e; flex-wrap: nowrap; }
+.workspace-bar { min-height: 44px; padding: 0 16px; gap: 16px; flex-shrink: 0; background: #1e1e1e; flex-wrap: nowrap; }
 .workspace-bar nav { gap: 22px; min-height: 44px; }
 .workspace-bar nav button { font-size: 13px; }
 .song-settings { gap: 8px; }
@@ -143,8 +143,8 @@ input[type="range"] { accent-color: var(--amber); }
 .sample-map, table { border-color: var(--border); }
 th { color: var(--ink-2); background: var(--raised); border-color: var(--border); }
 td { color: var(--ink-2); border-color: #2b2d2c; }
-.timeline-scroll, .piano-roll, .automation-graph, .drum-grid { border-color: var(--border); background: #1e201f; }
-.timeline { background: #1e201f; }
+.timeline-scroll, .piano-roll, .automation-graph, .drum-grid { border-color: var(--border); background: #1f1f1f; }
+.timeline { background: #1f1f1f; }
 .section-lane, .bar-ruler, .timeline-row { border-color: #2b2d2c; }
 .section-lane button { background: var(--panel); border-color: var(--border); color: var(--ink-2); }
 .section-lane .selected { background: var(--raised); color: var(--amber); }
@@ -156,7 +156,7 @@ td { color: var(--ink-2); border-color: #2b2d2c; }
 .editor-tabs { border-color: var(--border); }
 .editor-tabs .active { background: var(--raised); color: var(--amber); }
 .piano-roll-scroll { border-color: var(--border); }
-.piano-roll { background-color: #1e201f; background-image: linear-gradient(to right, #343635 1px, transparent 1px), linear-gradient(to bottom, #2b2d2c 1px, transparent 1px); }
+.piano-roll { background-color: #1f1f1f; background-image: linear-gradient(to right, #353535 1px, transparent 1px), linear-gradient(to bottom, #2c2c2c 1px, transparent 1px); }
 .roll-note { background: var(--track-color, var(--amber)); border-color: var(--track-color, var(--amber)); }
 .roll-note.selected { background: var(--selection); border-color: #a0cbf7; }
 .roll-note-label { color: var(--ink-3); }

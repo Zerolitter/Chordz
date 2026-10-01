@@ -8,18 +8,22 @@ import { clamp, PPQ } from "../../lib/music/types";
 import { ticksPerBar, tickToSeconds } from "../../lib/music/project";
 import { duplicateClip, splitClip } from "../../lib/music/edit";
 import { ClipNoteEditor } from "./clip-note-editor";
+import { ToolVisibilityProvider, useToolVisibility } from "./tool-visibility";
 
-export function ClipEditor({ grid, setGrid, swing, setSwing }: { grid: number; setGrid: (value: number) => void; swing: number; setSwing: (value: number) => void }) {
-  const s = useStudio(), transport = useTransport();
+export function ClipEditor({ grid, setGrid, swing, setSwing, embedded = false, active = true }: { grid: number; setGrid: (value: number) => void; swing: number; setSwing: (value: number) => void; embedded?: boolean; active?: boolean }) {
+  const parentActive = useToolVisibility(), visible = active && parentActive;
+  const s = useStudio(), transport = useTransport(visible);
   const clip = s.selectedClip, track = s.selectedTrack, bar = ticksPerBar(s.project);
   const [eventType, setEventType] = useState<"sustain" | "pitchBend" | "modulation" | "expression">("expression");
   useEffect(() => {
-    if (clip?.audio) void s.hydrateWaveform(clip.audio.assetId);
+    if (visible && clip?.audio) void s.hydrateWaveform(clip.audio.assetId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clip?.audio?.assetId]);
-  return <>
+  }, [visible, clip?.audio?.assetId]);
+  return <ToolVisibilityProvider active={active}>
       {clip && track ? (
-        <section className="clip-editor">
+        <section className={`clip-editor${embedded ? " clip-editor-embedded" : ""}`}>
+          <details className="clip-editor-metadata" open={embedded ? undefined : true}>
+            <summary hidden={!embedded}>Clip settings · {clip.name}</summary>
           <div className="clip-toolbar">
             <DraftInput
               aria-label="Clip name"
@@ -143,6 +147,9 @@ export function ClipEditor({ grid, setGrid, swing, setSwing }: { grid: number; s
                 </label>
               </>
             )}
+          </div>
+          </details>
+          <div className="clip-toolbar clip-editor-actions">
             <IconButton
               label="Duplicate selected clip"
               disabled={s.recording}
@@ -155,21 +162,19 @@ export function ClipEditor({ grid, setGrid, swing, setSwing }: { grid: number; s
             <IconButton
               label="Split clip at playhead"
               disabled={
+                s.recording ||
                 transport.tick <= clip.startTick ||
                 transport.tick >= clip.startTick + clip.lengthTick
               }
               onClick={() => {
-                const pieces = splitClip(clip, transport.tick, s.project.tempo);
-                s.updateTrack(
-                  track.id,
-                  (t) => ({
-                    ...t,
-                    clips: t.clips.flatMap((c) =>
-                      c.id === clip.id ? pieces : [c],
-                    ),
-                  }),
-                  "Split clip",
-                );
+                if (!s.finishEdit()) return;
+                const current = s.committedRef.current;
+                const selected = current.tracks.find(t => t.id === track.id)?.clips.find(c => c.id === clip.id);
+                if (!selected) return;
+                const pieces = splitClip(selected, transport.tick, current.tempo);
+                if (pieces.length !== 2) return;
+                const next = { ...current, tracks: current.tracks.map(t => t.id === track.id ? { ...t, clips: t.clips.flatMap(c => c.id === clip.id ? pieces : [c]) } : t) };
+                if (s.commit(next, "Split clip")) s.selectClip(track.id, pieces[0].id);
               }}
             >
               <Scissors size={17} />
@@ -252,9 +257,9 @@ export function ClipEditor({ grid, setGrid, swing, setSwing }: { grid: number; s
               ))}
             </div>
           ) : (
-            <>
+            <div className="clip-editor-grid">
               <ClipNoteEditor grid={grid} setGrid={setGrid} swing={swing} setSwing={setSwing} />
-            </>
+            </div>
           )}
           <details className="performance-events advanced-inspector">
             <summary>Performance expression</summary>
@@ -409,5 +414,5 @@ export function ClipEditor({ grid, setGrid, swing, setSwing }: { grid: number; s
           </p>
         </div>
       )}
-  </>;
+  </ToolVisibilityProvider>;
 }

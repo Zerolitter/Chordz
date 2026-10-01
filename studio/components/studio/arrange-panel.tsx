@@ -1,9 +1,10 @@
 "use client";
-import { Plus, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Plus, Trash2, Maximize2, LocateFixed } from "lucide-react";
 import { DraftInput } from "./draft-field";
 import { usePreference, numericPreference } from "./use-preference";
 import { useStudio } from "./use-studio";
-import { PanelHeading, IconButton } from "./primitives";
+import { IconButton } from "./primitives";
 import { PPQ, uid, clamp } from "../../lib/music/types";
 import { emptyClip, projectEnd, ticksPerBar } from "../../lib/music/project";
 import { moveSection } from "../../lib/music/edit";
@@ -11,18 +12,54 @@ import { ArrangementTimeline } from "./arrangement-timeline";
 import { ClipEditor } from "./clip-editor";
 import { AutomationEditor } from "./automation-editor";
 
-export function ArrangePanel() {
+export function SongCanvas({ grid, setGrid, className = "" }: {
+  grid: number; setGrid: (value: number) => void; className?: string;
+}) {
   const s = useStudio();
-  const [zoom, setZoom] = usePreference("timeline-zoom", 38, numericPreference(18, 100));
-  const [grid, setGrid] = usePreference("grid", PPQ / 4, numericPreference(PPQ / 8, PPQ));
-  const [swing, setSwing] = usePreference("swing", 0, numericPreference(0, .6));
-  const bar = ticksPerBar(s.project), end = projectEnd(s.project), track = s.selectedTrack;
+  const [zoom, setZoom] = usePreference("timeline-zoom", 38, numericPreference(.001, 100));
+  const [follow, setFollow] = useState(false);
+  const viewport = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      setFollow(false);
+      if (viewport.current) { viewport.current.scrollLeft = 0; viewport.current.scrollTop = 0; }
+    });
+    return () => { active = false; };
+  }, [s.owner, s.project.id]);
+  const bar = ticksPerBar(s.project), track = s.selectedTrack;
   function newClip() {
-    if (track) s.insertClip(track.id, emptyClip(s.selectedSection.startTick, s.selectedSection.lengthTick, "New phrase"));
+    if (!track) return;
+    const clip = emptyClip(s.selectedSection.startTick, s.selectedSection.lengthTick, "New phrase");
+    s.insertClip(track.id, clip);
   }
-  return <div className="arrange-panel">
-      <PanelHeading eyebrow="Give your song a shape" title="The whole picture.">
-        <div className="button-row">
+  function width() {
+    const element = viewport.current;
+    if (!element) return 780;
+    return Math.max(1, element.clientWidth - (Number.parseFloat(getComputedStyle(element).getPropertyValue("--song-track-header-width")) || 188));
+  }
+  function fit(selection: boolean) {
+    if (!s.finishEdit()) return;
+    const target = selection ? s.selectedClip ?? s.selectedSection : null;
+    const start = target?.startTick ?? 0, length = target?.lengthTick ?? projectEnd(s.project);
+    const next = clamp(width() / Math.max(1, length / bar), .001, 100);
+    setZoom(next);
+    setFollow(false);
+    requestAnimationFrame(() => { if (viewport.current) viewport.current.scrollLeft = start / bar * next; });
+  }
+  function changeZoom(next: number) {
+    if (!s.finishEdit()) return;
+    const center = ((viewport.current?.scrollLeft ?? 0) + width() / 2) / zoom;
+    setZoom(next);
+    requestAnimationFrame(() => { if (viewport.current) viewport.current.scrollLeft = Math.max(0, center * next - width() / 2); });
+  }
+  return <section className={`song-canvas ${className}`} aria-label="Song canvas">
+      <div className="song-canvas-toolbar">
+          <span className="song-canvas-title">Song</span>
+          <select aria-label="Edit section" value={s.selectedSection.id} onChange={e => s.setSelectedSectionId(e.target.value)}>
+            {s.project.sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
+          </select>
           <button
             className="secondary-button"
             disabled={!track||s.recording}
@@ -36,35 +73,46 @@ export function ArrangePanel() {
             <DraftInput
               aria-label="Timeline zoom"
               type="range"
-              min={18}
+              min={.001}
               max={100}
+              step={.001}
               value={zoom}
-              onChange={(e) => setZoom(Number(e.target.value))}
+              onChange={(e) => changeZoom(Number(e.target.value))}
             />
           </label>
           <label className="compact-field">
             Snap
-            <select aria-label="Timeline snap" value={grid} onChange={e => setGrid(Number(e.target.value))}>
+            <select aria-label="Timeline snap" value={grid} onChange={e => { if (s.finishEdit()) setGrid(Number(e.target.value)); }}>
               <option value={PPQ}>1/4</option>
               <option value={PPQ / 2}>1/8</option>
               <option value={PPQ / 4}>1/16</option>
               <option value={PPQ / 8}>1/32</option>
             </select>
           </label>
-        </div>
-      </PanelHeading>
-      <div className="section-tools">
-        <select
-          aria-label="Edit section"
-          value={s.selectedSection.id}
-          onChange={(e) => s.setSelectedSectionId(e.target.value)}
-        >
-          {s.project.sections.map((sec) => (
-            <option key={sec.id} value={sec.id}>
-              {sec.name}
-            </option>
-          ))}
-        </select>
+          <div className="song-navigation-tools">
+            <button type="button" className="secondary-button" onClick={() => fit(false)} aria-label="Fit song"><Maximize2 size={13} />Fit song</button>
+            <button type="button" className="secondary-button" onClick={() => fit(true)} aria-label="Fit selected clip or section">Fit selection</button>
+            <button type="button" className={`secondary-button${follow ? " active" : ""}`} aria-label="Follow playhead" aria-pressed={follow}
+              onClick={() => { if (s.finishEdit()) setFollow(value => !value); }}><LocateFixed size={13} />Follow</button>
+          </div>
+          <details className="song-section-settings"><summary>Section settings</summary><SectionTools /></details>
+      </div>
+      <ArrangementTimeline zoom={zoom} grid={grid} viewportRef={viewport} follow={follow} onUserNavigation={() => setFollow(false)} />
+    </section>;
+}
+
+export function ArrangePanel({ canvasOnly = false }: { canvasOnly?: boolean } = {}) {
+  const [grid, setGrid] = usePreference("grid", PPQ / 4, numericPreference(PPQ / 8, PPQ));
+  const [swing, setSwing] = usePreference("swing", 0, numericPreference(0, .6));
+  return <div className={`arrange-panel${canvasOnly ? " canvas-only" : ""}`}>
+    <SongCanvas grid={grid} setGrid={setGrid} />
+    {!canvasOnly && <><ClipEditor grid={grid} setGrid={setGrid} swing={swing} setSwing={setSwing} /><AutomationEditor grid={grid} /></>}
+  </div>;
+}
+
+function SectionTools() {
+  const s = useStudio(), bar = ticksPerBar(s.project), end = projectEnd(s.project);
+  return <div className="section-tools">
         <label>
           Name
           <DraftInput
@@ -171,10 +219,5 @@ export function ArrangePanel() {
         >
           <Trash2 size={14} />
         </IconButton>
-      </div>
-
-      <ArrangementTimeline zoom={zoom} grid={grid} />
-      <ClipEditor grid={grid} setGrid={setGrid} swing={swing} setSwing={setSwing} />
-      <AutomationEditor grid={grid} />
-    </div>;
+      </div>;
 }

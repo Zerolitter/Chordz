@@ -14,9 +14,11 @@ import { emptyClip } from "../../lib/music/project";
 import { type GenerationOptions } from "../../lib/music/types";
 import { ChordMovementControls } from "./chord-movement-controls";
 import { DEFAULT_CHORD_MOVEMENT } from "../../lib/music/chord-movement";
+import { useToolVisibility } from "./tool-visibility";
 
-export function WritePanel() {
+export function WritePanel({ section = "writing" }: { section?: "writing" | "lyrics" } = {}) {
   const s = useStudio();
+  const active = useToolVisibility();
   const [tension, setTension] = usePreference("tension",.3,numericPreference(0,1)),
     [energy, setEnergy] = usePreference("energy",.55,numericPreference(0,1)),
     [density, setDensity] = usePreference("density",.5,numericPreference(0,1)),
@@ -59,7 +61,7 @@ export function WritePanel() {
   const previewIdentity = JSON.stringify([s.project.id,s.selectedTrack?.id,s.selectedTrack?.instrumentId,s.selectedSection.id,s.selectedSection.startTick,s.selectedSection.lengthTick,s.project.key,s.project.mode,s.project.tempo,s.project.timeSignature,harmonyIdentity(s.project,s.selectedSection),s.project.seed,instrument,role,energy,density,register,tension,variation,s.selectedTrack?.chordMovement]);
   const cancelStalePreview=useEffectEvent(()=>s.cancelPreview());
   useLayoutEffect(()=>{ cancelStalePreview();return()=>cancelStalePreview(); },[previewIdentity]);
-  useLayoutEffect(()=>{s.registerWritingActions({generated:()=>{if(s.selectedTrack&&compatible&&candidate.length&&!generation.error)void s.previewPhrase(s.selectedTrack.id,candidate,previewIdentity);},chord:()=>{if(currentChord)void s.audition(currentChord.notes);},progression:()=>{if(s.selectedTrack)void s.previewPhrase(s.selectedTrack.id,progressionNotes(s.project,s.selectedSection),"progression:"+previewIdentity);}});return()=>s.registerWritingActions(null);});
+  useLayoutEffect(()=>{if(!active)return;s.registerWritingActions({generated:()=>{if(s.selectedTrack&&compatible&&candidate.length&&!generation.error)void s.previewPhrase(s.selectedTrack.id,candidate,previewIdentity);},chord:()=>{if(currentChord)void s.audition(currentChord.notes);},progression:()=>{if(s.selectedTrack)void s.previewPhrase(s.selectedTrack.id,progressionNotes(s.project,s.selectedSection),"progression:"+previewIdentity);}});return()=>s.registerWritingActions(null);});
   function progression(){if(s.selectedTrack)void s.previewPhrase(s.selectedTrack.id,progressionNotes(s.project,s.selectedSection),"progression:"+previewIdentity);}
   function place(action:"insert"|"alternative"|"replace"){
     if(!s.selectedTrack||!compatible||!candidate.length||generation.error||!s.finishEdit())return;
@@ -89,7 +91,7 @@ export function WritePanel() {
           </select>
         </label>
       </PanelHeading>
-      <div className="writing-grid">
+      <div className="writing-grid" hidden={section !== "writing"}>
         <ChordCanvas tension={tension} setTension={setTension} onProgression={progression}/>
         <aside className="idea-panel">
           <div className="subheading">
@@ -180,7 +182,7 @@ export function WritePanel() {
           <details className="movement-inspector"><summary>Voicing, rhythm & movement</summary><ChordMovementControls value={s.selectedTrack?.chordMovement ?? DEFAULT_CHORD_MOVEMENT} disabled={s.recording || !compatible || !["chords", "strings", "arpeggio"].includes(role)} onChange={chordMovement => { if (s.selectedTrack) s.updateTrack(s.selectedTrack.id, { chordMovement }, "Shape chord movement"); }} /></details>
         </aside>
       </div>
-      <div className="notebook">
+      <div className="notebook" hidden={section !== "lyrics"}>
         <label className="field">
           Lyrics · {s.selectedSection.name}
           <DraftTextarea

@@ -65,8 +65,11 @@ import {MACRO_IDS, type ModTarget} from "../../lib/music/modulation-types";
 import {emptyPatch} from "../../lib/audio/modulation";
 import {instrumentFor} from "../../lib/audio/catalog";
 import {assignModulationRoute} from "../../lib/music/modulation-assignment";
+import {defaultStudioView, detailToolForMode, readStudioView, reconcileStudioView, selectStudioClip, selectStudioTrack, studioViewKey, type DetailTool, type StudioView, type StudioMode} from "../../lib/client/studio-view";
+import {capturedExpression,captureReleaseReset,effectiveSustain} from "../../lib/client/performance-ownership";
+import {freezeToolGestures,useToolVisibility} from "./tool-visibility";
 
-export type StudioMode = "write" | "arrange" | "sound" | "mix";
+export type {StudioMode, DetailTool} from "../../lib/client/studio-view";
 export type StudioUser = { userId: string; displayName: string } | null;
 type ProjectMeta = { revision: number; fingerprint: string };
 type MidiTake = {
@@ -101,7 +104,9 @@ function useStudioController(
   const project=useMemo(()=>applyPreview(history.present,transaction),[history.present,transaction]),projectRef=useRef(project);
   const [selectedChordId,setSelectedChordId]=useState("");
   const selectionHistory=useRef(new WeakMap<ProjectDocument,string>());
-  const [mode, setModeState] = useState<StudioMode>("write");
+  const [mode, setModeState] = useState<StudioMode>("arrange");
+  const [detailTool, setDetailToolState] = useState<DetailTool>("notes");
+  const [clipEditorRequest,setClipEditorRequest]=useState(0);
   const [selectedTrackId, setSelectedTrackId] = useState(
     project.tracks[0]?.id ?? "",
   );
@@ -208,12 +213,46 @@ function useStudioController(
     midiInputRef.current = midiInputId;
     if(selectedClipId&&selectedTrack?.clips.some(c=>c.id===selectedClipId))clipsByTrack.current.set(selectedTrack.id,selectedClipId);
   }, [project, owner, selectedTrack, selectedClipId, conflict, midiInputId]);
-  const viewLoaded=useRef("");
-  useEffect(()=>{if(!hydrated)return;let active=true;const id=project.id;queueMicrotask(()=>{if(!active)return;try{const view=JSON.parse(localStorage.getItem("chordz-view-v1:"+id)??"null");if(view?.version===1){if(["write","arrange","sound","mix"].includes(view.mode))setModeState(view.mode);if(project.tracks.some(t=>t.id===view.track))setSelectedTrackId(view.track);if(project.sections.some(sec=>sec.id===view.section))setSectionState(view.section);if(project.chords.some(c=>c.id===view.chord))setSelectedChordId(view.chord);if(view.clips&&typeof view.clips==="object")for(const t of project.tracks){const clip=view.clips[t.id];if(t.clips.some(c=>c.id===clip))clipsByTrack.current.set(t.id,clip);}setSelectedClipId(clipsByTrack.current.get(view.track)??"");}}catch{}viewLoaded.current=id;});return()=>{active=false;};
-    // Restore once per document; editing does not reread old selection.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[project.id,hydrated]);
-  useEffect(()=>{if(viewLoaded.current!==project.id)return;try{localStorage.setItem("chordz-view-v1:"+project.id,JSON.stringify({version:1,mode,track:selectedTrackId,section:selectedSectionId,chord:selectedChordId,clips:Object.fromEntries(clipsByTrack.current)}));}catch{}},[project.id,mode,selectedTrackId,selectedSectionId,selectedChordId,selectedClipId]);
+  const viewKey=studioViewKey(owner,project.id);
+  const [viewReadyKey,setViewReadyKey]=useState("");
+  const [viewPreferenceFailure,setViewPreferenceFailure]=useState<{key:string;message:string;kind:"read"|"write"|null}>({key:"",message:"",kind:null});
+  useEffect(()=>{
+    if(!hydrated)return;
+    let active=true;
+    queueMicrotask(()=>{
+      if(!active)return;
+      const doc=projectRef.current;
+      if(studioViewKey(ownerRef.current,doc.id)!==viewKey)return;
+      let view=defaultStudioView(doc),preferenceError="";
+      try{view=readStudioView(localStorage.getItem(viewKey),doc);}catch{preferenceError="View preferences could not be read. This session still works.";}
+      clipsByTrack.current=new Map(Object.entries(view.clips));
+      setModeState(view.mode);setDetailToolState(view.detailTool);
+      setSelectedTrackId(view.track);setSectionState(view.section);setSelectedChordId(view.chord);setSelectedClipId(view.clip);
+      setViewPreferenceFailure({key:viewKey,message:preferenceError,kind:preferenceError?"read":null});
+      // Mark ready in the same update as the restored state, before allowing writes.
+      setViewReadyKey(viewKey);
+    });
+    return()=>{active=false;};
+  },[viewKey,hydrated]);
+  useLayoutEffect(()=>{
+    if(viewReadyKey!==viewKey)return;
+    const view=reconcileStudioView(project,{version:2,mode,detailTool,track:selectedTrackId,section:selectedSectionId,chord:selectedChordId,clip:selectedClipId,clips:Object.fromEntries(clipsByTrack.current)});
+    clipsByTrack.current=new Map(Object.entries(view.clips));
+    if(view.track!==selectedTrackId)setSelectedTrackId(view.track);
+    if(view.section!==selectedSectionId)setSectionState(view.section);
+    if(view.chord!==selectedChordId)setSelectedChordId(view.chord);
+    if(view.clip!==selectedClipId)setSelectedClipId(view.clip);
+  },[project,viewKey,viewReadyKey,mode,detailTool,selectedTrackId,selectedSectionId,selectedChordId,selectedClipId]);
+  useEffect(()=>{
+    if(viewReadyKey!==viewKey||studioViewKey(ownerRef.current,projectRef.current.id)!==viewKey)return;
+    let active=true;
+    const view=reconcileStudioView(project,{version:2,mode,detailTool,track:selectedTrackId,section:selectedSectionId,chord:selectedChordId,clip:selectedClipId,clips:Object.fromEntries(clipsByTrack.current)});
+    try{
+      localStorage.setItem(viewKey,JSON.stringify(view));
+      queueMicrotask(()=>{if(active)setViewPreferenceFailure(current=>current.key===viewKey&&current.kind==="write"?{key:viewKey,message:"",kind:null}:current);});
+    }catch{queueMicrotask(()=>{if(active)setViewPreferenceFailure({key:viewKey,message:"View preferences could not be saved. Your view is kept for this session.",kind:"write"});});}
+    return()=>{active=false;};
+  },[project,viewKey,viewReadyKey,mode,detailTool,selectedTrackId,selectedSectionId,selectedChordId,selectedClipId]);
   async function signIn() {
     if(!finishEdit())return;
     if(takeSession.current) { report(new Error("Finish or download your recording before signing in.")); return; }
@@ -306,7 +345,18 @@ function useStudioController(
     const result=commitTransaction(committedRef.current,tx);
     if(result.ok){commit(result.document,tx.label);setEditConflict(null);setError("");}else setError(result.error);
   }
-  function setMode(value:StudioMode){if(finishEdit()){setModeState(value);setMessage("");}}
+  function setMode(value:StudioMode){
+    if(value!==mode)freezeToolGestures("mixer");
+    if(value!==mode||detailToolForMode(value,detailTool)!==detailTool)terminateDetailInputs();
+    if(!finishEdit())return false;
+    cancelPreview();
+    setModeState(value);setDetailToolState(current=>detailToolForMode(value,current));setMessage("");return true;
+  }
+  function setDetailTool(value:DetailTool){
+    if(value!==detailTool)terminateDetailInputs();
+    if(!finishEdit())return false;
+    cancelPreview();setDetailToolState(value);return true;
+  }
   function setSelectedSectionId(value:string){if(finishEdit())setSectionState(value);}
   function commit(next: ProjectDocument, label: string, takeCommit=false) {
     if (takeSession.current?.phase === "finalizing" && !takeCommit) { setError("Wait for your take to finish saving before editing."); return false; }
@@ -397,24 +447,33 @@ function useStudioController(
     updateTrack(track.id,{modulation:result.patch},"Assign modulation");return true;
   }
   function selectTrack(id: string) {
-    if(!finishEdit())return;
+    if(id!==selectedTrackId)terminateDetailInputs();
+    if(!finishEdit())return false;
+    const view=selectStudioTrack(projectRef.current,currentView(),id);
+    if(!view)return false;
+    cancelPreview();
     if(id!==selectedTrackId)cancelMidiLearn();
-    if(id!==selectedTrackId)setSelectedClipId(clipsByTrack.current.get(id)??"");
-    setSelectedTrackId(id);
+    clipsByTrack.current=new Map(Object.entries(view.clips));
+    setSelectedClipId(view.clip);setSelectedTrackId(view.track);return true;
   }
+  function currentView():StudioView{return {version:2,mode,detailTool,track:selectedTrackId,section:selectedSectionId,chord:selectedChordId,clip:selectedClipId,clips:Object.fromEntries(clipsByTrack.current)};}
   function selectClip(trackId: string, clipId: string) {
-    if(!finishEdit())return;
+    terminateDetailInputs();
+    if(!finishEdit())return false;
+    const view=selectStudioClip(projectRef.current,currentView(),trackId,clipId);
+    if(!view)return false;
     if(trackId!==selectedTrackId)cancelMidiLearn();
+    cancelPreview();clipsByTrack.current=new Map(Object.entries(view.clips));
     setSelectedTrackId(trackId);
     setSelectedClipId(clipId);
-    setMode("arrange");
+    setDetailToolState("notes");setClipEditorRequest(request=>request+1);return true;
   }
   function insertClip(trackId:string,clip:Clip,label="Insert phrase"){
     if(takeSession.current){report(new Error("Finish recording before inserting another phrase."));return false;}
     if(!finishEdit())return false;
     const doc=committedRef.current;if(!doc.tracks.some(t=>t.id===trackId))return false;
     if(!commit({...doc,tracks:doc.tracks.map(t=>t.id===trackId?{...t,clips:[...t.clips,clip]}:t)},label))return false;
-    setSelectedTrackId(trackId);setSelectedClipId(clip.id);return true;
+    return selectClip(trackId,clip.id);
   }
   function addTrack(instrumentId = "piano", name = "Grand piano") {
     if(takeSession.current){report(new Error("Finish recording before adding an instrument."));return;}
@@ -448,6 +507,7 @@ function useStudioController(
     const sectionId=sameProject&&document.sections.some(sec=>sec.id===selectedSectionId)?selectedSectionId:document.sections[1]?.id??document.sections[0].id;
     const chordId=sameProject&&document.chords.some(c=>c.id===selectedChordId)?selectedChordId:"";
     const clipId=sameProject&&document.tracks.find(t=>t.id===trackId)?.clips.some(c=>c.id===selectedClipId)?selectedClipId:"";
+    if(!sameProject){clipsByTrack.current.clear();setModeState("arrange");setDetailToolState("notes");}
     committedRef.current=document;setSelectedChordId(chordId);
     pendingPreview.current=null;++audioIntent.current; heldInputs.current.clear(); controlTargets.current.clear(); controllerStates.current.clear(); syncHeld();
     movement.current?.clear();cancelMidiLearn();runtimeMacrosRef.current={};setRuntimeMacros({});engineRef.current?.stop();
@@ -455,7 +515,7 @@ function useStudioController(
     dispatch({ type: "load", project: document });
     meta.current.set(document.id, { revision, fingerprint });
     setSelectedTrackId(trackId);
-    setSelectedSectionId(sectionId);
+    setSectionState(sectionId);
     setSelectedClipId(clipId);
     setSelectedNotes(document.chords[0]?.notes ?? []);
     setConflict(null);
@@ -880,25 +940,30 @@ function useStudioController(
 
     } catch(error) { if(heldInputs.current.get(inputId)===input) { heldInputs.current.delete(inputId); syncHeld(); } report(error); }
   }
-  function noteOff(pitch: number, inputId = "pointer:" + pitch) {
+  function noteOff(pitch: number, inputId = "pointer:" + pitch, cutoffTick?:number) {
     captureStarted();
     const input = heldInputs.current.get(inputId); heldInputs.current.delete(inputId); syncHeld();
     if(input){movement.current?.noteOff(inputId,projectRef.current);engineRef.current?.noteOff(input.trackId,input.pitch,inputId);}
     const take=midiTake.current, open=take?.open.get(inputId);
-    if(take && open) { const end=takeTick();
+    if(take && open) { const end=cutoffTick??takeTick();
       if(end>open.tick) take.notes.push({id:open.id,pitch:open.pitch,tick:Math.round(open.tick),duration:Math.max(1,Math.round(end-open.tick)),velocity:open.velocity});
       take.open.delete(inputId);
     }
   }
   function releaseHeld(prefix:string){for(const [id,input]of heldInputs.current)if(id.startsWith(prefix))noteOff(input.pitch,id);}
+  function terminateDetailInputs(){
+    freezeToolGestures("detail");
+    releaseSource("pointer:");releaseSource("button:");releaseSource("sound:sustain");
+  }
   function releaseSource(prefix: string) {
     captureStarted();
+    const cutoffTick=takeTick();
     movement.current?.releaseSource(prefix,projectRef.current);
     const matches=(source:string)=>source===prefix.replace(/:$/, "")||source.startsWith(prefix);
     const before=[...controllerStates.current.values()].sort((a,b)=>(b.at??0)-(a.at??0)||b.sequence-a.sequence);
-    for(const [source] of controlTargets.current) if(matches(source)) { expression("sustain",0,source); controlTargets.current.delete(source); }
+    for(const [source] of controlTargets.current) if(matches(source)) { expression("sustain",0,source,cutoffTick); controlTargets.current.delete(source); }
     for(const key of controllerStates.current.keys()) if(matches(key)) controllerStates.current.delete(key);
-    for(const [id,input] of heldInputs.current) if(id.startsWith(prefix)) noteOff(input.pitch,id);
+    for(const [id,input] of heldInputs.current) if(id.startsWith(prefix)) noteOff(input.pitch,id,cutoffTick);
     const resets=engineRef.current?.releaseSource(prefix)??[];
     const legacy=new Map(before.filter(state=>state.source&&matches(state.source)&&!["controlChange","macro","sustain"].includes(state.event.type)).map(state=>[`${state.trackId}:${performanceKey(state.event)}`,state]));
     for(const state of legacy.values()){
@@ -909,23 +974,28 @@ function useStudioController(
     for(const {trackId,event,at}of resets){
       const previous=before.find(state=>state.trackId===trackId&&performanceKey(state.event)===performanceKey(event))?.event??{...event,value:0};
       controllerStates.current.set(`cleanup:${trackId}:${performanceKey(event)}`,{trackId,event,at,previous,sequence:controllerSequence.current++});
+      // Closing a UI surface freezes its last performed value; device release remains musical cleanup.
       const session=takeSession.current,take=midiTake.current;
-      if(take&&session?.phase==="capturing"&&take.trackId===trackId)take.events.push({...event,tick:Math.round(secondsToTick(Math.max(0,at-session.startTime),session.tempo))});
+      if(captureReleaseReset(prefix)&&take&&session?.phase==="capturing"&&take.trackId===trackId)take.events.push({...event,tick:Math.round(secondsToTick(Math.max(0,at-session.startTime),session.tempo))});
     }
   }
   const controlTargets = useRef(new Map<string,string>());
   const controllerSequence=useRef(0);
   const controllerStates = useRef(new Map<string,{trackId:string;event:PerformanceEvent;at?:number;previous?:PerformanceEvent;source?:string;sequence:number}>());
-  function expression(type: PerformanceEvent["type"], value: number, source="performance") {
+  function expression(type: PerformanceEvent["type"], value: number, source="performance", cutoffTick?:number) {
     captureStarted();
     const session=takeSession.current;
     const heldTrack=[...heldInputs.current].find(([id])=>id.startsWith(source+":"))?.[1].trackId;
     const target=controlTargets.current.get(source) ?? heldTrack ?? (session?.kind==="midi"?session.trackId:selectedTrackRef.current?.id);
     if(!target) return; if((type==="sustain" && value>=0.5)||heldTrack) controlTargets.current.set(source,target);
+    const sustainBefore=type==="sustain"?effectiveSustain(controllerStates.current.values(),target):0;
     const event={tick:0,type,value}; const at=engineRef.current?.expression(target,event,undefined,false,source);controllerStates.current.set(source+":"+performanceKey(event),{trackId:target,event,at,source,sequence:controllerSequence.current++});
     if(type==="sustain")movement.current?.pedal(source,target,value>=.5,projectRef.current);
     const take=midiTake.current;
-    if(take && session?.phase==="capturing" && target===take.trackId) take.events.push({...event,tick:Math.round(takeTick())});
+    if(take && session?.phase==="capturing" && target===take.trackId){
+      const captured=capturedExpression(event,Math.round(cutoffTick??takeTick()),sustainBefore,type==="sustain"?effectiveSustain(controllerStates.current.values(),target):0);
+      if(captured)take.events.push(captured);
+    }
     if(type==="sustain" && value<0.5) controlTargets.current.delete(source);
   }
   function performMacro(index:number,value:number){
@@ -1151,11 +1221,11 @@ function useStudioController(
         : current.tracks.map((t) =>
             t.id === track!.id ? { ...t, clips: [...t.clips, clip] } : t,
           );
-      commit(
+      if(!commit(
         { ...current, assets: [...current.assets, asset], tracks },
         "Add audio take",
-      );
-      if(!activeEdit.current){setSelectedTrackId(track.id);setSelectedClipId(clip.id);setMode("arrange");}
+      ))throw new Error("The audio could not be added to this song.");
+      if(!activeEdit.current)selectClip(track.id,clip.id);
     }
     notify(
       user
@@ -1354,7 +1424,7 @@ function useStudioController(
       if (!saved) return;
     }
     loadDocument(demo ? createDemo() : createProject());
-    setMode("write");
+    setMode("arrange");
     setLibraryOpen(false);
     notify(demo ? "Original demo opened." : "A blank song is ready.");
   }
@@ -1416,6 +1486,10 @@ function useStudioController(
     dispatch: changeHistory as React.Dispatch<HistoryAction>,
     mode,
     setMode,
+    detailTool,
+    setDetailTool,
+    clipEditorRequest,
+    viewPreferenceError:viewPreferenceFailure.key===viewKey?viewPreferenceFailure.message:"",
     selectedTrack,
     selectedTrackId,
     selectedSection,
@@ -1446,7 +1520,7 @@ function useStudioController(
     busy,
     setBusy,
     ready,
-    hydrated,
+    hydrated:hydrated&&viewReadyKey===viewKey,
     engine,
     getEngine,
     getProcessor,
@@ -1533,8 +1607,9 @@ export function useStudio() {
   if (!context) throw new Error("Studio controls require a studio provider.");
   return context;
 }
-export function useTransport() {
+export function useTransport(active=true) {
   const { engine } = useStudio();
+  const toolActive=useToolVisibility(), visible=active&&toolActive;
   const [state, setState] = useState<TransportState>({
     playing: false,
     tick: 0,
@@ -1544,7 +1619,7 @@ export function useTransport() {
     previewId: null,
   });
   useEffect(() => {
-    if (!engine) return;
+    if (!engine || !visible) return;
     let last = 0;
     let previous = engine.state;
     return engine.subscribe((next) => {
@@ -1559,6 +1634,6 @@ export function useTransport() {
         setState(next);
       }
     });
-  }, [engine]);
+  }, [engine,visible]);
   return state;
 }

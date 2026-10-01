@@ -5,6 +5,9 @@ test("an invalid meter draft cannot prevent finishing and preserving an active M
   await expect(page.getByLabel("Song title")).toBeEnabled();
   await page.getByRole("button", { name: "Songs", exact: true }).click();
   await page.getByRole("button", { name: "Blank song", exact: true }).click();
+  // MIDI capture guards use a built-in sound; acoustic download behavior has its own tests.
+  await page.getByRole("button", {name:"Glass FM Synthesizers",exact:true}).click();
+  await page.getByRole("button", {name:"Use on selected track",exact:true}).click();
   await page.getByLabel("Recording source").selectOption("midi");
   await page.getByLabel("Start recording", { exact: true }).click();
   await expect(page.locator(".transport-position")).toContainText("Recording ·");

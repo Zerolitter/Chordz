@@ -1,8 +1,9 @@
 import {test,expect} from "@playwright/test";
 import {mkdirSync,writeFileSync} from "node:fs";
 import type {Track} from "../../lib/music/types";
+import {encodeWav} from "../../lib/audio/wav";
 
-async function blank(page:import("@playwright/test").Page){await page.goto("/");await expect(page.getByLabel("Song title")).toBeEnabled();await page.getByRole("button",{name:"Songs",exact:true}).click();await page.getByRole("button",{name:"Blank song"}).click();}
+async function blank(page:import("@playwright/test").Page){await page.goto("/");await expect(page.getByLabel("Song title")).toBeEnabled();await page.getByRole("button",{name:"Songs",exact:true}).click();await page.getByRole("button",{name:"Blank song"}).click();await page.getByRole("button",{name:"02 Write",exact:true}).click();}
 test("chord cards audition on click, drop into rests, replace occupied bars and support keyboard placement",async({page})=>{
   await blank(page);await expect(page.getByRole("button",{name:"Insert chord",exact:true})).toHaveCount(0);await expect(page.locator(".insertion-marker")).toHaveCount(0);
   const palette=page.locator(".compact-suggestions .suggestion-card"),first=palette.first(),symbol=await first.locator("strong").innerText();
@@ -40,20 +41,23 @@ test("tuning preserves FM pitch, quiet bus levels and a release shortened during
 });
 
 test("tuning during sample loading keeps a preview; swapping its instrument prevents late sound",async({page})=>{
-  await page.goto("/");const result=await page.evaluate(async()=>{
-    const {StudioEngine}=await import("/lib/audio/engine.ts" as string),{createProject,createTrack}=await import("/lib/music/project.ts" as string),{encodeWav}=await import("/lib/audio/wav.ts" as string);
-    const p=createProject(),t=createTrack("lead");p.tracks=[t];t.reverb=0;t.delay=0;const pcm=new Float32Array(48000);for(let i=0;i<pcm.length;i++)pcm[i]=.3*Math.sin(i/48000*2*Math.PI*440);const blob=new Blob([encodeWav([pcm],48000,16)],{type:"audio/wav"});
+  const pcm=new Float32Array(48000);for(let i=0;i<pcm.length;i++)pcm[i]=.3*Math.sin(i/48000*2*Math.PI*440);
+  const wavBytes=Array.from(new Uint8Array(encodeWav([pcm],48000,16)));
+  await page.goto("/");const result=await page.evaluate(async bytes=>{
+    const {StudioEngine}=await import("/lib/audio/engine.ts" as string),{createProject,createTrack}=await import("/lib/music/project.ts" as string);
+    const p=createProject(),t=createTrack("lead");p.tracks=[t];t.reverb=0;t.delay=0;const blob=new Blob([new Uint8Array(bytes)],{type:"audio/wav"});
     p.userInstruments=[{id:"user",name:"Delayed",family:"test",description:"test",kind:"sample",zones:[{assetId:"sample",root:69,low:0,high:127,velocityLow:0,velocityHigh:1,roundRobin:0,articulation:"sustain"}],articulations:["sustain"],license:"User supplied",source:"fixture",defaults:{attack:.01,release:.1,detune:0}}];t.instrumentId="user";
     const wait=(ms:number)=>new Promise(r=>setTimeout(r,ms));
     let release!:(blob:Blob)=>void;const pending=new Promise<Blob>(r=>release=r),engine=new StudioEngine(p,()=>pending);await engine.unlock();
     const loading=engine.preview(t.id,[69],.7,"loading-tune");const tuned={...p,tracks:[{...t,volume:-30,sound:{...t.sound,detune:12}}]};engine.updateProject(tuned);const stillLoading=engine.state.previewId;release(blob);await loading;await wait(200);const playing=engine.state.previewId,peak=engine.meter().master;engine.dispose();
     let releaseSwap!:(blob:Blob)=>void;const delayed=new Promise<Blob>(r=>releaseSwap=r),swapped=new StudioEngine(p,()=>delayed);await swapped.unlock();const old=swapped.preview(t.id,[69],.7,"old-instrument");swapped.updateProject({...p,tracks:[{...t,instrumentId:"lead"}]});releaseSwap(blob);await old;await wait(300);const afterSwap=swapped.state,latePeak=swapped.meter().master;swapped.dispose();return {stillLoading,playing,peak,afterSwap,latePeak};
-  });expect(result.stillLoading).toBe("loading-tune");expect(result.playing).toBe("loading-tune");expect(result.peak).toBeGreaterThan(1e-5);expect(result.peak).toBeLessThan(.03);expect(result.afterSwap.activity).toBe("idle");expect(result.latePeak).toBeLessThan(1e-4);
+  },wavBytes);expect(result.stillLoading).toBe("loading-tune");expect(result.playing).toBe("loading-tune");expect(result.peak).toBeGreaterThan(1e-5);expect(result.peak).toBeLessThan(.03);expect(result.afterSwap.activity).toBe("idle");expect(result.latePeak).toBeLessThan(1e-4);
   mkdirSync("output/playwright",{recursive:true});writeFileSync("output/playwright/loading-tuning.json",JSON.stringify(result,null,2));
 });
 
 test("moving full-section cards repeatedly keeps whole neighbours and Undo restores the guide",async({page})=>{
   await page.goto("/");await expect(page.getByLabel("Song title")).toBeEnabled();
+  await page.getByRole("button",{name:"02 Write",exact:true}).click();
   const tiles=page.locator(".chord-card"),lane=page.locator(".chord-lane"),box=await lane.boundingBox();
   const guide=()=>tiles.evaluateAll(cards=>cards.map(c=>({left:(c as HTMLElement).style.left,width:(c as HTMLElement).style.width,symbol:c.querySelector("strong")?.textContent,notes:c.querySelector(".chord-select span")?.textContent})).sort((a,b)=>parseFloat(a.left)-parseFloat(b.left)));
   const original=await guide();expect(original).toHaveLength(8);
@@ -95,13 +99,15 @@ test("chord end handles resize in snapped gestures, cancel on Escape, and keep a
   for(const [width,height]of [[1346,1244],[820,1180],[390,844]]){await page.setViewportSize({width,height});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:"output/playwright/chord-cards-"+width+".png",fullPage:true});}
 });
 
-test("sound workspace tuning preserves the audition while instrument swaps cancel it",async({page})=>{
-  await blank(page);await page.getByLabel("Add instrument track").click();await page.getByRole("button",{name:/Glass FM.*Synthesizers/}).click();await page.getByRole("button",{name:"Audition",exact:true}).click();await expect(page.locator(".transport-position")).toContainText("Audition");
-  await page.getByRole("navigation").getByRole("button",{name:"03 Sound"}).click();await page.getByLabel("FM depth value",{exact:true}).fill("7");await expect(page.locator(".transport-position")).toContainText("Audition");
+test("workspace navigation cancels audition and tuning preserves song playback",async({page})=>{
+  await blank(page);await page.getByRole("button",{name:"03 Sound",exact:true}).click();await page.getByRole("button",{name:"Glass FM Synthesizers",exact:true}).click();await page.getByRole("button",{name:"Add instrument track",exact:true}).click();await page.getByRole("button",{name:"02 Write",exact:true}).click();await page.getByRole("button",{name:"Insert",exact:true}).click();await page.getByRole("button",{name:"Audition",exact:true}).click();await expect(page.locator(".transport-position")).toContainText("Audition");
+  await page.getByRole("button",{name:"Select Grand piano",exact:true}).click();await expect(page.locator(".transport-position")).not.toContainText("Audition");
+  await page.getByRole("button",{name:"Select Glass FM",exact:true}).click();await page.getByRole("button",{name:"Audition",exact:true}).click();await expect(page.locator(".transport-position")).toContainText("Audition");
+  await page.getByRole("navigation").getByRole("button",{name:"03 Sound"}).click();await expect(page.locator(".transport-position")).not.toContainText("Audition");await page.getByLabel("Play song",{exact:true}).click();await page.getByLabel("FM depth value",{exact:true}).fill("7");await expect(page.getByLabel("Pause song",{exact:true})).toBeVisible();
   const cutoff=Math.exp(Math.log(40)+.7*(Math.log(18000)-Math.log(40)));
-  await page.getByLabel("Filter cutoff value",{exact:true}).fill(String(cutoff));await page.getByLabel("Expression value",{exact:true}).fill("0.5");await expect(page.locator(".transport-position")).toContainText("Audition");
-  await page.getByRole("navigation").getByRole("button",{name:"04 Mix"}).click();await page.getByLabel("Glass FM volume",{exact:true}).fill("-10");await expect(page.locator(".transport-position")).toContainText("Audition");
-  await page.locator(".instrument-select").click();await page.getByRole("button",{name:/Warm sub bass.*Synthesizers/}).click();await expect(page.locator(".transport-position")).not.toContainText("Audition");
+  await page.getByLabel("Filter cutoff value",{exact:true}).fill(String(cutoff));await page.getByLabel("Expression value",{exact:true}).fill("0.5");await expect(page.getByLabel("Pause song",{exact:true})).toBeVisible();
+  await page.getByRole("navigation").getByRole("button",{name:"04 Mix"}).click();await page.getByLabel("Glass FM volume",{exact:true}).fill("-10");await expect(page.getByLabel("Pause song",{exact:true})).toBeVisible();
+  await page.getByLabel("Toggle assets panel").click();await page.getByRole("button",{name:"Warm sub bass Synthesizers",exact:true}).click();await page.getByRole("button",{name:"Use on selected track",exact:true}).click();await expect(page.getByLabel("Pause song",{exact:true})).toBeVisible();
 });
 
 test("held and future preview notes adopt tuning without a restart and Stop stays silent",async({page})=>{
