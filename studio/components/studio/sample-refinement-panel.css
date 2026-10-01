@@ -1,0 +1,19 @@
+.sample-refinement{margin-top:18px;padding:16px;border:1px solid var(--line,#474b4f);border-radius:8px;min-width:0}
+.sample-refinement-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:8px}
+.sample-refinement-heading h3,.sample-refinement-step h4,.sample-refinement-result h4{margin:0 0 8px}
+.sample-refinement-heading .eyebrow{margin:0 0 5px}
+.sample-quality{font-size:11px;border:1px solid var(--line,#474b4f);border-radius:4px;padding:4px 7px;white-space:nowrap}
+.sample-refinement-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:20px;margin-top:16px}
+.sample-refinement-step{min-width:0}.sample-refinement-step svg{height:64px;width:100%;opacity:.75;margin:8px 0}
+.sample-refinement .button-row,.sample-comparisons{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.sample-refinement .field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.sample-refinement input,.sample-refinement select{min-width:0;max-width:100%}
+.sample-refinement summary{cursor:pointer;padding:10px 0;font-size:12px}
+.sample-engine,.sample-instrument{margin-top:12px;border-top:1px solid var(--line,#474b4f)}
+.sample-matches{display:grid;gap:6px;margin-top:12px}.sample-matches button{text-align:left}.sample-matches small{display:block;opacity:.65;margin-top:4px;font-size:10px}
+.sample-job{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:12px 0}
+.sample-refinement-result{margin-top:18px;padding-top:16px;border-top:1px solid var(--line,#474b4f)}
+.sample-reduction{max-width:540px;margin:16px 0}.sample-review{display:flex;align-items:flex-start;gap:9px;font-size:12px;margin:12px 0;line-height:1.5}
+.sample-review input{flex-shrink:0;margin-top:3px}.sample-instrument .field{max-width:180px}.sample-save-grid{max-width:660px}
+.sample-provenance-badge{display:block;font-size:10px;line-height:1.4;opacity:.8;margin-top:3px}
+@media(max-width:800px){.sample-refinement-heading{align-items:flex-start}.sample-quality{white-space:normal}}

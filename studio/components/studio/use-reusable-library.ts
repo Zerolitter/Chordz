@@ -157,7 +157,7 @@ export function useReusableLibrary(context:LibraryContext){
       const {instrument:manifest,...settings}=entry.sound;Object.assign(track,settings,{instrumentId:manifest.id});
       const clip=entry.clip?structuredClone(entry.clip):emptyClip(0,PPQ*4,"Preview");
       clip.startTick=0;if(entry.kind==="audio"){clip.lengthTick=Math.max(1,secondsToTick(entry.visibleDurationSec!,ctx.document().tempo));clip.sourceLengthTick=clip.lengthTick;}
-      if(entry.kind==="sound")clip.notes=(isDrumInstrument(entry.sound.instrument)?[36,38,42]:[60,64,67]).map(pitch=>({id:uid(),pitch,tick:0,duration:PPQ*2,velocity:.65}));
+      if(entry.kind==="sound")clip.notes=(entry.refinement&&entry.sound.instrument.kind==="sample"?[entry.sound.instrument.zones[0]?.root??60]:isDrumInstrument(entry.sound.instrument)?[36,38,42]:[60,64,67]).map(pitch=>({id:uid(),pitch,tick:0,duration:PPQ*2,velocity:.65}));
       track.clips=[clip];doc.tempo=ctx.document().tempo;doc.seed=ctx.document().seed;doc.master=structuredClone(ctx.document().master);doc.tracks=[track];doc.assets=entry.assets;doc.userInstruments=[entry.sound.instrument];doc.sections=[{...doc.sections[0],startTick:0,lengthTick:clip.lengthTick}];doc.chords=[];
       const audio=await ctx.getEngine();value.engine=audio;if(!valid())return false;
       const identity="library_"+candidate.id,started=await audio.previewSnapshot(doc,async id=>{

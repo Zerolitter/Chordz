@@ -1,3 +1,4 @@
+import { sampleProvenanceSchema } from "./sample-provenance";
 import { z } from "zod";
 import type { ProjectDocument } from "./types";
 import {modulationSchema,chordMovementSchema} from "./modulation-schema";
@@ -168,6 +169,7 @@ export const instrumentSchema = z
   })
   .strict();
 export const assetSchema = z.object({
+  provenance: sampleProvenanceSchema.optional(),
   id: idSchema,
   name: z.string().min(1).max(200),
   mime: z.string().max(100),

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useStudio } from "./use-studio";
+import { SampleRefinementPanel } from "./sample-refinement-panel";
 import { analyzeReferenceBuffer, referenceWaveform } from "../../lib/audio/reference-analysis-client";
 import { cachedReference, cacheReference } from "../../lib/audio/reference-analysis-cache";
 import { inspectReferenceFile, REFERENCE_LIMITS, validateReferenceBuffer, type ReferenceMetadata, type ReferenceProfile } from "../../lib/audio/reference-analysis-data";
@@ -15,6 +16,7 @@ const time = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.flo
 export function ReferencePanel() {
   const s = useStudio(), owner = "reference-" + useId(), studio = useRef(s);
   useLayoutEffect(() => { studio.current = s; });
+  const [refinementBuffer, setRefinementBuffer] = useState<AudioBuffer | null>(null);
   const [source, setSource] = useState<ReferenceMetadata | null>(null), [profile, setProfile] = useState<ReferenceProfile | null>(null), [waveform, setWaveform] = useState<number[]>([]);
   const [rangeStart, setRangeStart] = useState(0), [rangeEnd, setRangeEnd] = useState(60), [fullSong, setFullSong] = useState(false);
   const [status, setStatus] = useState(""), [percent, setPercent] = useState(0), [error, setError] = useState(""), [cacheNotice, setCacheNotice] = useState("");
@@ -22,13 +24,13 @@ export function ReferencePanel() {
   const decoded = useRef<AudioBuffer | null>(null), job = useRef<AbortController | null>(null), staged = useRef<{ track: Track; projectId: string } | null>(null);
   const pending = s.ownsEdit(owner), busy = !!status, blocked = busy || s.recordingPhase !== "idle";
   useEffect(() => {
-    queueMicrotask(() => { decoded.current = null; staged.current = null; setSource(null); setProfile(null); setWaveform([]); setStatus(""); setProposalKind(null); setError(""); setCacheNotice(""); });
+    queueMicrotask(() => { decoded.current = null; setRefinementBuffer(null); staged.current = null; setSource(null); setProfile(null); setWaveform([]); setStatus(""); setProposalKind(null); setError(""); setCacheNotice(""); });
     return () => { job.current?.abort(); studio.current.cancelEdit(owner); studio.current.cancelPreview(); };
   }, [s.owner, s.project.id, owner]);
   useEffect(() => { if (!studio.current.ownsEdit(owner) && staged.current) { studio.current.cancelPreview(); staged.current = null; queueMicrotask(() => setProposalKind(null)); } }, [pending, owner]);
   function cancel() { job.current?.abort(); job.current = null; setStatus(""); setPercent(0); }
   async function choose(file: File) {
-    cancel(); const controller = new AbortController(); job.current = controller; setError(""); setStatus("Reading"); setProfile(null); decoded.current = null;
+    cancel(); const controller = new AbortController(); job.current = controller; setError(""); setStatus("Reading"); setProfile(null); decoded.current = null; setRefinementBuffer(null);
     try {
       if (file.size > REFERENCE_LIMITS.bytes) throw new Error("Choose an MP3 or WAV smaller than 100 MiB.");
       const bytes = new Uint8Array(await file.arrayBuffer()), header = inspectReferenceFile(bytes);
@@ -40,7 +42,7 @@ export function ReferencePanel() {
       if (header.duration * context.sampleRate * header.channels * 4 > REFERENCE_LIMITS.pcmBytes) throw new Error("This reference exceeds the 256 MiB decoded audio limit.");
       if (controller.signal.aborted) return; setStatus("Decoding");
       const buffer = await engine.decode(file); if (controller.signal.aborted) return; validateReferenceBuffer(buffer);
-      decoded.current = buffer;
+      decoded.current = buffer; setRefinementBuffer(buffer);
       const metadata: ReferenceMetadata = { name: file.name.slice(0, 200), fingerprint, byteLength: file.size, duration: buffer.duration, sampleRate: buffer.sampleRate, channels: buffer.numberOfChannels, sourceSampleRate: header.sourceSampleRate, ...(header.bitrate ? { bitrate: header.bitrate } : {}), ...(header.title ? { title: header.title } : {}) };
       setSource(metadata); setRangeStart(0); setRangeEnd(Math.min(60, buffer.duration)); setFullSong(false);
       setStatus("Preparing waveform"); const peaks = await referenceWaveform(buffer, { signal: controller.signal });
@@ -95,6 +97,7 @@ export function ReferencePanel() {
       <svg viewBox="0 0 640 80" width="100%" height="80" role="img" aria-label="Reference waveform and selected analysis range"><rect x={640 * start / source.duration} y={0} width={640 * Math.max(0, end - start) / source.duration} height={80} fill="var(--amber)" opacity=".15" /><path d={waveform.map((peak, i) => `M${i * 2} ${40 - peak * 36}v${peak * 72}`).join(" ")} stroke="currentColor" opacity=".65" /></svg>
       <label><input type="checkbox" checked={fullSong} disabled={busy || pending} onChange={e => setFullSong(e.target.checked)} /> Analyze the full song</label>
       {!fullSong && <div className="field-grid"><label className="field">Start (seconds)<input aria-label="Reference range start" type="number" min={0} max={source.duration} step={.1} value={Number.isFinite(rangeStart) ? rangeStart : ""} disabled={busy || pending} onChange={e => setRangeStart(e.target.value === "" ? NaN : Number(e.target.value))} /></label><label className="field">End (seconds)<input aria-label="Reference range end" type="number" min={0} max={source.duration} step={.1} value={Number.isFinite(rangeEnd) ? rangeEnd : ""} disabled={busy || pending} onChange={e => setRangeEnd(e.target.value === "" ? NaN : Number(e.target.value))} /></label></div>}
+      {refinementBuffer && <SampleRefinementPanel key={source.fingerprint} buffer={refinementBuffer} source={source} blocked={blocked || pending} />}
       <button className="primary-button" disabled={busy || pending} onClick={() => void analyze()}>Analyze {fullSong ? "full song" : "selected range"}</button>
     </>}
     {error && <p className="studio-notice error" role="alert">{error}</p>}{cacheNotice && <p className="helper" role="status">{cacheNotice}</p>}

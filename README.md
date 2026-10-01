@@ -50,3 +50,9 @@ See [studio/README.md](studio/README.md) for local storage migrations, browser t
 - `studio/`: complete music studio source and tests.
 - `.github/workflows/build.yml`: desktop and studio checks, with a Windows build artifact.
 - `docs/`: release validation and current limitations.
+
+## Sample refinement
+
+The studio Reference tool can now find similar occurrences, extract conventional instrument groups through an optional local engine, compare natural/refined/residual audio, and save independent phrases or manually rooted sampled instruments. Mixed textures remain explicitly mixed and do not become pretend clean instrument presets.
+
+See [the workflow and local-engine setup](docs/sample-refinement.md) and [verification results and release boundaries](docs/sample-refinement-verification.md). Heavy inference runs outside the playback engine; no model weights are bundled with the browser app or desktop wrapper.

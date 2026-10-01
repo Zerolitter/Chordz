@@ -1,3 +1,4 @@
+import type { SampleProvenance } from "./sample-provenance";
 export const PPQ = 960;
 import type { ChordMovementSettings, MacroId, ModulationPatch } from "./modulation-types";
 export type { ChordMovementSettings, MacroId, ModulationPatch, ModSource, ModRoute, ModTarget } from "./modulation-types";
@@ -124,6 +125,7 @@ export interface ChordEvent {
   notes: number[];
 }
 export interface AssetReference {
+  provenance?: SampleProvenance;
   id: string;
   name: string;
   mime: string;

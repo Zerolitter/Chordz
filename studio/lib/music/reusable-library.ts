@@ -1,3 +1,4 @@
+import { sampleProvenanceSchema, type SampleProvenance } from "./sample-provenance";
 import { z } from "zod";
 import { instrumentFor, isDrumInstrument } from "../audio/catalog";
 import type { ModulationPatch } from "./modulation-types";
@@ -15,6 +16,7 @@ export interface SavedSound {
   low: number; mid: number; high: number; drive: number; reverb: number; delay: number;
 }
 export interface LibraryEntry {
+  refinement?: { originalAssetId: string; provenance: SampleProvenance };
   version: 1;
   id: string;
   name: string;
@@ -33,6 +35,7 @@ export const savedSoundSchema: z.ZodType<SavedSound> = z.object({
   drive: unit, reverb: unit, delay: unit,
 }).strict();
 export const libraryEntrySchema: z.ZodType<LibraryEntry> = z.object({
+  refinement: z.object({ originalAssetId: idSchema, provenance: sampleProvenanceSchema }).strict().optional(),
   version: z.literal(1), id: idSchema, name: z.string().trim().min(1).max(120),
   kind: z.enum(["sound", "phrase", "audio"]), createdAt: z.string().datetime(),
   sound: savedSoundSchema, clip: clipSchema.optional(),
@@ -50,6 +53,14 @@ export const libraryEntrySchema: z.ZodType<LibraryEntry> = z.object({
   if (entry.clip && new Set(entry.clip.notes.map(note => note.id)).size !== entry.clip.notes.length) issue("Duplicate library note identifiers.");
   const referenced = new Set(entry.sound.instrument.zones.flatMap(zone => zone.assetId ? [zone.assetId] : []));
   if (entry.clip?.audio) referenced.add(entry.clip.audio.assetId);
+  if (entry.refinement) {
+    referenced.add(entry.refinement.originalAssetId);
+    if (entry.kind === "phrase") issue("Sample refinement cannot describe a MIDI phrase.");
+    if (entry.kind === "sound" && entry.refinement.provenance.status !== "approved") issue("A sampled instrument requires explicit review.");
+    if (entry.clip?.audio?.assetId === entry.refinement.originalAssetId || entry.sound.instrument.zones.some(zone => zone.assetId === entry.refinement?.originalAssetId)) issue("Retained original audio must remain separate from the reusable output.");
+    const outputs = entry.assets.filter(asset => asset.id !== entry.refinement!.originalAssetId);
+    if (outputs.length !== 1 || JSON.stringify(outputs[0].provenance) !== JSON.stringify(entry.refinement.provenance)) issue("Sample provenance must match its output asset.");
+  }
   if ([...referenced].some(id => !ids.has(id))) issue("A library entry refers to an undeclared asset.");
   if ([...ids].some(id => !referenced.has(id))) issue("A library asset is not used by its entry.");
 });
@@ -83,6 +94,7 @@ export function remapEntry(entry: LibraryEntry, assetMap: Record<string, string>
   const next = structuredClone(libraryEntrySchema.parse(entry));
   const remap = (id: string) => assetMap[id] ?? id;
   next.assets.forEach(asset => { asset.id = remap(asset.id); });
+  if (next.refinement) next.refinement.originalAssetId = remap(next.refinement.originalAssetId);
   next.sound.instrument.zones.forEach(zone => { if (zone.assetId) zone.assetId = remap(zone.assetId); });
   if (next.clip?.audio) next.clip.audio.assetId = remap(next.clip.audio.assetId);
   if (freshIdentity) {
@@ -173,8 +185,10 @@ export function applyLibraryEntry(project: ProjectDocument, entry: LibraryEntry,
   if (!section || !existing && (destination.trackId || !createsTrack)) return { ok: false, error: "Choose an existing destination track and section, or insert on a new track.", ...(!destination.trackId && valid.data.kind !== "sound" ? { overlap: true } : {}) };
   const next = remapEntry(valid.data, {}), document = structuredClone(project), sound = next.sound;
   let track = existing ? document.tracks.find(track => track.id === existing.id)! : createTrack();
+  const audioOnlyRefinement = next.kind === "audio" && next.assets.some(asset => asset.provenance);
   const newTrack = (kind: Track["kind"]) => {
-    const fresh = createTrack(sound.instrument.id, next.name, existing?.color ?? track.color, kind);
+    // An audio texture must not create a pretend synthesizer in the Sounds browser.
+    const fresh = createTrack(audioOnlyRefinement ? "piano" : sound.instrument.id, next.name, existing?.color ?? track.color, kind);
     Object.assign(fresh, { sound: sound.sound, modulation: sound.modulation, chordMovement: sound.chordMovement,
       low: sound.low, mid: sound.mid, high: sound.high, drive: sound.drive, reverb: sound.reverb, delay: sound.delay });
     document.tracks.push(fresh); return fresh;
@@ -197,7 +211,7 @@ export function applyLibraryEntry(project: ProjectDocument, entry: LibraryEntry,
     clip.startTick = target?.startTick ?? section.startTick;
     clip.lengthTick = target?.lengthTick ?? (next.kind === "audio" ? Math.max(1, secondsToTick(next.visibleDurationSec!, document.tempo)) : clip.lengthTick);
     if (next.kind === "audio") clip.sourceLengthTick = Math.max(1, secondsToTick(next.visibleDurationSec!, document.tempo));
-    if (action === "alternative") { track = newTrack(next.kind === "audio" ? "audio" : "instrument"); usesSound = true; }
+    if (action === "alternative") { track = newTrack(next.kind === "audio" ? "audio" : "instrument"); usesSound = !audioOnlyRefinement; }
     else if (next.kind === "audio" && track.kind !== "audio") return { ok: false, error: "Choose an audio track or insert this phrase on a new audio track.", overlap: true };
     else if (next.kind === "phrase") {
       const compatibility = phraseCompatibility(next, track, instrumentFor(document, track));
