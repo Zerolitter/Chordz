@@ -1,5 +1,5 @@
 "use client";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { DraftInput } from "./draft-field";
 import { useStudio } from "./use-studio";
@@ -9,7 +9,7 @@ import { ticksPerBar } from "../../lib/music/project";
 import { quantizeClip, humanizeClip } from "../../lib/music/edit";
 import { instrumentFor, isDrumInstrument } from "../../lib/audio/catalog";
 import { noteName } from "../../lib/music/theory";
-import { useToolVisibility } from "./tool-visibility";
+import { useToolInputTermination, useToolVisibility } from "./tool-visibility";
 
 export function ClipNoteEditor({ grid, setGrid, swing, setSwing }: { grid: number; setGrid: (value: number) => void; swing: number; setSwing: (value: number) => void }) {
   const s = useStudio(), clip = s.selectedClip, track = s.selectedTrack;
@@ -17,6 +17,11 @@ export function ClipNoteEditor({ grid, setGrid, swing, setSwing }: { grid: numbe
   const [noteId, setNoteId] = useState("");
   const [editor, setEditor] = useState<"notes" | "drums">("notes");
   const active = useToolVisibility(), roll = useRef<HTMLDivElement>(null), positionedClip = useRef("");
+  const notePointer = useRef<(() => void) | null>(null), noteKeyboard = useRef<string | null>(null);
+  function endNoteInput() { notePointer.current?.(); notePointer.current = null; noteKeyboard.current = null; }
+  useToolInputTermination(endNoteInput);
+  const releaseNoteInput = useEffectEvent(endNoteInput);
+  useLayoutEffect(() => { if (!active) releaseNoteInput(); return () => releaseNoteInput(); }, [active, clip?.id, track?.id, s.project.id, editor]);
   useLayoutEffect(() => {
     const element = roll.current, context = `${s.project.id}:${clip?.id ?? ""}`;
     if (!active || !clip || !element || positionedClip.current === context) return;
@@ -36,19 +41,22 @@ export function ClipNoteEditor({ grid, setGrid, swing, setSwing }: { grid: numbe
     if (clip && track) s.updateClip(track.id, clip.id, c => ({ ...c,
       notes: c.notes.map(n => n.id === noteId ? { ...n, ...update } : n) }), "Edit note");
   }
+  function changeEditor(next: "notes" | "drums") { endNoteInput(); if (s.finishEdit()) setEditor(next); }
   if (!clip || !track) return null;
   return <>
               <div className="editor-tabs">
                 <button
+                  data-edit-policy="bypass"
                   className={editor === "notes" ? "active" : ""}
-                  onClick={() => setEditor("notes")}
+                  onClick={() => changeEditor("notes")}
                 >
                   Piano roll
                 </button>
                 <button
+                  data-edit-policy="bypass"
                   disabled={!isDrumInstrument(instrumentFor(s.project,track))}
                   className={editor === "drums" ? "active" : ""}
-                  onClick={() => setEditor("drums")}
+                  onClick={() => changeEditor("drums")}
                 >
                   Drum steps
                 </button>
@@ -121,6 +129,7 @@ export function ClipNoteEditor({ grid, setGrid, swing, setSwing }: { grid: numbe
                         backgroundSize: `${(grid / clip.sourceLengthTick) * 100}% 18px`,
                       }}
                       onDoubleClick={(e) => {
+                        if (!active) return;
                         const rect = e.currentTarget.getBoundingClientRect();
                         const tick = clamp(
                             Math.floor(
@@ -181,6 +190,7 @@ export function ClipNoteEditor({ grid, setGrid, swing, setSwing }: { grid: numbe
                           aria-label={`${noteName(n.pitch, s.project.key)} note at beat ${n.tick / PPQ + 1}`}
                           onClick={() => setNoteId(n.id)}
                           onKeyDown={(e) => {
+                            if (!active) return;
                             if (e.key === "Delete") {
                               s.updateClip(
                                 track.id,
@@ -193,7 +203,10 @@ export function ClipNoteEditor({ grid, setGrid, swing, setSwing }: { grid: numbe
                               );
                             }
                             if (e.key.startsWith("Arrow")) {
-                              e.preventDefault();s.beginEdit("note:"+n.id);
+                              e.preventDefault();
+                              const owner = "note:" + n.id;
+                              if (!s.beginEdit(owner)) return;
+                              noteKeyboard.current = owner;
                               s.updateClip(
                                 track.id,
                                 clip.id,
@@ -231,9 +244,13 @@ export function ClipNoteEditor({ grid, setGrid, swing, setSwing }: { grid: numbe
                               );
                             }
                           }}
-                          onKeyUp={e=>{if(e.key.startsWith("Arrow"))s.finishEdit();}}
+                          onKeyUp={e=>{const owner="note:"+n.id;if(e.key.startsWith("Arrow")&&noteKeyboard.current===owner){noteKeyboard.current=null;s.finishEdit(owner);}}}
+                          onBlur={()=>{const owner="note:"+n.id;if(noteKeyboard.current===owner){noteKeyboard.current=null;s.finishEdit(owner);}}}
                           onPointerDown={(e) => {
-                            if(!s.beginEdit("note:"+n.id))return;
+                            if(!active)return;
+                            endNoteInput();
+                            const owner = "note:" + n.id;
+                            if(!s.beginEdit(owner))return;
                             const start = e.clientX,
                               startY = e.clientY,
                               rect =
@@ -241,7 +258,7 @@ export function ClipNoteEditor({ grid, setGrid, swing, setSwing }: { grid: numbe
                               target = e.currentTarget;
                             target.setPointerCapture(e.pointerId);
                             const up = (ev: globalThis.PointerEvent) => {
-                              cleanup();if(!s.ownsEdit("note:"+n.id))return;
+                              cleanup();if(!s.ownsEdit(owner))return;
                               const tick = clamp(
                                   Math.round(
                                     (n.tick +
@@ -270,12 +287,14 @@ export function ClipNoteEditor({ grid, setGrid, swing, setSwing }: { grid: numbe
                                   }),
                                   "Move note",
                                 );
-                              s.finishEdit("note:"+n.id);
+                              s.finishEdit(owner);
                             };
-                            const cleanup=()=>{target.removeEventListener("pointerup",up);target.removeEventListener("pointercancel",cancel);window.removeEventListener("keydown",escape,true);};
-                            const cancel=()=>{cleanup();s.cancelEdit();};
+                            const pointerId=e.pointerId;
+                            const cleanup=()=>{target.removeEventListener("pointerup",up);target.removeEventListener("pointercancel",cancel);target.removeEventListener("lostpointercapture",cancel);window.removeEventListener("keydown",escape,true);if(notePointer.current===cleanup)notePointer.current=null;if(target.hasPointerCapture(pointerId))target.releasePointerCapture(pointerId);};
+                            const cancel=()=>{cleanup();s.cancelEdit(owner);};
                             const escape=(ev:KeyboardEvent)=>{if(ev.key==="Escape"){ev.preventDefault();ev.stopPropagation();cancel();}};
-                            target.addEventListener("pointerup", up);target.addEventListener("pointercancel",cancel);window.addEventListener("keydown",escape,true);
+                            notePointer.current=cleanup;
+                            target.addEventListener("pointerup", up);target.addEventListener("pointercancel",cancel);target.addEventListener("lostpointercapture",cancel);window.addEventListener("keydown",escape,true);
                           }}
                         />
                       ))}

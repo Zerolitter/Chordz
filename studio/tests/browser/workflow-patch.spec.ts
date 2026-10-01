@@ -156,6 +156,9 @@ test("activity cancellation silences common output and delayed loads cannot rest
 test("pre-capture Stop creates no take; failed preservation retries exactly once",async({page})=>{
   await page.goto("/");await expect(page.getByLabel("Song title")).toBeEnabled();
   await page.getByRole("button",{name:"Songs",exact:true}).click();await page.getByRole("button",{name:"Blank song"}).click();
+  // Recording lifetime and recovery do not depend on loading acoustic samples.
+  await page.getByRole("button",{name:"Glass FM Synthesizers",exact:true}).click();
+  await page.getByRole("button",{name:"Use on selected track",exact:true}).click();
   await page.getByLabel("Recording source").selectOption("audio");
   await page.getByLabel("Start recording",{exact:true}).click();
   await page.getByLabel("Stop song",{exact:true}).click();
@@ -179,6 +182,9 @@ test("pre-capture Stop creates no take; failed preservation retries exactly once
 test("late microphone preparation cannot stop a successor recording",async({page})=>{
   await page.goto("/");await expect(page.getByLabel("Song title")).toBeEnabled();
   await page.getByRole("button",{name:"Songs",exact:true}).click();await page.getByRole("button",{name:"Blank song"}).click();
+  // Microphone ownership does not depend on loading acoustic samples.
+  await page.getByRole("button",{name:"Glass FM Synthesizers",exact:true}).click();
+  await page.getByRole("button",{name:"Use on selected track",exact:true}).click();
   await page.evaluate(()=>{
     const state=globalThis as unknown as {micCalls:number;releaseFirst:()=>void};
     state.micCalls=0;let release!:()=>void;const gate=new Promise<void>(r=>release=r);state.releaseFirst=release;

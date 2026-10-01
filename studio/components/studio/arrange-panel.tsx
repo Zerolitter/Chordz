@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { Plus, Trash2, Maximize2, LocateFixed } from "lucide-react";
 import { DraftInput } from "./draft-field";
 import { usePreference, numericPreference } from "./use-preference";
@@ -16,19 +16,10 @@ export function SongCanvas({ grid, setGrid, className = "" }: {
   grid: number; setGrid: (value: number) => void; className?: string;
 }) {
   const s = useStudio();
-  const [zoom, setZoom] = usePreference("timeline-zoom", 38, numericPreference(.001, 100));
-  const [follow, setFollow] = useState(false);
+  const { zoom, follow } = s.songViewport;
   const viewport = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    let active = true;
-    queueMicrotask(() => {
-      if (!active) return;
-      setFollow(false);
-      if (viewport.current) { viewport.current.scrollLeft = 0; viewport.current.scrollTop = 0; }
-    });
-    return () => { active = false; };
-  }, [s.owner, s.project.id]);
   const bar = ticksPerBar(s.project), track = s.selectedTrack;
+  const navigatingDisabled = !s.songViewportReady || !!s.transaction?.owner?.startsWith("clip:");
   function newClip() {
     if (!track) return;
     const clip = emptyClip(s.selectedSection.startTick, s.selectedSection.lengthTick, "New phrase");
@@ -40,21 +31,18 @@ export function SongCanvas({ grid, setGrid, className = "" }: {
     return Math.max(1, element.clientWidth - (Number.parseFloat(getComputedStyle(element).getPropertyValue("--song-track-header-width")) || 188));
   }
   function fit(selection: boolean) {
-    if (!s.finishEdit()) return;
+    if (navigatingDisabled || !s.finishEdit()) return;
     const target = selection ? s.selectedClip ?? s.selectedSection : null;
     const start = target?.startTick ?? 0, length = target?.lengthTick ?? projectEnd(s.project);
     const next = clamp(width() / Math.max(1, length / bar), .001, 100);
-    setZoom(next);
-    setFollow(false);
-    requestAnimationFrame(() => { if (viewport.current) viewport.current.scrollLeft = start / bar * next; });
+    s.setSongViewport({ zoom: next, leftTick: start, follow: false });
   }
   function changeZoom(next: number) {
-    if (!s.finishEdit()) return;
-    const center = ((viewport.current?.scrollLeft ?? 0) + width() / 2) / zoom;
-    setZoom(next);
-    requestAnimationFrame(() => { if (viewport.current) viewport.current.scrollLeft = Math.max(0, center * next - width() / 2); });
+    if (navigatingDisabled || !s.finishEdit()) return;
+    const centerTick = ((viewport.current?.scrollLeft ?? 0) + width() / 2) / zoom * bar;
+    s.setSongViewport({ zoom: next, leftTick: Math.max(0, centerTick - width() / 2 / next * bar), follow: false });
   }
-  return <section className={`song-canvas ${className}`} aria-label="Song canvas">
+  return <section className={`song-canvas ${className}`} aria-label="Song canvas" aria-busy={!s.songViewportReady}>
       <div className="song-canvas-toolbar">
           <span className="song-canvas-title">Song</span>
           <select aria-label="Edit section" value={s.selectedSection.id} onChange={e => s.setSelectedSectionId(e.target.value)}>
@@ -77,6 +65,7 @@ export function SongCanvas({ grid, setGrid, className = "" }: {
               max={100}
               step={.001}
               value={zoom}
+              disabled={navigatingDisabled}
               onChange={(e) => changeZoom(Number(e.target.value))}
             />
           </label>
@@ -90,14 +79,14 @@ export function SongCanvas({ grid, setGrid, className = "" }: {
             </select>
           </label>
           <div className="song-navigation-tools">
-            <button type="button" className="secondary-button" onClick={() => fit(false)} aria-label="Fit song"><Maximize2 size={13} />Fit song</button>
-            <button type="button" className="secondary-button" onClick={() => fit(true)} aria-label="Fit selected clip or section">Fit selection</button>
+            <button type="button" className="secondary-button" disabled={navigatingDisabled} onClick={() => fit(false)} aria-label="Fit song"><Maximize2 size={13} />Fit song</button>
+            <button type="button" className="secondary-button" disabled={navigatingDisabled} onClick={() => fit(true)} aria-label="Fit selected clip or section">Fit selection</button>
             <button type="button" className={`secondary-button${follow ? " active" : ""}`} aria-label="Follow playhead" aria-pressed={follow}
-              onClick={() => { if (s.finishEdit()) setFollow(value => !value); }}><LocateFixed size={13} />Follow</button>
+              disabled={navigatingDisabled} onClick={() => { if (s.finishEdit()) s.setSongViewport({ follow: !follow }); }}><LocateFixed size={13} />Follow</button>
           </div>
           <details className="song-section-settings"><summary>Section settings</summary><SectionTools /></details>
       </div>
-      <ArrangementTimeline zoom={zoom} grid={grid} viewportRef={viewport} follow={follow} onUserNavigation={() => setFollow(false)} />
+      <ArrangementTimeline zoom={zoom} grid={grid} viewportRef={viewport} />
     </section>;
 }
 

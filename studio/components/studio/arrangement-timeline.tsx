@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type RefObject } from "react";
 import { MoveHorizontal } from "lucide-react";
 import { useStudio, useTransport } from "./use-studio";
 import { useArrangementGesture } from "./use-arrangement-gesture";
@@ -19,53 +19,95 @@ function regionPeaks(peaks: number[], assetSeconds: number, offset: number, seco
   });
 }
 
-export function ArrangementTimeline({ zoom, grid, viewportRef, follow = false, onUserNavigation }: {
-  zoom: number; grid: number; viewportRef?: RefObject<HTMLDivElement | null>; follow?: boolean; onUserNavigation?: () => void;
+type ScrollGeometry = { width: number; height: number; contentWidth: number; contentHeight: number };
+function scrollGeometry(viewport: HTMLElement): ScrollGeometry {
+  return { width: viewport.clientWidth, height: viewport.clientHeight, contentWidth: viewport.scrollWidth, contentHeight: viewport.scrollHeight };
+}
+function sameGeometry(a: ScrollGeometry | null, b: ScrollGeometry) {
+  return !!a && a.width === b.width && a.height === b.height && a.contentWidth === b.contentWidth && a.contentHeight === b.contentHeight;
+}
+function restoreSongPosition(viewport: HTMLElement, leftTick: number, scrollTop: number, bar: number, zoom: number) {
+  const geometry = scrollGeometry(viewport);
+  const target = { left: Math.min(leftTick / bar * zoom, Math.max(0, geometry.contentWidth - geometry.width)),
+    top: Math.min(scrollTop, Math.max(0, geometry.contentHeight - geometry.height)) };
+  viewport.scrollLeft = target.left;
+  viewport.scrollTop = target.top;
+  return { geometry, target };
+}
+
+export function ArrangementTimeline({ zoom, grid, viewportRef }: {
+  zoom: number; grid: number; viewportRef?: RefObject<HTMLDivElement | null>;
 }) {
   const s = useStudio(), transport = useTransport();
   const internalRef = useRef<HTMLDivElement>(null), scrollRef = viewportRef ?? internalRef;
-  const followScrollTarget = useRef<number | null>(null);
-  const [viewportWidth, setViewportWidth] = useState(0);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const scrollTarget = useRef<{ left: number; top: number } | null>(null);
+  const geometryRef = useRef<ScrollGeometry | null>(null);
+  const [size, setSize] = useState({ timeWidth: 0, height: 0, contentWidth: 0, contentHeight: 0 });
+  const { leftTick, scrollTop, follow } = s.songViewport;
   const bar = ticksPerBar(s.project), bars = Math.ceil(projectEnd(s.project) / bar);
   const rulerStep = Math.max(1, Math.ceil(30 / zoom));
-  const timeWidth = Math.max(viewportWidth || 780, bars * zoom);
+  const timeWidth = Math.max(size.timeWidth || 780, bars * zoom);
   useEffect(() => {
     const viewport = scrollRef.current;
     if (!viewport) return;
     const measure = () => {
       const headerWidth = Number.parseFloat(getComputedStyle(viewport).getPropertyValue("--song-track-header-width")) || 188;
-      setViewportWidth(Math.max(1, viewport.clientWidth - headerWidth));
+      const measured = { timeWidth: Math.max(1, viewport.clientWidth - headerWidth), height: viewport.clientHeight,
+        contentWidth: viewport.scrollWidth, contentHeight: viewport.scrollHeight };
+      setSize(current => Object.keys(measured).every(key => current[key as keyof typeof current] === measured[key as keyof typeof measured]) ? current : measured);
     };
     const observer = new ResizeObserver(measure);
     observer.observe(viewport);
+    if (contentRef.current) observer.observe(contentRef.current);
     return () => observer.disconnect();
   }, [scrollRef]);
+  useLayoutEffect(() => {
+    // A resized window may temporarily clamp the DOM. Keep the scoped request so
+    // returning to the earlier geometry restores the same song position.
+    const viewport = scrollRef.current;
+    if (!viewport || !s.songViewportReady) return;
+    const restored = restoreSongPosition(viewport, leftTick, scrollTop, bar, zoom);
+    geometryRef.current = restored.geometry;
+    scrollTarget.current = restored.target;
+  }, [scrollRef, s.songViewportReady, leftTick, scrollTop, bar, zoom, s.owner, s.project.id, bars, s.project.tracks.length, size]);
   useEffect(() => {
     const viewport = scrollRef.current;
-    if (!follow || !viewport || !transport.playing || s.transaction?.owner?.startsWith("clip:")) return;
+    if (!s.songViewportReady || !follow || !viewport || !transport.playing || s.transaction?.owner?.startsWith("clip:")) return;
     const x = transport.tick / bar * zoom;
-    if (x < viewport.scrollLeft || x > viewport.scrollLeft + viewportWidth - 24) {
-      const left = Math.min(Math.max(0, x - viewportWidth * .25), viewport.scrollWidth - viewport.clientWidth);
+    if (x < viewport.scrollLeft || x > viewport.scrollLeft + size.timeWidth - 24) {
+      const left = Math.min(Math.max(0, x - size.timeWidth * .25), viewport.scrollWidth - viewport.clientWidth);
       if (Math.abs(left - viewport.scrollLeft) < 1) return;
-      followScrollTarget.current = left;
-      viewport.scrollLeft = left;
+      s.setSongViewport({ leftTick: left / zoom * bar });
     }
-  }, [follow, transport.tick, transport.playing, bar, zoom, viewportWidth, scrollRef, s.transaction?.owner]);
-  return <div ref={scrollRef} className="timeline-scroll song-timeline-scroll" aria-label="Song arrangement"
-    onWheel={() => { followScrollTarget.current = null; onUserNavigation?.(); }}
+  }, [s, follow, transport.tick, transport.playing, bar, zoom, size.timeWidth, scrollRef]);
+  function manualNavigation() {
+    scrollTarget.current = null;
+    if (s.songViewportReady && follow) s.setSongViewport({ follow: false });
+  }
+  return <div ref={scrollRef} className="timeline-scroll song-timeline-scroll" aria-label="Song arrangement" tabIndex={0}
+    onWheel={manualNavigation}
+    onKeyDown={event => { if (event.target === event.currentTarget && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End"].includes(event.key)) manualNavigation(); }}
     onScroll={event => {
-      const expected = followScrollTarget.current;
-      followScrollTarget.current = null;
-      if (expected !== null && Math.abs(event.currentTarget.scrollLeft - expected) < 1) return;
-      if (follow) onUserNavigation?.();
+      if (!s.songViewportReady) return;
+      const viewport = event.currentTarget, geometry = scrollGeometry(viewport);
+      if (!sameGeometry(geometryRef.current, geometry)) {
+        const restored = restoreSongPosition(viewport, leftTick, scrollTop, bar, zoom);
+        geometryRef.current = restored.geometry; scrollTarget.current = restored.target;
+        return;
+      }
+      const expected = scrollTarget.current;
+      if (expected && Math.abs(viewport.scrollLeft - expected.left) < 1 && Math.abs(viewport.scrollTop - expected.top) < 1) return;
+      scrollTarget.current = null;
+      s.setSongViewport({ leftTick: viewport.scrollLeft / zoom * bar, scrollTop: viewport.scrollTop, follow: false });
     }}>
-    <div className="timeline song-timeline" style={{ width: `calc(var(--song-track-header-width) + ${timeWidth}px)` }}>
+    <div ref={contentRef} className="timeline song-timeline" style={{ width: `calc(var(--song-track-header-width) + ${timeWidth}px)` }}>
       <div className="song-timeline-guides">
       <div className="song-guide-row"><div className="song-guide-heading">Sections</div><div className="section-lane">
-        {s.project.sections.map(section => <button key={section.id}
+        {s.project.sections.map(section => <button key={section.id} data-edit-policy="bypass"
           className={section.id === s.selectedSection.id ? "selected" : ""}
           style={{ left: section.startTick / bar * zoom, width: section.lengthTick / bar * zoom }}
-          onClick={() => { s.setSelectedSectionId(section.id); void s.seek(section.startTick); }}>
+          onClick={() => { if (s.setSelectedSectionId(section.id)) void s.seek(section.startTick); }}>
           {section.name}
         </button>)}
       </div></div>
@@ -78,7 +120,7 @@ export function ArrangementTimeline({ zoom, grid, viewportRef, follow = false, o
           aria-label={`${chord.symbol} chord at bar ${chord.tick / bar + 1}`}
           aria-pressed={chord.id === s.selectedChordId} className={chord.id === s.selectedChordId ? "selected" : ""}
           style={{ left: chord.tick / bar * zoom, width: Math.max(1, chord.duration / bar * zoom) }}
-          onClick={() => { if (!s.setMode("write")) return; s.setSelectedSectionId(chord.sectionId); s.setSelectedChordId(chord.id); }}
+          onClick={() => { if (!s.setMode("write") || !s.setSelectedSectionId(chord.sectionId)) return; s.setSelectedChordId(chord.id); }}
           title={`${chord.symbol} · open voicing and suggestions`}>{chord.symbol}</button>)}
         {!s.project.chords.length && <span className="song-chord-empty">Add chords in Writing</span>}
       </div></div>

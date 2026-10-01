@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { ChevronDown, ChevronUp, Maximize2, Minimize2, PanelLeft, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { SongCanvas } from "./arrange-panel";
 import { ClipEditor } from "./clip-editor";
@@ -26,10 +26,20 @@ export function WorkspacePrototype() {
   const [swing, setSwing] = usePreference("swing", 0, numericPreference(0, .6));
   const element = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({width:1366,height:600});
+  const assetsId = useId(), detailId = useId();
+  const assetsToggle = useRef<HTMLButtonElement>(null), detailBody = useRef<HTMLDivElement>(null);
+  const toolTabs = useRef<Partial<Record<DetailTool,HTMLButtonElement|null>>>({});
+  const focusScope = useRef({key:layout.key,mode:s.mode,tool:s.detailTool});
+  const pendingFocus = useRef<number|null>(null);
+  useLayoutEffect(() => { focusScope.current = {key:layout.key,mode:s.mode,tool:s.detailTool}; }, [layout.key,s.mode,s.detailTool]);
+  useEffect(() => () => { if(pendingFocus.current !== null) cancelAnimationFrame(pendingFocus.current); }, []);
   const [maximizeState, setMaximizeState] = useState({key:layout.key,on:false});
   const maximized = maximizeState.key === layout.key && maximizeState.on;
   const setMaximized = (value:boolean) => setMaximizeState({key:layout.key,on:value});
-  const [assetsOverlay, setAssetsOverlay] = useState(false);
+  const [overlayState, setOverlayState] = useState({key:layout.key,mode:s.mode,open:false});
+  const compact = size.width < 1100 || size.height < 520;
+  const assetsOverlay = compact && overlayState.key === layout.key && overlayState.mode === s.mode && overlayState.open;
+  const setAssetsOverlay = (open:boolean) => setOverlayState({key:layout.key,mode:s.mode,open});
   const previous = useRef({mode:s.mode, clipRequest:s.clipEditorRequest});
   useEffect(() => {
     const node = element.current;
@@ -47,17 +57,39 @@ export function WorkspacePrototype() {
   }, [s.clipEditorRequest, s.mode, layout]);
   const profile = layout.layouts[s.mode];
   const hasTool = s.detailTool !== "notes" || !!s.selectedClip;
-  const detailVisible = profile.detailOpen && hasTool;
-  const geometry = effectiveWorkspaceLayout({...profile,detailRatio:maximized ? .7 : profile.detailRatio}, size.width, size.height, detailVisible);
+  const detailRequested = profile.detailOpen && hasTool;
+  const geometry = effectiveWorkspaceLayout({...profile,detailRatio:maximized ? .7 : profile.detailRatio}, size.width, size.height, detailRequested);
+  const detailVisible = detailRequested && geometry.detailHeight > 0;
+  const assetsVisible = !!geometry.browserWidth || assetsOverlay;
+  const lastVisibility = useRef({detail:false,mixer:false});
+  useLayoutEffect(() => {
+    if (lastVisibility.current.detail && !detailVisible) {
+      freezeToolGestures("detail"); releasePerformanceDockInputs(s); releaseSoundPanelInputs(s); s.cancelPreview();
+    }
+    if (lastVisibility.current.mixer && !geometry.mixerHeight) freezeToolGestures("mixer");
+    lastVisibility.current = {detail:detailVisible,mixer:!!geometry.mixerHeight};
+  }, [detailVisible,geometry.mixerHeight,s]);
   function releaseControls() {
     freezeToolGestures("detail");
     releasePerformanceDockInputs(s);
     releaseSoundPanelInputs(s);
   }
   function choose(tool: DetailTool) {
+    if (pendingFocus.current !== null) { cancelAnimationFrame(pendingFocus.current); pendingFocus.current = null; }
     releaseControls();
-    if (!s.setDetailTool(tool)) return;
+    if (!s.setDetailTool(tool)) return false;
     layout.update(current => ({...current,[s.mode]:{...current[s.mode],detailOpen:true}}));
+    if (assetsOverlay) {
+      setAssetsOverlay(false);
+      const expected = {key:layout.key,mode:s.mode,tool};
+      pendingFocus.current = requestAnimationFrame(() => {
+        pendingFocus.current = null;
+        const current = focusScope.current;
+        if (current.key === expected.key && current.mode === expected.mode && current.tool === expected.tool)
+          (toolTabs.current[tool] ?? detailBody.current)?.focus({preventScroll:true});
+      });
+    }
+    return true;
   }
   function collapse() {
     releaseControls();
@@ -73,31 +105,45 @@ export function WorkspacePrototype() {
   }
   const primary:DetailTool[] = ["notes","sound"];
   if (s.detailTool === "automation" || (s.selectedTrack?.automation.length ?? 0) > 0) primary.push("automation");
+  const focusTab = primary.includes(s.detailTool) ? s.detailTool : primary[0];
+  function navigateTab(event:KeyboardEvent<HTMLButtonElement>, tool:DetailTool) {
+    if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+    event.preventDefault(); event.stopPropagation();
+    const index = primary.indexOf(tool);
+    const next = event.key === "Home" ? primary[0] : event.key === "End" ? primary.at(-1)!
+      : primary[(index + (event.key === "ArrowRight" ? 1 : -1) + primary.length) % primary.length];
+    if (choose(next)) toolTabs.current[next]?.focus({preventScroll:true});
+  }
+  function resizeEditor(change:()=>void) {
+    // Growing the editor can close the mixer; settle its owned input before checking drafts.
+    freezeToolGestures("mixer");
+    if (settleLayoutEdit()) change();
+  }
   return <div ref={element} className="shared-workspace" data-preset={s.mode} style={{"--browser-size":`${geometry.browserWidth}px`, "--detail-size":`${geometry.detailHeight}px`, "--mixer-size":`${geometry.mixerHeight}px`} as CSSProperties}>
     <div className="workspace-layout-tools" data-edit-policy="bypass">
-      <button className="secondary-button" aria-label="Toggle assets panel" aria-pressed={geometry.browserWidth ? profile.browserOpen : assetsOverlay} onClick={() => { if(size.width < 1100 || size.height < 520) setAssetsOverlay(value => !value); else layout.update(current => ({...current,[s.mode]:{...current[s.mode],browserOpen:!profile.browserOpen}})); }}><PanelLeft size={14}/> {s.mode === "write" ? "Ideas" : "Assets"}</button>
+      <button ref={assetsToggle} className="secondary-button" aria-label="Toggle assets panel" aria-controls={assetsId} aria-expanded={assetsVisible} aria-pressed={assetsVisible} onClick={() => { if(compact) setAssetsOverlay(!assetsOverlay); else layout.update(current => ({...current,[s.mode]:{...current[s.mode],browserOpen:!profile.browserOpen}})); }}><PanelLeft size={14}/> {s.mode === "write" ? "Ideas" : "Assets"}</button>
       <span className="workspace-selection">{s.selectedTrack?.name ?? "Choose a track"}{s.selectedClip && <span> / {s.selectedClip.name}</span>}</span>
-      <details className="layout-options"><summary><SlidersHorizontal size={14}/><span>Layout</span></summary><div>
-        <label>Editor height<input aria-label="Editor height" type="range" min={20} max={70} value={profile.detailRatio * 100} onChange={event => layout.update(current => ({...current,[s.mode]:{...current[s.mode],detailRatio:Number(event.target.value)/100}}))}/></label>
+      <details className="layout-options" onKeyDown={event => { if(event.key === "Escape" && !event.defaultPrevented && event.currentTarget.open) { event.preventDefault(); event.stopPropagation(); event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}><summary aria-label="Workspace layout"><SlidersHorizontal size={14}/><span>Layout</span></summary><div>
+        <label>Editor height<input aria-label="Editor height" type="range" min={20} max={70} value={profile.detailRatio * 100} onChange={event => { const ratio = Number(event.target.value)/100; resizeEditor(() => layout.update(current => ({...current,[s.mode]:{...current[s.mode],detailRatio:ratio}}))); }}/></label>
         <label><input type="checkbox" aria-label="Show mixer" checked={profile.mixerOpen} onChange={event => { freezeToolGestures("mixer"); if(settleLayoutEdit()) layout.update(current => ({...current,[s.mode]:{...current[s.mode],mixerOpen:event.target.checked}})); }}/>Mixer</label>
         <button className="secondary-button" onClick={() => { releaseControls(); freezeToolGestures("mixer"); if(!settleLayoutEdit()) return; s.cancelPreview(); setMaximized(false); layout.reset(); }}><RotateCcw size={13}/>Reset layout</button>
       </div></details>
     </div>
-    <aside className={`workspace-assets${!geometry.browserWidth ? " workspace-assets-overlay" : ""}`} aria-label={s.mode === "write" ? "Existing ideas" : "Existing sounds and assets"} hidden={!geometry.browserWidth && !assetsOverlay}><ExistingAssets onTool={choose}/></aside>
+    <aside id={assetsId} className={`workspace-assets${!geometry.browserWidth ? " workspace-assets-overlay" : ""}`} aria-label={s.mode === "write" ? "Existing ideas" : "Existing sounds and assets"} hidden={!assetsVisible} onKeyDown={event => { if(event.key === "Escape" && !event.defaultPrevented && assetsOverlay) { event.preventDefault(); event.stopPropagation(); setAssetsOverlay(false); assetsToggle.current?.focus({preventScroll:true}); } }}><ExistingAssets onTool={choose}/></aside>
     <div className="workspace-song"><SongCanvas grid={grid} setGrid={setGrid}/></div>
     <section className="workspace-detail" aria-label="Detail dock" data-open={detailVisible}>
       <div className="detail-tabs" data-edit-policy="bypass">
-        <div role="tablist" aria-label="Detail tools">{primary.map(tool => <button key={tool} role="tab" aria-selected={s.detailTool === tool} onClick={() => choose(tool)}>{toolNames[tool]}</button>)}</div>
+        <div role="tablist" aria-label="Detail tools">{primary.map(tool => <button key={tool} ref={node => {toolTabs.current[tool] = node;}} id={`${detailId}-${tool}`} role="tab" aria-controls={detailId} tabIndex={focusTab === tool ? 0 : -1} aria-selected={s.detailTool === tool} onKeyDown={event => navigateTab(event,tool)} onClick={() => choose(tool)}>{toolNames[tool]}</button>)}</div>
         <button className={`detail-route${s.detailTool === "writing" ? " active" : ""}`} onClick={() => choose("writing")}>Writing</button>
         {(["sound","movement"].includes(s.detailTool)) && <button className="detail-route" onClick={() => choose("movement")}>Movement</button>}
         <select aria-label="Other detail tools" value={primary.includes(s.detailTool)||s.detailTool === "writing" ? "" : s.detailTool} onChange={event => { if(event.target.value) choose(event.target.value as DetailTool); }}>
           <option value="">More…</option>{(["automation","movement","reference","keyboard","lyrics"] as DetailTool[]).filter(tool => !primary.includes(tool)).map(tool => <option key={tool} value={tool}>{toolNames[tool]}</option>)}
         </select>
         <span className="detail-context">{toolNames[s.detailTool]}</span>
-        <button className="icon-button" aria-label={maximized ? "Restore editor size" : "Maximize editor"} disabled={!detailVisible} onClick={() => setMaximized(!maximized)}>{maximized ? <Minimize2 size={14}/> : <Maximize2 size={14}/>}</button>
-        <button className="icon-button" aria-label={detailVisible ? "Collapse detail dock" : "Expand detail dock"} aria-expanded={detailVisible} onClick={collapse}>{detailVisible ? <ChevronDown size={16}/> : <ChevronUp size={16}/>}</button>
+        <button className="icon-button" aria-label={maximized ? "Restore editor size" : "Maximize editor"} disabled={!detailVisible} onClick={() => resizeEditor(() => setMaximized(!maximized))}>{maximized ? <Minimize2 size={14}/> : <Maximize2 size={14}/>}</button>
+        <button className="icon-button" aria-label={detailVisible ? "Collapse detail dock" : "Expand detail dock"} aria-controls={detailId} aria-expanded={detailVisible} onClick={collapse}>{detailVisible ? <ChevronDown size={16}/> : <ChevronUp size={16}/>}</button>
       </div>
-      <div className="detail-body workspace-content" hidden={!detailVisible}>
+      <div ref={detailBody} id={detailId} className="detail-body workspace-content" role="tabpanel" tabIndex={-1} aria-label={toolNames[s.detailTool]} hidden={!detailVisible}>
         <ToolVisibilityProvider scope="detail" active={detailVisible && s.detailTool === "notes"}><div className="detail-tool detail-notes" hidden={s.detailTool !== "notes"}><ClipEditor embedded active={detailVisible && s.detailTool === "notes"} grid={grid} setGrid={setGrid} swing={swing} setSwing={setSwing}/></div></ToolVisibilityProvider>
         <ToolVisibilityProvider scope="detail" active={detailVisible && s.detailTool === "automation"}><div className="detail-tool" hidden={s.detailTool !== "automation"}><AutomationEditor grid={grid}/></div></ToolVisibilityProvider>
         <ToolVisibilityProvider scope="detail" active={detailVisible && ["writing","lyrics"].includes(s.detailTool)}><div className="detail-tool" hidden={!["writing","lyrics"].includes(s.detailTool)}><WritePanel section={s.detailTool === "lyrics" ? "lyrics" : "writing"}/></div></ToolVisibilityProvider>

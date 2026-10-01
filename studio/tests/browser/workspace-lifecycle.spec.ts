@@ -216,6 +216,143 @@ test("a new clip opens near its notes and collapsing Notes preserves the user's 
   await expect(page.getByLabel("Automation parameter", { exact: true })).toBeVisible();
 });
 
+test("a blocked Notes close releases its captured note drag without cancelling the invalid field", async ({ page }) => {
+  await blank(page);
+  await page.getByRole("button", { name: "New phrase", exact: true }).click();
+  await page.locator(".piano-roll-scroll").dblclick({ position: { x: 240, y: 45 } });
+  const note = page.locator(".roll-note").first();
+  await expect(note).toBeVisible();
+  const before = await note.getAttribute("style"), box = (await note.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
+  expect(await note.evaluate(element => element.hasPointerCapture(1))).toBe(true);
+  const meter = page.getByLabel("Beats per bar", { exact: true }); await meter.fill("");
+  await clickCollapseWithoutReleasingPointer(page);
+  await expect(note).toBeVisible();
+  expect(await note.evaluate(element => element.hasPointerCapture(1))).toBe(false);
+  await page.mouse.move(box.x + 100, box.y + 18); await page.mouse.up();
+  await expect(note).toHaveAttribute("style", before!);
+  await expect(meter).toHaveValue("");
+  await meter.press("Escape"); await expect(meter).toHaveValue("4");
+});
+
+test("a late note keyup cannot cancel a newly staged sound comparison", async ({ page }) => {
+  await blank(page);
+  await page.getByRole("button", { name: "New phrase", exact: true }).click();
+  await page.locator(".piano-roll-scroll").dblclick({ position: { x: 240, y: 45 } });
+  const note = page.locator(".roll-note").first();
+  await note.focus(); await page.keyboard.down("ArrowRight");
+  await page.getByLabel("Collapse detail dock", { exact: true }).evaluate(element => (element as HTMLButtonElement).click());
+  await page.getByRole("tab", { name: "Sound", exact: true }).click();
+  const rack = page.getByRole("region", { name: "Selected track modulation rack" });
+  await rack.getByRole("button", { name: "Compare A/B", exact: true }).click();
+  await rack.getByRole("button", { name: "B", exact: true }).click();
+  await note.evaluate(element => element.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowRight", bubbles: true })));
+  await page.keyboard.up("ArrowRight");
+  await expect(rack.getByRole("button", { name: "Use B", exact: true })).toBeVisible();
+});
+
+test("a blocked Writing close releases a captured chord resize without restoring another field", async ({ page }) => {
+  await page.goto("/"); await expect(page.getByLabel("Song title")).toBeEnabled(); await builtInSound(page);
+  await page.getByRole("button", { name: "Writing", exact: true }).click();
+  const resize = page.locator(".chord-resize").first(); await resize.scrollIntoViewIfNeeded();
+  const box = (await resize.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
+  expect(await resize.evaluate(element => element.hasPointerCapture(1))).toBe(true);
+  const meter = page.getByLabel("Beats per bar", { exact: true }); await meter.fill("");
+  await clickCollapseWithoutReleasingPointer(page);
+  await expect(resize).toBeVisible();
+  expect(await resize.evaluate(element => element.hasPointerCapture(1))).toBe(false);
+  await page.mouse.up(); await expect(meter).toHaveValue("");
+  await meter.press("Escape"); await expect(meter).toHaveValue("4");
+});
+
+test("an invalid draft blocks section handoffs after releasing Writing's captured chord card", async ({ page }) => {
+  await page.goto("/"); await expect(page.getByLabel("Song title")).toBeEnabled(); await builtInSound(page);
+  await page.getByRole("button", { name: "Writing", exact: true }).click();
+  const section = page.getByLabel("Edit section", { exact: true }), selected = await section.inputValue();
+  const next = await section.locator("option").evaluateAll((options, selected) => options.find(option => (option as HTMLOptionElement).value !== selected)?.getAttribute("value"), selected);
+  const guideBefore = await page.locator(".song-chord-guide [aria-pressed=true]").allTextContents();
+  const card = page.getByRole("button", { name: /^Chord card / }).first(); await card.scrollIntoViewIfNeeded();
+  const box = (await card.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
+  expect(await card.evaluate(element => element.hasPointerCapture(1))).toBe(true);
+  const meter = page.getByLabel("Beats per bar", { exact: true }); await meter.fill("");
+  await section.selectOption(next!);
+  expect(await card.evaluate(element => element.hasPointerCapture(1))).toBe(false);
+  await expect(section).toHaveValue(selected);
+  await page.locator(".section-lane button").last().evaluate(element => (element as HTMLButtonElement).click());
+  await expect(section).toHaveValue(selected);
+  expect(await page.locator(".song-chord-guide [aria-pressed=true]").allTextContents()).toEqual(guideBefore);
+  await expect(page.getByRole("navigation").getByRole("button", { name: "01 Arrange", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.locator(".write-panel")).toBeVisible();
+  await page.mouse.up(); await expect(meter).toHaveValue("");
+  await meter.press("Escape"); await expect(meter).toHaveValue("4");
+});
+
+test("losing a chord card's capture before pickup cannot resurrect it on later mouse movement", async ({ page }) => {
+  await blank(page);
+  await page.getByRole("button", { name: "Writing", exact: true }).click();
+  const card = page.getByRole("button", { name: /^Chord card / }).first(); await card.scrollIntoViewIfNeeded();
+  const box = (await card.boundingBox())!, x = box.x + box.width / 2, y = box.y + box.height / 2;
+  for (const established of [false, true]) {
+    await page.mouse.move(x, y); await page.mouse.down();
+    if (established) await page.mouse.move(x + 1, y);
+    expect(await card.evaluate(element => element.hasPointerCapture(1))).toBe(true);
+    await card.evaluate(element => element.releasePointerCapture(1));
+    await page.mouse.move(5, 5); await page.mouse.up();
+    await page.mouse.move(x + 12, y);
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => resolve())));
+    await expect(page.locator(".insertion-marker")).toHaveCount(0);
+  }
+});
+
+for (const keyboardCard of [0, 1]) test(keyboardCard ? "a stale pointer preparation cannot cancel another card's keyboard placement" : "a stale pointer preparation cannot cancel a later keyboard chord placement", async ({ page }) => {
+  await blank(page);
+  await page.getByRole("button", { name: "Writing", exact: true }).click();
+  const card = page.getByRole("button", { name: /^Chord card / }).first(); await card.scrollIntoViewIfNeeded();
+  const box = (await card.boundingBox())!, x = box.x + box.width / 2, y = box.y + box.height / 2;
+  await page.mouse.move(x, y); await page.mouse.down();
+  expect(await card.evaluate(element => element.hasPointerCapture(1))).toBe(true);
+  await card.evaluate(element => element.releasePointerCapture(1));
+  await page.mouse.move(5, 5); await page.mouse.up();
+  const keyboard = page.getByRole("button", { name: /^Chord card / }).nth(keyboardCard), symbol = await keyboard.locator("strong").innerText();
+  await keyboard.focus(); await page.keyboard.press("d");
+  await expect(page.locator(".insertion-marker")).toHaveCount(1);
+  await page.mouse.move(x + 12, y);
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => resolve())));
+  await expect(page.locator(".insertion-marker")).toHaveCount(1);
+  await page.keyboard.press("Shift+ArrowRight"); await page.keyboard.press("Enter");
+  await expect(page.locator(".insertion-marker")).toHaveCount(0);
+  await expect(page.locator(".chord-card")).toHaveCount(1);
+  await expect(page.locator(".chord-card strong")).toHaveText(symbol);
+});
+
+test("a pointer takeover ends its own captured chord placement after keyboard placement", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await blank(page);
+  await page.getByRole("button", { name: "Writing", exact: true }).click();
+  const card = page.getByRole("button", { name: /^Chord card / }).first(); await card.scrollIntoViewIfNeeded();
+  await card.focus(); await page.keyboard.press("d");
+  await expect(page.locator(".insertion-marker")).toHaveCount(1);
+  const initial = await page.locator(".insertion-marker").getAttribute("style");
+  const box = (await card.boundingBox())!, lane = (await page.locator(".chord-lane").boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
+  await page.mouse.move(lane.x + lane.width / 2, lane.y + 40);
+  await expect(page.locator(".insertion-marker")).toHaveCount(1);
+  await expect(page.locator(".insertion-marker")).not.toHaveAttribute("style", initial!);
+  expect(await card.evaluate(element => element.hasPointerCapture(1))).toBe(true);
+  for (const type of ["pointermove", "pointerup", "pointercancel", "lostpointercapture"]) {
+    await card.evaluate((element, type) => element.dispatchEvent(new PointerEvent(type, { pointerId: 99, pointerType: "mouse", buttons: 0, clientX: 5, clientY: 5, bubbles: true })), type);
+    await expect(page.locator(".insertion-marker")).toHaveCount(1);
+    expect(await card.evaluate(element => element.hasPointerCapture(1))).toBe(true);
+  }
+  await card.evaluate(element => element.releasePointerCapture(1));
+  await page.mouse.move(5, 5);
+  await expect(page.locator(".insertion-marker")).toHaveCount(0);
+  await page.mouse.up(); await card.focus(); await page.keyboard.press("Enter");
+  await expect(page.locator(".chord-card")).toHaveCount(0);
+});
+
 for (const shared of [false, true]) test(shared ? "closing Sound preserves MIDI pedal ownership until MIDI releases it" : "closing Sound records pedal off when it is the sole owner", async ({ page }) => {
   if (shared) await page.addInitScript(() => {
     const input = { id: "workspace-controller", name: "Workspace controller", state: "connected", onmidimessage: null };

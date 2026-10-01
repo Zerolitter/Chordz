@@ -39,7 +39,7 @@ export function SourceGraphEditor({ source, state, trackId, seed, onChange, stag
   const baseline = graphY(0);
   const key = state?.key ?? `${trackId}:${source.id}:${source.scope === "voice" ? "ui-middle-c" : "track"}`, effectiveSeed = state?.seed ?? seed;
   const effectiveLayout = source.kind === "envelope" && state?.release === undefined && state ? { ...layout, releaseAt: Infinity } : layout;
-  const points = sourceGraphPoints(source, layout, key, effectiveSeed, source.kind === "step" || source.kind === "reference" ? 1 : source.amplitude), effectivePoints = sourceGraphPoints(source, effectiveLayout, key, effectiveSeed, state?.amplitude ?? source.amplitude);
+  const points = active ? sourceGraphPoints(source, layout, key, effectiveSeed, source.kind === "step" || source.kind === "reference" ? 1 : source.amplitude) : [], effectivePoints = active ? sourceGraphPoints(source, effectiveLayout, key, effectiveSeed, state?.amplitude ?? source.amplitude) : [];
   const path = (values: typeof points) => values.map((point, index) => `${index ? "L" : "M"}${graphX(point.x)},${graphY(point.value)}`).join(" ");
   const handles: SourceHandle[] = source.kind === "envelope" ? ["attack", "decay", "release"] : source.kind === "step" || source.kind === "reference" ? (source.kind === "step" ? source.steps : source.curve).map((_, index) => index) : source.kind === "lfo" ? ["phase", "amplitude"] : [];
   const label = (handle: SourceHandle) => `${source.name} ${typeof handle === "number" ? `${source.kind === "step" ? "step" : "point"} ${handle + 1}` : handle === "decay" ? "decay and sustain" : handle} graph handle`;
@@ -81,7 +81,7 @@ export function SourceGraphEditor({ source, state, trackId, seed, onChange, stag
         <text className="graph-axis" x={plotLeft - 7} y={plotTop + 3} textAnchor="end">{source.kind === "envelope" ? "1" : "+1"}</text>
         <text className="graph-axis" x={plotLeft - 7} y={baseline + 3} textAnchor="end">0</text>
         {source.kind !== "envelope" && <text className="graph-axis" x={plotLeft - 7} y={plotBottom + 3} textAnchor="end">−1</text>}
-        <path className="graph-area" d={`${path(effectivePoints)} L${graphX(1)},${baseline} L${graphX(0)},${baseline} Z`} />
+        <path className="graph-area" d={effectivePoints.length ? `${path(effectivePoints)} L${graphX(1)},${baseline} L${graphX(0)},${baseline} Z` : undefined} />
         <path className="graph-base" vectorEffect="non-scaling-stroke" d={path(points)} /><path className="graph-effective" vectorEffect="non-scaling-stroke" d={path(effectivePoints)} />
         {source.kind === "envelope" && [[0, source.attack, "A"], [source.attack, source.attack + source.decay, "D"], [source.attack + source.decay, layout.releaseAt, "S"], [layout.releaseAt, layout.releaseAt + source.release, "R"]].map(([start, end, phase]) => Number(end) - Number(start) > layout.duration * .055 && <text key={phase} className="graph-phase" x={graphX((Number(start) + Number(end)) / 2 / layout.duration)} y={plotBottom - 5} textAnchor="middle">{phase}</text>)}
         {cursorX !== null && state && <g><line className="graph-cursor" vectorEffect="non-scaling-stroke" x1={graphX(cursorX)} y1={plotTop} x2={graphX(cursorX)} y2={plotBottom} /><circle className="graph-live-point" cx={graphX(cursorX)} cy={graphY(state.value)} r={3} /></g>}

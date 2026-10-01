@@ -52,6 +52,7 @@
   border: 0;
   border-radius: 0;
   overflow: auto;
+  overflow-anchor: none;
   overscroll-behavior: contain;
   --song-track-header-width: 188px;
 }

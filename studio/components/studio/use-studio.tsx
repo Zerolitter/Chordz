@@ -65,11 +65,11 @@ import {MACRO_IDS, type ModTarget} from "../../lib/music/modulation-types";
 import {emptyPatch} from "../../lib/audio/modulation";
 import {instrumentFor} from "../../lib/audio/catalog";
 import {assignModulationRoute} from "../../lib/music/modulation-assignment";
-import {defaultStudioView, detailToolForMode, readStudioView, reconcileStudioView, selectStudioClip, selectStudioTrack, studioViewKey, type DetailTool, type StudioView, type StudioMode} from "../../lib/client/studio-view";
+import {defaultStudioView, detailToolForMode, reconcileSongViewport, reconcileStudioView, sameSongViewport, selectStudioClip, selectStudioSection, selectStudioTrack, studioViewKey, StudioViewPreferences, type DetailTool, type SongViewport, type SongViewportUpdate, type StudioView, type StudioMode} from "../../lib/client/studio-view";
 import {capturedExpression,captureReleaseReset,effectiveSustain} from "../../lib/client/performance-ownership";
 import {freezeToolGestures,useToolVisibility} from "./tool-visibility";
 
-export type {StudioMode, DetailTool} from "../../lib/client/studio-view";
+export type {StudioMode, DetailTool, SongViewport} from "../../lib/client/studio-view";
 export type StudioUser = { userId: string; displayName: string } | null;
 type ProjectMeta = { revision: number; fingerprint: string };
 type MidiTake = {
@@ -106,6 +106,8 @@ function useStudioController(
   const selectionHistory=useRef(new WeakMap<ProjectDocument,string>());
   const [mode, setModeState] = useState<StudioMode>("arrange");
   const [detailTool, setDetailToolState] = useState<DetailTool>("notes");
+  const [songViewport,setSongViewportState]=useState<SongViewport>(()=>defaultStudioView(initialProject).songViewport);
+  const songViewportRef=useRef(songViewport);
   const [clipEditorRequest,setClipEditorRequest]=useState(0);
   const [selectedTrackId, setSelectedTrackId] = useState(
     project.tracks[0]?.id ?? "",
@@ -214,45 +216,57 @@ function useStudioController(
     if(selectedClipId&&selectedTrack?.clips.some(c=>c.id===selectedClipId))clipsByTrack.current.set(selectedTrack.id,selectedClipId);
   }, [project, owner, selectedTrack, selectedClipId, conflict, midiInputId]);
   const viewKey=studioViewKey(owner,project.id);
-  const [viewReadyKey,setViewReadyKey]=useState("");
+  const [viewRestoreRequest,setViewRestoreRequest]=useState(0);
+  // Returning A -> B -> A needs a new restoration, even when the string key matches an older ready view.
+  const viewScope=useMemo(()=>({key:viewKey,request:viewRestoreRequest}),[viewKey,viewRestoreRequest]);
+  const viewScopeRef=useRef<typeof viewScope|null>(viewScope);
+  const [readyViewScope,setReadyViewScope]=useState<typeof viewScope|null>(null);
+  const [viewPreferences]=useState(()=>new StudioViewPreferences());
   const [viewPreferenceFailure,setViewPreferenceFailure]=useState<{key:string;message:string;kind:"read"|"write"|null}>({key:"",message:"",kind:null});
+  useLayoutEffect(()=>{viewScopeRef.current=viewScope;},[viewScope]);
   useEffect(()=>{
     if(!hydrated)return;
     let active=true;
     queueMicrotask(()=>{
       if(!active)return;
       const doc=projectRef.current;
-      if(studioViewKey(ownerRef.current,doc.id)!==viewKey)return;
-      let view=defaultStudioView(doc),preferenceError="";
-      try{view=readStudioView(localStorage.getItem(viewKey),doc);}catch{preferenceError="View preferences could not be read. This session still works.";}
+      if(viewScopeRef.current!==viewScope||studioViewKey(ownerRef.current,doc.id)!==viewKey)return;
+      const {view,failure}=viewPreferences.load(viewKey,doc,()=>localStorage);
       clipsByTrack.current=new Map(Object.entries(view.clips));
       setModeState(view.mode);setDetailToolState(view.detailTool);
+      songViewportRef.current=view.songViewport;setSongViewportState(view.songViewport);
       setSelectedTrackId(view.track);setSectionState(view.section);setSelectedChordId(view.chord);setSelectedClipId(view.clip);
-      setViewPreferenceFailure({key:viewKey,message:preferenceError,kind:preferenceError?"read":null});
+      setViewPreferenceFailure({key:viewKey,...failure});
       // Mark ready in the same update as the restored state, before allowing writes.
-      setViewReadyKey(viewKey);
+      setReadyViewScope(viewScope);
     });
     return()=>{active=false;};
-  },[viewKey,hydrated]);
+  },[viewKey,viewScope,viewPreferences,hydrated]);
   useLayoutEffect(()=>{
-    if(viewReadyKey!==viewKey)return;
-    const view=reconcileStudioView(project,{version:2,mode,detailTool,track:selectedTrackId,section:selectedSectionId,chord:selectedChordId,clip:selectedClipId,clips:Object.fromEntries(clipsByTrack.current)});
+    if(readyViewScope!==viewScope)return;
+    const view=reconcileStudioView(project,{version:2,mode,detailTool,track:selectedTrackId,section:selectedSectionId,chord:selectedChordId,clip:selectedClipId,clips:Object.fromEntries(clipsByTrack.current),songViewport},history.present);
     clipsByTrack.current=new Map(Object.entries(view.clips));
+    if(!sameSongViewport(view.songViewport,songViewport)){songViewportRef.current=view.songViewport;setSongViewportState(view.songViewport);}
     if(view.track!==selectedTrackId)setSelectedTrackId(view.track);
     if(view.section!==selectedSectionId)setSectionState(view.section);
     if(view.chord!==selectedChordId)setSelectedChordId(view.chord);
     if(view.clip!==selectedClipId)setSelectedClipId(view.clip);
-  },[project,viewKey,viewReadyKey,mode,detailTool,selectedTrackId,selectedSectionId,selectedChordId,selectedClipId]);
+  },[project,history.present,viewScope,readyViewScope,mode,detailTool,selectedTrackId,selectedSectionId,selectedChordId,selectedClipId,songViewport]);
   useEffect(()=>{
-    if(viewReadyKey!==viewKey||studioViewKey(ownerRef.current,projectRef.current.id)!==viewKey)return;
+    if(readyViewScope!==viewScope||viewScopeRef.current!==viewScope||studioViewKey(ownerRef.current,projectRef.current.id)!==viewKey)return;
     let active=true;
-    const view=reconcileStudioView(project,{version:2,mode,detailTool,track:selectedTrackId,section:selectedSectionId,chord:selectedChordId,clip:selectedClipId,clips:Object.fromEntries(clipsByTrack.current)});
-    try{
-      localStorage.setItem(viewKey,JSON.stringify(view));
-      queueMicrotask(()=>{if(active)setViewPreferenceFailure(current=>current.key===viewKey&&current.kind==="write"?{key:viewKey,message:"",kind:null}:current);});
-    }catch{queueMicrotask(()=>{if(active)setViewPreferenceFailure({key:viewKey,message:"View preferences could not be saved. Your view is kept for this session.",kind:"write"});});}
+    const view=reconcileStudioView(project,{version:2,mode,detailTool,track:selectedTrackId,section:selectedSectionId,chord:selectedChordId,clip:selectedClipId,clips:Object.fromEntries(clipsByTrack.current),songViewport},history.present);
+    const failure=viewPreferences.save(viewKey,view,()=>localStorage);
+    queueMicrotask(()=>{if(active&&viewScopeRef.current===viewScope)setViewPreferenceFailure(current=>current.key===viewKey&&current.message===failure.message&&current.kind===failure.kind?current:{key:viewKey,...failure});});
     return()=>{active=false;};
-  },[project,viewKey,viewReadyKey,mode,detailTool,selectedTrackId,selectedSectionId,selectedChordId,selectedClipId]);
+  },[project,history.present,viewKey,viewScope,readyViewScope,viewPreferences,mode,detailTool,selectedTrackId,selectedSectionId,selectedChordId,selectedClipId,songViewport]);
+  function setSongViewport(update:SongViewportUpdate){
+    if(!hydrated||readyViewScope!==viewScope||viewScopeRef.current!==viewScope||studioViewKey(ownerRef.current,projectRef.current.id)!==viewKey)return false;
+    const current=songViewportRef.current;
+    const next=reconcileSongViewport(committedRef.current,{...current,...(typeof update==="function"?update({...current}):update)});
+    if(!sameSongViewport(current,next)){songViewportRef.current=next;setSongViewportState(next);}
+    return true;
+  }
   async function signIn() {
     if(!finishEdit())return;
     if(takeSession.current) { report(new Error("Finish or download your recording before signing in.")); return; }
@@ -357,7 +371,13 @@ function useStudioController(
     if(!finishEdit())return false;
     cancelPreview();setDetailToolState(value);return true;
   }
-  function setSelectedSectionId(value:string){if(finishEdit())setSectionState(value);}
+  function setSelectedSectionId(value:string){
+    if(value!==selectedSectionId)terminateDetailInputs();
+    if(!finishEdit())return false;
+    const view=selectStudioSection(committedRef.current,currentView(),value);
+    if(!view)return false;
+    cancelPreview();setSectionState(view.section);setSelectedChordId(view.chord);return true;
+  }
   function commit(next: ProjectDocument, label: string, takeCommit=false) {
     if (takeSession.current?.phase === "finalizing" && !takeCommit) { setError("Wait for your take to finish saving before editing."); return false; }
     const current=committedRef.current;
@@ -456,7 +476,7 @@ function useStudioController(
     clipsByTrack.current=new Map(Object.entries(view.clips));
     setSelectedClipId(view.clip);setSelectedTrackId(view.track);return true;
   }
-  function currentView():StudioView{return {version:2,mode,detailTool,track:selectedTrackId,section:selectedSectionId,chord:selectedChordId,clip:selectedClipId,clips:Object.fromEntries(clipsByTrack.current)};}
+  function currentView():StudioView{return {version:2,mode,detailTool,track:selectedTrackId,section:selectedSectionId,chord:selectedChordId,clip:selectedClipId,clips:Object.fromEntries(clipsByTrack.current),songViewport:songViewportRef.current};}
   function selectClip(trackId: string, clipId: string) {
     terminateDetailInputs();
     if(!finishEdit())return false;
@@ -507,7 +527,10 @@ function useStudioController(
     const sectionId=sameProject&&document.sections.some(sec=>sec.id===selectedSectionId)?selectedSectionId:document.sections[1]?.id??document.sections[0].id;
     const chordId=sameProject&&document.chords.some(c=>c.id===selectedChordId)?selectedChordId:"";
     const clipId=sameProject&&document.tracks.find(t=>t.id===trackId)?.clips.some(c=>c.id===selectedClipId)?selectedClipId:"";
-    if(!sameProject){clipsByTrack.current.clear();setModeState("arrange");setDetailToolState("notes");}
+    if(!sameProject){
+      viewScopeRef.current=null;setViewRestoreRequest(request=>request+1);
+      clipsByTrack.current.clear();setModeState("arrange");setDetailToolState("notes");
+    }
     committedRef.current=document;setSelectedChordId(chordId);
     pendingPreview.current=null;++audioIntent.current; heldInputs.current.clear(); controlTargets.current.clear(); controllerStates.current.clear(); syncHeld();
     movement.current?.clear();cancelMidiLearn();runtimeMacrosRef.current={};setRuntimeMacros({});engineRef.current?.stop();
@@ -1488,6 +1511,9 @@ function useStudioController(
     setMode,
     detailTool,
     setDetailTool,
+    songViewport,
+    setSongViewport,
+    songViewportReady:hydrated&&readyViewScope===viewScope,
     clipEditorRequest,
     viewPreferenceError:viewPreferenceFailure.key===viewKey?viewPreferenceFailure.message:"",
     selectedTrack,
@@ -1520,7 +1546,7 @@ function useStudioController(
     busy,
     setBusy,
     ready,
-    hydrated:hydrated&&viewReadyKey===viewKey,
+    hydrated:hydrated&&readyViewScope===viewScope,
     engine,
     getEngine,
     getProcessor,
