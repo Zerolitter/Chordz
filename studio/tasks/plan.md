@@ -11,3 +11,5 @@ Continue from the approved SPEC.md; preserve the archive. Build sequential compl
 Cloud saves compare expected revision before mutation. Recording bytes live in R2 and recovery data in owner-scoped IndexedDB. Audio rendering uses the same graph/event compilation as live playback. Offline processing must not buffer large file uploads inside Worker memory. Public access is to the sign-in surface; project endpoints require authentication and ownership.
 
 Runtime errors, unavailable audio devices, failed samples and unavailable cloud storage are visible and recoverable. Do not substitute browser-only saves for the requested cloud persistence.
+
+The approved workspace and device-local reusable library follow-up is recorded in [Phase 0A](../../docs/phase-0a-prototype.md) and [Phase 0B](../../docs/phase-0b-library.md). The user authorized 0B while deferring the observed music-making comparison; earlier completed checklists are historical evidence, not evidence of that human task.

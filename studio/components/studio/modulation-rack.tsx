@@ -18,6 +18,7 @@ import { clipboardTrackPatchSchema, storedSoundPresetSchema, trackPatchSchema, t
 import { knobModulationBounds } from "../../lib/client/knob-modulation";
 import "./modulation-rack.css";
 import { ToolVisibilityProvider } from "./tool-visibility";
+import {modulationTargetReason,resolvedModulationPatch} from "../../lib/music/automation-bindings";
 
 export type SoundPanelSection = "sound" | "movement" | "reference";
 
@@ -86,7 +87,7 @@ export function ModulationRack({ active = true, section }: { active?: boolean; s
   const displayedModulation = useMemo(() => macroPerformance ? { ...modulation, macros: performanceMacros } : modulation, [modulation, macroPerformance, performanceMacros]);
   const controlEvents = useMemo(() => soundActive && trackId ? compileSong(s.project, trackId).events.filter(event => event.trackId === trackId).map(event => ({ ...event, seconds: event.tick * 60 / (s.project.tempo * 960) })) : [], [soundActive, s.project, trackId]);
   const controlLanes = useMemo(() => (track?.automation ?? []).filter(lane => [...MACRO_IDS, "modulation", "expression", "pressure", "pitchBend"].includes(lane.parameter)).map(lane => ({ id: lane.parameter, points: lane.points.map(point => ({ seconds: point.tick * 60 / (s.project.tempo * 960), value: point.value })) })), [track?.automation, s.project.tempo]);
-  const evaluator = useMemo(() => soundActive && trackId ? new ModulationEvaluator(compileModulation(displayedModulation, trackId, s.project.tempo, controlEvents, controlLanes)) : null, [soundActive, displayedModulation, trackId, s.project.tempo, controlEvents, controlLanes]);
+  const evaluator = useMemo(() => soundActive && trackId && track ? new ModulationEvaluator(compileModulation(resolvedModulationPatch(track,instrumentFor(s.project,track),displayedModulation)!, trackId, s.project.tempo, controlEvents, controlLanes)) : null, [soundActive, displayedModulation, trackId, track, s.project, controlEvents, controlLanes]);
   const previewEvaluation = useMemo<ModSample>(() => {
     if (!evaluator) return { sources: {}, targets: {} };
     const seconds = transport.tick * 60 / (s.project.tempo * 960);
@@ -103,12 +104,7 @@ export function ModulationRack({ active = true, section }: { active?: boolean; s
   const sourceOptions = [...builtins.map(([id, label]) => [id, id.startsWith("M") ? `${id} · ${modulation.macroNames[Number(id[1]) - 1]}` : label]), ...modulation.sources.map(source => [source.id, source.name]), [`cc:${ccChannel}:${cc}`, `MIDI CC ${cc} · ${ccChannel === "all" ? "all channels" : `channel ${Number(ccChannel) + 1}`}`]];
   const targets = [...Object.keys(MOD_TARGETS), ...modulation.sources.flatMap(source => source.kind === "envelope" ? [`source:${source.id}:amplitude`] : [`source:${source.id}:rate`, `source:${source.id}:amplitude`])] as ModTarget[];
   function available(target: ModTarget) {
-    if (target.startsWith("source:")) return "";
-    const descriptor = MOD_TARGETS[target as keyof typeof MOD_TARGETS];
-    if (descriptor.scope === "voice" && track!.kind === "audio") return "Instrument tracks only";
-    if (descriptor.synthOnly && instrument.kind !== "synth") return "Synth instruments only";
-    if (target.startsWith("voice.fm") && patch!.sound.algorithm !== "fm") return "Select the FM engine";
-    return "";
+    return modulationTargetReason(track!,instrument,target,modulation);
   }
   function update(next: ModulationPatch, label = "Edit modulation") {
     if (configurationDisabled) return;

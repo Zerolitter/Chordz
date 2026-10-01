@@ -12,9 +12,9 @@ import { ToolVisibilityProvider, freezeToolGestures } from "./tool-visibility";
 import { useStudio } from "./use-studio";
 import { usePreference, numericPreference } from "./use-preference";
 import { useWorkspaceLayout } from "./use-workspace-layout";
+import { LibraryBrowser } from "./library-browser";
 import { effectiveWorkspaceLayout } from "../../lib/client/workspace-layout";
 import type { DetailTool } from "../../lib/client/studio-view";
-import { instrumentSettings, instruments } from "../../lib/audio/catalog";
 import { PPQ } from "../../lib/music/types";
 import "./workspace-prototype.css";
 
@@ -129,7 +129,7 @@ export function WorkspacePrototype() {
         <button className="secondary-button" onClick={() => { releaseControls(); freezeToolGestures("mixer"); if(!settleLayoutEdit()) return; s.cancelPreview(); setMaximized(false); layout.reset(); }}><RotateCcw size={13}/>Reset layout</button>
       </div></details>
     </div>
-    <aside id={assetsId} className={`workspace-assets${!geometry.browserWidth ? " workspace-assets-overlay" : ""}`} aria-label={s.mode === "write" ? "Existing ideas" : "Existing sounds and assets"} hidden={!assetsVisible} onKeyDown={event => { if(event.key === "Escape" && !event.defaultPrevented && assetsOverlay) { event.preventDefault(); event.stopPropagation(); setAssetsOverlay(false); assetsToggle.current?.focus({preventScroll:true}); } }}><ExistingAssets onTool={choose}/></aside>
+    <aside id={assetsId} className={`workspace-assets${!geometry.browserWidth ? " workspace-assets-overlay" : ""}`} aria-label={s.mode === "write" ? "Existing ideas" : "Existing sounds and assets"} hidden={!assetsVisible} onKeyDown={event => { if(event.key === "Escape" && !event.defaultPrevented && assetsOverlay) { event.preventDefault(); event.stopPropagation(); setAssetsOverlay(false); assetsToggle.current?.focus({preventScroll:true}); } }}><LibraryBrowser active={assetsVisible} onTool={choose}/></aside>
     <div className="workspace-song"><SongCanvas grid={grid} setGrid={setGrid}/></div>
     <section className="workspace-detail" aria-label="Detail dock" data-open={detailVisible}>
       <div className="detail-tabs" data-edit-policy="bypass">
@@ -154,21 +154,4 @@ export function WorkspacePrototype() {
     <ToolVisibilityProvider scope="mixer" active={!!geometry.mixerHeight}><div className="workspace-mixer" hidden={!geometry.mixerHeight}><MixerPanel active={!!geometry.mixerHeight}/></div></ToolVisibilityProvider>
     {(layout.error || s.viewPreferenceError) && <div className="workspace-preference-error" role="status">{layout.error || s.viewPreferenceError}</div>}
   </div>;
-}
-
-function ExistingAssets({onTool}:{onTool:(tool:DetailTool)=>void}) {
-  const s = useStudio(), catalog = instruments(s.project);
-  const [choice,setChoice] = useState("");
-  const chosen = catalog.find(item => item.id === choice) ?? catalog.find(item => item.id === s.selectedTrack?.instrumentId) ?? catalog[0];
-  if (s.mode === "write") return <><div className="assets-heading"><span className="eyebrow">Existing tools</span><h2>Ideas</h2></div><div className="idea-routes">
-    <button data-edit-policy="bypass" onClick={() => onTool("writing")}><strong>Chords & parts</strong><small>Edit the progression and develop a phrase.</small></button>
-    <button data-edit-policy="bypass" onClick={() => onTool("lyrics")}><strong>Lyrics & song notes</strong><small>Keep the words beside your song.</small></button>
-    <button data-edit-policy="bypass" onClick={() => onTool("reference")}><strong>Reference</strong><small>Analyze audio and review its proposals.</small></button>
-  </div><p className="assets-destination">Writing in {s.selectedSection.name}<br/>{s.selectedTrack?.name}</p></>;
-  return <><div className="assets-heading"><span className="eyebrow">Existing instruments</span><h2>Sounds</h2></div><div className="existing-sounds">{catalog.map(item => <button key={item.id} aria-pressed={item.id === chosen?.id} onClick={() => setChoice(item.id)}><strong>{item.name}</strong><small>{item.family}</small></button>)}</div><div className="assets-actions">
-    <p className="assets-destination">Destination<br/><strong>{s.selectedTrack?.name ?? "New track"}</strong></p>
-    <button className="secondary-button" disabled={s.recording || s.selectedTrack?.kind !== "instrument" || !chosen} onClick={() => { if(chosen && s.selectedTrack) s.updateTrack(s.selectedTrack.id,{instrumentId:chosen.id,sound:instrumentSettings(chosen)},"Change instrument"); }}>Use on selected track</button>
-    <button className="secondary-button" disabled={s.recording || !chosen} onClick={() => {if(chosen)s.addTrack(chosen.id,chosen.name);}}>Add instrument track</button>
-    <button data-edit-policy="bypass" className="text-button" onClick={() => onTool("keyboard")}>Import audio / Inputs</button>
-  </div></>;
 }

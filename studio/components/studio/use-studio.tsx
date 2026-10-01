@@ -68,6 +68,8 @@ import {assignModulationRoute} from "../../lib/music/modulation-assignment";
 import {defaultStudioView, detailToolForMode, reconcileSongViewport, reconcileStudioView, sameSongViewport, selectStudioClip, selectStudioSection, selectStudioTrack, studioViewKey, StudioViewPreferences, type DetailTool, type SongViewport, type SongViewportUpdate, type StudioView, type StudioMode} from "../../lib/client/studio-view";
 import {capturedExpression,captureReleaseReset,effectiveSustain} from "../../lib/client/performance-ownership";
 import {freezeToolGestures,useToolVisibility} from "./tool-visibility";
+import {LibraryTargetRevisions} from "../../lib/client/library-operations";
+import {useReusableLibrary} from "./use-reusable-library";
 
 export type {StudioMode, DetailTool, SongViewport} from "../../lib/client/studio-view";
 export type StudioUser = { userId: string; displayName: string } | null;
@@ -100,6 +102,8 @@ function useStudioController(
   const [transaction,setTransaction]=useState<EditTransaction|null>(null);
   const activeEdit=useRef<EditTransaction|null>(null),fieldOwner=useRef(""),committedRef=useRef(history.present);
   const activeGesture=useRef<EditGesture|null>(null);
+  const [libraryRevisions]=useState(()=>new LibraryTargetRevisions());
+  const cancelLibraryOperationRef=useRef<()=>void>(()=>{}),cancelLibraryPreviewRef=useRef<()=>void>(()=>{});
   const [editConflict,setEditConflict]=useState<EditTransaction|null>(null);
   const project=useMemo(()=>applyPreview(history.present,transaction),[history.present,transaction]),projectRef=useRef(project);
   const [selectedChordId,setSelectedChordId]=useState("");
@@ -294,7 +298,8 @@ function useStudioController(
     setBusy("");
   }
   function renderEdit(next:EditTransaction|null){
-    activeEdit.current=next;setTransaction(next);projectRef.current=applyPreview(committedRef.current,next);
+    const document=applyPreview(committedRef.current,next);libraryRevisions.observe(projectRef.current,document);
+    activeEdit.current=next;setTransaction(next);projectRef.current=document;
   }
   function beginEdit(owner:string){
     if(fieldOwner.current===owner&&activeEdit.current)return true;
@@ -360,6 +365,7 @@ function useStudioController(
     if(result.ok){commit(result.document,tx.label);setEditConflict(null);setError("");}else setError(result.error);
   }
   function setMode(value:StudioMode){
+    cancelLibraryOperationRef.current();
     if(value!==mode)freezeToolGestures("mixer");
     if(value!==mode||detailToolForMode(value,detailTool)!==detailTool)terminateDetailInputs();
     if(!finishEdit())return false;
@@ -367,11 +373,13 @@ function useStudioController(
     setModeState(value);setDetailToolState(current=>detailToolForMode(value,current));setMessage("");return true;
   }
   function setDetailTool(value:DetailTool){
+    cancelLibraryOperationRef.current();
     if(value!==detailTool)terminateDetailInputs();
     if(!finishEdit())return false;
     cancelPreview();setDetailToolState(value);return true;
   }
   function setSelectedSectionId(value:string){
+    cancelLibraryOperationRef.current();
     if(value!==selectedSectionId)terminateDetailInputs();
     if(!finishEdit())return false;
     const view=selectStudioSection(committedRef.current,currentView(),value);
@@ -385,6 +393,7 @@ function useStudioController(
     if(takeSession.current && !takeCommit && (JSON.stringify(next.tracks)!==JSON.stringify(current.tracks) || JSON.stringify(next.master)!==JSON.stringify(current.master) || next.tempo!==current.tempo || JSON.stringify(next.timeSignature)!==JSON.stringify(current.timeSignature))) { setError("Finish recording before changing playback or instruments."); return false; }
     if(JSON.stringify(next)===JSON.stringify(current))return true;
     selectionHistory.current.set(current,selectedChordId);
+    libraryRevisions.observe(current,next);
     committedRef.current=next;projectRef.current=applyPreview(next,activeEdit.current);
     setSaveStatus(user ? "Device draft · saving…" : "Device draft");
     dispatch({ type: "commit", project: next, label });return true;
@@ -395,6 +404,7 @@ function useStudioController(
     if(activeGesture.current){cancelGesture();return;}
     if(activeEdit.current){cancelEdit();return;}
     const next=historyReducer({...history,present:committedRef.current},action);
+    libraryRevisions.observe(committedRef.current,next.present);
     committedRef.current=next.present;projectRef.current=next.present;
     const selected=selectionHistory.current.get(next.present);if(selected!==undefined)setSelectedChordId(selected);
     if (action.type === "undo" || action.type === "redo")
@@ -467,6 +477,7 @@ function useStudioController(
     updateTrack(track.id,{modulation:result.patch},"Assign modulation");return true;
   }
   function selectTrack(id: string) {
+    cancelLibraryOperationRef.current();
     if(id!==selectedTrackId)terminateDetailInputs();
     if(!finishEdit())return false;
     const view=selectStudioTrack(projectRef.current,currentView(),id);
@@ -478,6 +489,7 @@ function useStudioController(
   }
   function currentView():StudioView{return {version:2,mode,detailTool,track:selectedTrackId,section:selectedSectionId,chord:selectedChordId,clip:selectedClipId,clips:Object.fromEntries(clipsByTrack.current),songViewport:songViewportRef.current};}
   function selectClip(trackId: string, clipId: string) {
+    cancelLibraryOperationRef.current();
     terminateDetailInputs();
     if(!finishEdit())return false;
     const view=selectStudioClip(projectRef.current,currentView(),trackId,clipId);
@@ -518,6 +530,7 @@ function useStudioController(
     fingerprint = JSON.stringify(document),
     editPolicy: "finish" | "discard" = "finish",
   ) {
+    cancelLibraryOperationRef.current();cancelLibraryPreviewRef.current();
     if (takeSession.current || importCount.current) { report(new Error("Finish recording or importing before opening another song.")); return false; }
     if(editPolicy === "discard") { cancelEdit(); setError(""); }
     else if(!finishEdit())return false;
@@ -531,7 +544,7 @@ function useStudioController(
       viewScopeRef.current=null;setViewRestoreRequest(request=>request+1);
       clipsByTrack.current.clear();setModeState("arrange");setDetailToolState("notes");
     }
-    committedRef.current=document;setSelectedChordId(chordId);
+    libraryRevisions.reset();committedRef.current=document;setSelectedChordId(chordId);
     pendingPreview.current=null;++audioIntent.current; heldInputs.current.clear(); controlTargets.current.clear(); controllerStates.current.clear(); syncHeld();
     movement.current?.clear();cancelMidiLearn();runtimeMacrosRef.current={};setRuntimeMacros({});engineRef.current?.stop();
     projectRef.current = document;
@@ -736,6 +749,7 @@ function useStudioController(
           const document = projectSchema.parse(draft.document);
           restoreDocument(document, draft.revision, draft.savedFingerprint);
           effectNotify("Your latest device draft has been restored.");
+          if(draft.recoveryWarning)effectReport(new Error(draft.recoveryWarning));
         }
         if (user) {
           const library = await listProjects();
@@ -871,7 +885,7 @@ function useStudioController(
       report(error);
     }
   }
-  function cancelPreview() { pendingPreview.current=null;++audioIntent.current; engineRef.current?.cancelAudition(); }
+  function cancelPreview() { cancelLibraryPreviewRef.current();pendingPreview.current=null;++audioIntent.current; engineRef.current?.cancelAudition(); }
   async function previewPhrase(trackId: string, notes: NoteEvent[], identity: string) {
     if (takeSession.current) return;
     if(pendingPreview.current?.identity===identity){cancelPreview();return;}
@@ -1497,7 +1511,14 @@ function useStudioController(
     }
   }
 
+  const library=useReusableLibrary({owner,project,hydrated:hydrated&&readyViewScope===viewScope,
+    document:()=>committedRef.current,currentOwner:()=>ownerRef.current,
+    destination:()=>({trackId:selectedTrackRef.current?.id??"",sectionId:selectedSectionId,clipId:selectedClipId}),
+    revisions:libraryRevisions,finishEdit,hasDraft:()=>!!activeEdit.current||!!activeGesture.current,recording:()=>!!takeSession.current,
+    commit,select:(trackId,clipId)=>{if(clipId)selectClip(trackId,clipId);else selectTrack(trackId);},getEngine,notify});
+  useLayoutEffect(()=>{cancelLibraryOperationRef.current=library.cancelLibraryOperation;cancelLibraryPreviewRef.current=library.cancelLibraryPreview;},[library]);
   return {
+    ...library,
     user,
     owner,
     signIn,

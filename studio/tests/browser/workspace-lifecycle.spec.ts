@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { NoteEvent, PerformanceEvent } from "../../lib/music/types";
+import type { NoteEvent, PerformanceEvent, ProjectDocument } from "../../lib/music/types";
 
 async function blank(page: Page) {
   await page.goto("/");
@@ -12,6 +12,35 @@ async function builtInSound(page: Page) {
   // Input ownership tests do not depend on downloading acoustic samples.
   await page.getByRole("button", { name: "Glass FM Synthesizers", exact: true }).click();
   await page.getByRole("button", { name: "Use on selected track", exact: true }).click();
+}
+async function populatedBuiltInSounds(page:Page) {
+  // Keep the populated song, while input-lifetime checks avoid 109 MiB of acoustic loading.
+  const originalTrack = await page.locator(".song-track-header.selected .track-select").getAttribute("aria-label");
+  const selectedClip = page.locator(".timeline-clip.selected .timeline-clip-body");
+  const originalClip = await selectedClip.count() ? await selectedClip.getAttribute("title") : null;
+  const labels = await page.locator(".song-track-header .track-select").evaluateAll(elements => elements.map(element => element.getAttribute("aria-label")!));
+  const music = () => page.evaluate(async () => {
+    const {latestDraft} = await import("/lib/client/storage.ts" as string);
+    const doc = (await latestDraft("guest"))?.document as ProjectDocument | undefined;
+    return doc ? {sections:doc.sections,chords:doc.chords,tracks:doc.tracks.map(track => ({id:track.id,name:track.name,clips:track.clips,automation:track.automation,volume:track.volume,pan:track.pan,mute:track.mute,solo:track.solo}))} : null;
+  });
+  await expect.poll(async () => (await music())?.tracks.length ?? 0).toBe(labels.length);
+  const originalMusic = await music();
+  for (const label of labels) {
+    await page.getByRole("button",{name:label,exact:true}).click();
+    await builtInSound(page);
+    await expect(page.locator(".library-browser .library-message")).toContainText("Glass FM replaced.");
+  }
+  await page.getByRole("button",{name:originalTrack!,exact:true}).click();
+  if (originalClip) await page.getByTitle(originalClip,{exact:true}).click();
+  await expect.poll(() => page.evaluate(async () => {
+    const {latestDraft} = await import("/lib/client/storage.ts" as string);
+    const doc = (await latestDraft("guest"))?.document as ProjectDocument | undefined;
+    return !!doc && doc.tracks.every(track => track.sound.algorithm === "fm");
+  })).toBe(true);
+  await expect.poll(music).toEqual(originalMusic);
+  await expect(page.locator(".song-track-header.selected .track-select")).toHaveAttribute("aria-label",originalTrack!);
+  await expect(selectedClip).toHaveCount(originalClip ? 1 : 0);
 }
 async function startTake(page: Page) {
   await page.getByLabel("Recording source").selectOption("midi");
@@ -104,7 +133,7 @@ test("an invalid draft blocks collapse and navigation after the tool's held inpu
 test("an invalid draft blocks a chord-guide handoff after releasing the tool's recorded note", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByLabel("Song title")).toBeEnabled();
-  await builtInSound(page);
+  await populatedBuiltInSounds(page);
   const sections = page.locator(".section-lane .selected"), chords = page.locator(".song-chord-guide [aria-pressed=true]");
   const section = await sections.allTextContents(), chord = await chords.allTextContents();
   await page.getByLabel("Other detail tools").selectOption("keyboard");

@@ -77,6 +77,9 @@ test("releasing live input removes queued arpeggio notes from the recorded take"
   await expect(page.getByLabel("Song title")).toBeEnabled();
   await page.getByRole("button", { name: "Songs", exact: true }).click();
   await page.getByRole("button", { name: "Blank song", exact: true }).click();
+  // Test input-release timing independently of downloading the acoustic catalog.
+  await page.getByRole("button", { name: "Glass FM Synthesizers", exact: true }).click();
+  await page.getByRole("button", { name: "Use on selected track", exact: true }).click();
   await page.getByRole("navigation").getByRole("button", { name: "03 Sound" }).click();
   const rack = page.getByRole("region", { name: "Selected track modulation rack" });
   await page.getByLabel("Other detail tools").selectOption("movement");

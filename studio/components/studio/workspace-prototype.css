@@ -13,12 +13,9 @@
 .assets-heading { padding: 13px 13px 10px; }
 .assets-heading h2 { font-size: 16px; letter-spacing: -.2px; }
 .assets-heading .eyebrow { font-size: 9px; }
-.existing-sounds { min-height: 0; flex: 1; overflow: auto; padding: 0 8px; }
-.existing-sounds button, .idea-routes button { display: flex; flex-direction: column; text-align: left; width: 100%; padding: 10px 9px; border: 1px solid transparent; border-bottom-color: var(--border); gap: 3px; border-radius: 3px; color: var(--ink-2); }
-.existing-sounds button[aria-pressed=true] { background: var(--raised); border-color: var(--border-strong); color: var(--ink); }
-.existing-sounds strong, .idea-routes strong { font-size: 11px; font-weight: 600; }
-.existing-sounds small, .idea-routes small { color: var(--ink-3); font-size: 10px; line-height: 1.5; }
-.assets-actions { display: grid; gap: 6px; padding: 10px; border-top: 1px solid var(--border); }
+.idea-routes button { display: flex; flex-direction: column; text-align: left; width: 100%; padding: 10px 9px; border: 1px solid transparent; border-bottom-color: var(--border); gap: 3px; border-radius: 3px; color: var(--ink-2); }
+.idea-routes strong { font-size: 11px; font-weight: 600; }
+.idea-routes small { color: var(--ink-3); font-size: 10px; line-height: 1.5; }
 .assets-destination { font-size: 10px; line-height: 1.6; color: var(--ink-3); margin: 0 0 4px; }
 .assets-destination strong { color: var(--ink-2); font-weight: 500; }
 .idea-routes { padding: 0 8px; }

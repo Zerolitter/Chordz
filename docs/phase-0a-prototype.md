@@ -1,6 +1,6 @@
 # Phase 0A workspace: approved prototype and completion
 
-Date: 2026-10-01. Status: populated prototype approved by the user after commit `9af8d0b`; technical workspace completion is verified and the local builds are ready for the user's task. Appearance, geometry and the contextual Automation hierarchy are approved. **The observed music-making task still gates Phase 0A completion.** No publication or Phase 0B implementation is part of this receipt.
+Date: 2026-10-01. Status: populated prototype approved after commit `9af8d0b`; technical workspace completion is verified at `8a537e0`. Appearance, geometry and the contextual Automation hierarchy are approved. **The user explicitly authorized starting 0B and deferring the observed workflow comparison on 2026-10-01.** The comparison remains unperformed; authorization to proceed does not constitute musician-task evidence. No publication is authorized.
 
 ## Source and authority
 
@@ -45,7 +45,7 @@ Grid and swing retain the existing device preferences and one shared owner in th
 
 ## Delivery gates: technical checks verified, observed task pending
 
-The automated checks below establish the technical behavior of the delivered source. They do not establish musician usability; gate G remains open until the user's session is recorded.
+The automated checks below establish the technical behavior of the delivered source. They do not establish musician usability; gate G remains open until the user's session is recorded. The user subsequently chose “Start 0B now; defer my workflow comparison”, so this open observation no longer blocks 0B implementation.
 
 - [x] **A / shared shell:** opening, changing and collapsing tools preserves track/phrase/section selection; same-clip reopening works; invalid drafts block navigation; staged sessions survive pure collapse.
 - [x] **B / arrangement:** headers and clips stay aligned during vertical scrolling; sticky ruler, Fit song, Fit selection and Follow pass real-browser checks; bounded song context remains visible. Its usefulness is assessed at gate G.
@@ -91,7 +91,7 @@ The user approved these populated presets and proportions. Automation stays cont
 
 ### Work after technical completion
 
-The prototype approval and technical checks passed. The approved geometry now includes verified owner/project-scoped song viewport restoration, responsive behavior and lifecycle cleanup. Complete the observed task below before declaring 0A complete. Only then start 0B discovery; reusable content follows separately.
+The prototype approval and technical checks passed. The approved geometry includes verified owner/project-scoped song viewport restoration, responsive behavior and lifecycle cleanup. The observed task is deferred by the user's explicit decision. Discovery and reusable content are now implemented and technically verified in the [0B delivery receipt](phase-0b-library.md); this does not invent an observed usability result.
 
 ## Workspace completion evidence
 
@@ -156,7 +156,7 @@ Reply with the table or a short account of both runs. Prototype approval alone i
 
 ## Phase 0B follow-on: discovery and reusable library
 
-**Not implemented in 0A.** Begin after workspace completion and approval, using the user's agreed scope rather than treating the roadmap's original Phase 2 timing as the current schedule.
+**Not implemented in 0A; now authorized and in progress.** The user explicitly authorized starting 0B while deferring the observed comparison. Use the agreed scope rather than treating the roadmap's original Phase 2 timing as the current schedule.
 
 - One searchable browser for existing sounds and ideas, with categories, favorites and recents. Reusable user-saved phrases and sound patches work across songs. Show destination and musical range alongside applicable Preview, Insert and Replace actions; retain keyboard actions and the alternative-track path for overlap.
 - The library is device-local and owner-scoped, with downloadable backup and validated import. It includes MIDI/drum phrases and audio phrases. Audio supports **Insert only**; audio Replace remains excluded.

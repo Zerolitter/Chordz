@@ -1,4 +1,5 @@
-import {isDrumInstrument} from "./catalog";
+import {isDrumInstrument,instrumentFor} from "./catalog";
+import {resolvedModulationPatch} from "../music/automation-bindings";
 import {
   clamp,
   type InstrumentManifest,
@@ -136,7 +137,8 @@ export function configureModulation(graph:SongGraph,project:ProjectDocument,even
   audioOrigin:number,songOrigin=0) {
   const previous=graph.modulation;
   const tracks=new Map<string,{track:Track;evaluator:ModulationEvaluator;signature:string;activeTrackTargets:ReadonlySet<string>}>();
-  for(const track of project.tracks) {
+  for(const originalTrack of project.tracks) {
+    const track={...originalTrack,modulation:resolvedModulationPatch(originalTrack,instrumentFor(project,originalTrack))};
     const strip=graph.tracks.get(track.id);if(!strip)continue;
     const prior=previous?.tracks.get(track.id);
     const oldTargets=prior?.activeTrackTargets??new Set<string>();

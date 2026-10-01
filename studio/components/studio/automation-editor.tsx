@@ -9,6 +9,8 @@ import { trackDisplayColor } from "../../lib/client/appearance";
 import { projectEnd, ticksPerBar } from "../../lib/music/project";
 import { clamp, type AutomationParameter } from "../../lib/music/types";
 import { MAX_TICK, automationBounds, automationPointAt, clampAutomationTick, moveAutomationPoint, putAutomationPoint, type AutomationPoint } from "../../lib/music/arrangement";
+import {inactiveAutomationBindings} from "../../lib/music/automation-bindings";
+import {instrumentFor} from "../../lib/audio/catalog";
 
 type PointGesture = {
   points: AutomationPoint[]; sourceTick: number | null; current: AutomationPoint;
@@ -97,6 +99,7 @@ export function AutomationEditor({ grid }: { grid: number }) {
   }
   const y = (value: number) => 65 - clamp((value - min) / (max - min), 0, 1) * 60;
   return <section className="automation-editor" style={track ? { "--track-color": trackDisplayColor(s.project, track) } as CSSProperties : undefined}>
+    {track&&inactiveAutomationBindings(track,instrumentFor(s.project,track)).map(binding=><p className="helper" role="status" key={binding.target}>Inactive {binding.target}: {binding.reason}. Automation data is retained.</p>)}
     <div className="subheading">
       <h3>{track?.name ?? "Track"} automation</h3>
       <select aria-label="Automation parameter" value={lane} onChange={e => { if (s.finishEdit()) setLane(e.target.value as AutomationParameter); }}>
