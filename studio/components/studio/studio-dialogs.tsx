@@ -1,6 +1,6 @@
 "use client";
 import {DraftInput} from "./draft-field";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FolderOpen,
   Download,
@@ -18,8 +18,10 @@ import {
   projectBackup,
   restoreBackup,
   safeFilename,
+  zipFiles,
   type ExportFormat,
 } from "../../lib/audio/export";
+import {acquireExportWriter,checkExportActive,exportRange,waitForExport} from "../../lib/audio/export-range";
 import {
   keepPendingAsset,
   resolveAsset,
@@ -28,6 +30,7 @@ import {
 } from "../../lib/client/storage";
 import { loadVersions } from "../../lib/client/cloud";
 import { uid, type ProjectDocument } from "../../lib/music/types";
+import "./export-dialog.css";
 type DirectoryHandle = {
   getDirectoryHandle: (
     name: string,
@@ -40,6 +43,7 @@ type DirectoryHandle = {
     createWritable: () => Promise<{
       write: (blob: Blob) => Promise<void>;
       close: () => Promise<void>;
+      abort:()=>Promise<void>;
     }>;
   }>;
 };
@@ -48,6 +52,10 @@ export function StudioDialogs() {
   const [deleting, setDeleting] = useState(""),
     [format, setFormat] = useState<ExportFormat>("wav"),
     [stem, setStem] = useState("all"),
+    [scope,setScope]=useState<"song"|"section">("song"),
+    [includeTails,setIncludeTails]=useState(true),
+    [destination,setDestination]=useState<"download"|"folder">("download"),
+    [exporting,setExporting]=useState(false),
     [progress, setProgress] = useState(""),
     [versions, setVersions] = useState<
       {
@@ -59,12 +67,36 @@ export function StudioDialogs() {
     >([]),
     [recoveryOpen, setRecoveryOpen] = useState(false),
     [drafts, setDrafts] = useState<RecoveryDraft[]>([]);
+  const exportJob=useRef<{controller:AbortController;owner:string;projectId:string}|null>(null);
+  useEffect(()=>()=>{exportJob.current?.controller.abort();},[]);
+  useEffect(()=>{
+    const job=exportJob.current;
+    if(job&&(job.owner!==s.owner||job.projectId!==s.project.id))job.controller.abort();
+  },[s.owner,s.project.id]);
+  function cancelExport(){exportJob.current?.controller.abort();}
   async function runExport() {
+    if(exportJob.current||s.busy)return;
+    if(s.recordingPhase!=="idle"){s.report(new Error("Finish or preserve your recording before exporting."));return;}
     if(!s.finishEdit())return;
-    setProgress("");
+    // Settle edits, then capture the committed song and every choice before a picker or loader.
+    const project=structuredClone(s.committedRef.current),owner=s.owner,
+      chosen={format,stem,scope,includeTails,destination,sectionId:s.selectedSectionId},
+      job={controller:new AbortController(),owner,projectId:project.id};
+    exportJob.current=job;setExporting(true);s.setBusy("Exporting…");setProgress("Preparing export…");
+    const active=()=>{
+      checkExportActive(job.controller.signal);
+      if(exportJob.current!==job||s.ownerRef.current!==owner||s.projectRef.current.id!==project.id)
+        throw new DOMException("Export cancelled because the song or account changed.","AbortError");
+    };
+    const wait=<T,>(promise:Promise<T>)=>waitForExport(promise,job.controller.signal);
+    const progress=(text:string)=>{active();setProgress(text);};
     let directory: DirectoryHandle | undefined;
     try {
-      if (format === "stems" && stem === "all") {
+      const audio=chosen.format==="wav"||chosen.format==="mp3"||chosen.format==="stems",
+        range=audio&&chosen.scope==="section"?exportRange(project,chosen.sectionId):undefined,
+        section=range?project.sections.find(section=>section.id===chosen.sectionId):undefined,
+        name=safeFilename(project.title)+(section?" · "+safeFilename(section.name):"");
+      if (chosen.destination === "folder") {
         const picker = (
           window as unknown as {
             showDirectoryPicker?: (options: {
@@ -74,38 +106,43 @@ export function StudioDialogs() {
         ).showDirectoryPicker;
         if (!picker)
           throw new Error(
-            "Choose one track at a time in this browser. Chrome and Edge can save all stems into a folder.",
+            "Folder access is unavailable in this browser. Choose Browser download.",
           );
-        directory = await picker({ mode: "readwrite" });
-        directory = await directory.getDirectoryHandle(
-          safeFilename(s.project.title) + " " + Date.now(),
+        directory = await wait(picker({ mode: "readwrite" }));active();
+        directory = await wait(directory.getDirectoryHandle(
+          name + " " + Date.now(),
           { create: true },
-        );
+        ));active();
       }
-      s.setBusy("Exporting…");
-      const project = structuredClone(s.project),
-        name = safeFilename(project.title);
-      if (format === "midi") {
-        downloadBlob(
+      const save=async(blob:Blob,filename:string)=>{
+        active();
+        if(directory){
+          const handle=await wait(directory.getFileHandle(filename,{create:true}));active();
+          const writer=await acquireExportWriter(handle.createWritable(),job.controller.signal);
+          try{active();await wait(writer.write(blob));active();await wait(writer.close());}
+          catch(error){void writer.abort().catch(()=>{});throw error;}
+        }else downloadBlob(blob,filename);
+      };
+      if (chosen.format === "midi") {
+        await save(
           new Blob([exportMidi(project) as BlobPart], { type: "audio/midi" }),
           name + ".mid",
         );
-      } else if (format === "backup") {
-        setProgress("Packing your song and private audio…");
-        downloadBlob(
+      } else if (chosen.format === "backup") {
+        progress("Packing your song and private audio…");
+        await save(
           new Blob(
             [
-              (await projectBackup(project, (id) =>
-                resolveAsset(s.owner, id),
-              )) as BlobPart,
+              (await wait(projectBackup(project, (id) =>{active();return resolveAsset(owner,id);}))) as BlobPart,
             ],
             { type: "application/zip" },
           ),
           name + ".chordz.zip",
         );
       } else {
-        const engine = await s.getEngine();
-        if (format === "stems") {
+        const engine = await wait(s.getEngine());active();
+        const options={range,includeTails:chosen.includeTails,signal:job.controller.signal};
+        if (chosen.format === "stems") {
           const unmuted = {
             ...project,
             tracks: project.tracks.map((t) => ({
@@ -115,45 +152,49 @@ export function StudioDialogs() {
             })),
           };
           const tracks =
-            stem === "all"
+            chosen.stem === "all"
               ? unmuted.tracks
-              : unmuted.tracks.filter((t) => t.id === stem);
+              : unmuted.tracks.filter((t) => t.id === chosen.stem);
+          if(!tracks.length)throw new Error("Choose an available stem track.");
+          const files:Record<string,Uint8Array>={};let total=0;
           for (let i = 0; i < tracks.length; i++) {
-            setProgress(
+            progress(
               `Rendering ${i + 1} / ${tracks.length} · ${tracks[i].name}`,
             );
-            const buffer = await engine.render(unmuted, tracks[i].id);
-            const blob = await s.getProcessor().encode(buffer, 24);
+            const buffer = await wait(engine.render(unmuted, tracks[i].id,undefined,options));active();
+            const blob = await wait(s.getProcessor().encode(buffer, 24));active();
             const filename = `${String(i + 1).padStart(2, "0")} ${safeFilename(tracks[i].name)}.wav`;
-            if (directory) {
-              const writer = await (
-                await directory.getFileHandle(filename, { create: true })
-              ).createWritable();
-              await writer.write(blob);
-              await writer.close();
-            } else downloadBlob(blob, name + " " + filename);
+            if(!directory&&chosen.stem==="all"){
+              total+=blob.size;
+              if(total>512*1024*1024)throw new Error("These stems exceed the 512 MB ZIP limit. Choose a folder or export one track at a time.");
+              files[filename]=new Uint8Array(await wait(blob.arrayBuffer()));active();
+            }else await save(blob,directory?filename:name+" "+filename);
+          }
+          if(!directory&&chosen.stem==="all"){
+            progress("Packing stems…");
+            await save(new Blob([await wait(zipFiles(files)) as BlobPart],{type:"application/zip"}),name+".stems.zip");
           }
         } else {
-          setProgress("Rendering stereo mix with effect tails…");
-          const buffer = await engine.render(project);
-          downloadBlob(
-            format === "mp3"
-              ? await encodeMp3Buffer(buffer, (percent) =>
-                  setProgress(`Encoding MP3 · ${percent}%`),
-                )
-              : await s.getProcessor().encode(buffer, 24),
-            name + (format === "mp3" ? ".mp3" : ".wav"),
+          progress("Rendering "+(section?section.name:"full song")+(chosen.includeTails?" with effect tails…":" to the musical boundary…"));
+          const buffer = await wait(engine.render(project,undefined,undefined,options));active();
+          await save(
+            chosen.format === "mp3"
+              ? await wait(encodeMp3Buffer(buffer, (percent) =>{if(!job.controller.signal.aborted&&exportJob.current===job)setProgress(`Encoding MP3 · ${percent}%`);},job.controller.signal))
+              : await wait(s.getProcessor().encode(buffer, 24)),
+            name + (chosen.format === "mp3" ? ".mp3" : ".wav"),
           );
         }
       }
+      active();
       s.notify("Export complete.");
       setProgress("Export complete.");
     } catch (error) {
-      setProgress("");
-      if (!(error instanceof DOMException && error.name === "AbortError"))
-        s.report(error);
+      if(exportJob.current===job){
+        if(error instanceof DOMException&&error.name==="AbortError")setProgress("Export cancelled. Completed folder files are kept.");
+        else {setProgress("");s.report(error);}
+      }
     } finally {
-      s.setBusy("");
+      if(exportJob.current===job){exportJob.current=null;setExporting(false);s.setBusy("");}
     }
   }
   async function restore(file: File) {
@@ -336,6 +377,7 @@ export function StudioDialogs() {
         }}
         title="Take your music with you"
         description="The same instruments and effects render playback and your export."
+        className="studio-export-dialog"
       >
         {s.error && (
           <p className="studio-notice error" role="alert">
@@ -369,15 +411,30 @@ export function StudioDialogs() {
             </option>
           </select>
         </label>
+        {(format==="wav"||format==="mp3"||format==="stems")&&<>
+          <label className="field">Export range<select aria-label="Export range" value={scope} disabled={!!s.busy} onChange={e=>setScope(e.target.value==="section"?"section":"song")}>
+            <option value="song">Full song</option><option value="section">Selected section · {s.selectedSection.name}</option>
+          </select></label>
+          <label className="checkbox-label"><input type="checkbox" aria-label="Include effect tails" checked={includeTails} disabled={!!s.busy} onChange={e=>setIncludeTails(e.target.checked)}/>Include effect tails</label>
+        </>}
+        <label className="field">Destination<select aria-label="Export destination" value={destination} disabled={!!s.busy} onChange={e=>setDestination(e.target.value==="folder"?"folder":"download")}>
+          <option value="download">Browser download{format==="stems"&&stem==="all"?" · one ZIP":""}</option><option value="folder">Choose folder · requires browser support</option>
+        </select></label>
+        <p className="helper" role="status" aria-label="Export summary">
+          {format==="backup"?"Complete project · all private audio":format==="midi"?"Full song · editable notes and expression":scope==="section"?"Selected section · "+s.selectedSection.name:"Full song"}
+          {(format==="wav"||format==="mp3"||format==="stems")&&(includeTails?" · includes effect tails":" · ends at the musical boundary")}
+          {destination==="folder"?" · choose a new export folder":" · downloads to your browser"}
+        </p>
         {format === "stems" && (
           <label className="field">
             Track
             <select
               aria-label="Stem track"
               value={stem}
+              disabled={!!s.busy}
               onChange={(e) => setStem(e.target.value)}
             >
-              <option value="all">All tracks · save into a folder</option>
+              <option value="all">All tracks</option>
               {s.project.tracks.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -389,15 +446,17 @@ export function StudioDialogs() {
         <p className="helper">
           {format === "backup"
             ? "Factory instruments reload from Chordz. All your recordings and imported samples are included."
+            : format === "midi"
+              ? "MIDI exports the complete composition regardless of mute or solo. Sound patches and automation remain in a project backup."
             : format === "stems"
-              ? "Stems start at the song beginning, include effects and tails, and export regardless of mute or solo."
+              ? "Stems share the chosen start and length, include track effects, and export regardless of mute or solo. ZIP downloads are limited to 512 MB; larger exports can use a folder."
               : format === "mp3"
-                ? "MP3 includes the current mix, automation, and effect tails at 320 kbps. Encoding stays on your device."
-                : "WAV includes the current mix, automation, and effect tails."}
+                ? "MP3 includes the current mix and automation at 320 kbps. Encoding stays on your device."
+                : "WAV includes the current mix and automation. Section exports retain sounds already playing at the section start."}
         </p>
         <button
           className="primary-button"
-          disabled={!!s.busy}
+          disabled={!!s.busy||s.recordingPhase!=="idle"}
           onClick={() => void runExport()}
         >
           <Download size={17} />
@@ -406,6 +465,7 @@ export function StudioDialogs() {
             : "Export " +
               (format === "backup" ? "backup" : format.toUpperCase())}
         </button>
+        {exporting&&<button className="secondary-button" data-edit-policy="bypass" onClick={cancelExport}>Cancel export</button>}
         <output aria-live="polite" className="helper">
           {s.busy &&
           !progress.startsWith("Encoding ") &&

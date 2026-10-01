@@ -36,6 +36,18 @@ afterEach(() => {
 });
 
 describe("dedicated MP3 worker client", () => {
+  it("terminates an aborted encoder and ignores its late bytes and progress",async()=>{
+    vi.stubGlobal("Worker",TestWorker);const controller=new AbortController(),progress:number[]=[];
+    const result=encodeMp3Buffer(audioBuffer(),value=>progress.push(value),controller.signal);void result.catch(()=>{});
+    const worker=TestWorker.instances[0];controller.abort();expect(worker.stopped).toBe(true);
+    worker.reply({type:"progress",percent:90});worker.reply({type:"result",mp3:new ArrayBuffer(8)});
+    await expect(result).rejects.toMatchObject({name:"AbortError"});expect(progress).toEqual([]);
+  });
+  it("does not create a worker or copy PCM when encoding is already cancelled",async()=>{
+    vi.stubGlobal("Worker",TestWorker);const controller=new AbortController();controller.abort();
+    await expect(encodeMp3Buffer(audioBuffer(),undefined,controller.signal)).rejects.toMatchObject({name:"AbortError"});
+    expect(TestWorker.instances).toHaveLength(0);
+  });
   it("returns an audio/mpeg Blob, reports progress and releases its worker", async () => {
     vi.stubGlobal("Worker", TestWorker);
     const buffer = audioBuffer(), progress: number[] = [];

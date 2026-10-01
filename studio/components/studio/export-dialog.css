@@ -1,0 +1,8 @@
+.studio-export-dialog .field,
+.studio-export-dialog .helper,
+.studio-export-dialog .checkbox-label {
+  margin: 0;
+}
+.studio-export-dialog .field {
+  gap: 5px;
+}

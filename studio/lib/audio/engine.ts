@@ -36,6 +36,7 @@ import {
   type Voice,
 } from "./graph";
 import { changedMacroEvents, controlEventId, effectiveControlTime, musicalControlTime } from "./modulation";
+import {checkExportActive,compileExportSong,exportRenderPlan,exportTailSeconds,holdExportAutomation,waitForExport,type RenderExportOptions} from "./export-range";
 
 export interface TransportState {
   playing: boolean;
@@ -1197,17 +1198,22 @@ export class StudioEngine {
     project = this.project,
     onlyTrack?: string,
     durationOverride?: number,
+    options: RenderExportOptions = {},
   ): Promise<AudioBuffer> {
+    checkExportActive(options.signal);
     this.pause();
-    await this.ensureBuffers(
+    await waitForExport(this.ensureBuffers(
       project,
       onlyTrack ? [onlyTrack] : audibleTracks(project).map((t) => t.id),
-    );
-    const song = compileSong(project, onlyTrack),
+    ),options.signal);
+    checkExportActive(options.signal);
+    const originalProject=project;
+    if(options.range)project=holdExportAutomation(project,options.range.endTick);
+    const plan=options.range||options.includeTails===false?exportRenderPlan(project,options.range,options.includeTails!==false):null;
+    const song = compileExportSong(project, onlyTrack,options.range),
       duration =
         durationOverride ??
-        tickToSeconds(projectEnd(project), project.tempo) +
-          Math.max(project.master.reverbDecay * 2, 4,...project.tracks.map(t=>t.modulation?.enabled&&t.modulation.routes.some(r=>r.enabled&&r.target==="voice.release")?15:0));
+        (plan?plan.renderFrames/48000:tickToSeconds(projectEnd(project), project.tempo)+exportTailSeconds(project));
     const native = new OfflineAudioContext(
         2,
         Math.ceil(duration * 48000),
@@ -1304,25 +1310,30 @@ export class StudioEngine {
         const buffer = this.buffers.get(clip.region.assetId);
         if (!buffer)
           throw new Error("A recording is missing from this project.");
-        scheduleAudio(
+        const sourceDuration=clip.sourceDuration??clip.duration;
+        const voice=scheduleAudio(
           graph,
           clip.trackId,
           buffer,
           at,
-          tickToSeconds(clip.duration, project.tempo),
+          tickToSeconds(sourceDuration, project.tempo),
           clip.region.offsetSec,
           clip.region.gain,
           clip.region.fadeInSec,
           clip.region.fadeOutSec,
         );
+        if(clip.duration<sourceDuration){
+          const cutoff=at+tickToSeconds(clip.duration,project.tempo);
+          voice.sources.forEach(source=>{try{source.stop(cutoff);}catch{}});voice.end=cutoff;
+        }
       }
       scheduleModulation(graph,modulationUntil,Math.min(limit,duration),renderVoices,true);
       modulationUntil=Math.min(limit,duration);renderVoices=renderVoices.filter(v=>v.end>modulationUntil);
     };
     try {
-      for (const track of project.tracks)
+      for (const track of originalProject.tracks)
         if (graph.tracks.has(track.id))
-          scheduleAutomation(graph.tracks.get(track.id)!, track, project, 0, 0);
+          scheduleAutomation(graph.tracks.get(track.id)!, track, originalProject, 0, 0);
       for (const event of song.events) {
         const at = tickToSeconds(event.tick, project.tempo),
           track = tracks.get(event.trackId)!,
@@ -1337,15 +1348,34 @@ export class StudioEngine {
             at,
           );
       }
+      if(options.range){
+        const cutoff=tickToSeconds(options.range.endTick,project.tempo);
+        for(const track of graph.tracks.values())
+          for(const parameter of [track.volume.gain,track.pan.pan,track.filter.frequency,track.expression.gain,track.reverb.gain,track.delay.gain,track.lfoGain.gain])
+            parameter.cancelAndHoldAtTime(cutoff);
+      }
       // Suspend at short boundaries to create future voices only when needed.
       // Finished voices disconnect themselves, keeping dense long songs bounded.
       const window = 4;
       let boundary = window;
       scheduleUntil(window);
-      let suspended = boundary < duration ? native.suspend(boundary) : null;
+      const suspendAt=(at:number)=>{
+        const suspended=native.suspend(at);
+        // Abort may precede startRendering while Tone advances its offline clock.
+        // Resume again when that already-booked native suspension actually arrives.
+        void suspended.then(()=>{if(options.signal?.aborted)void native.resume().catch(()=>{});}).catch(()=>{});
+        return suspended;
+      };
+      let suspended = boundary < duration ? suspendAt(boundary) : null;
       const rendering = offline.render();
+      // Native offline contexts have no cancel API. End our scheduler and dispose its
+      // graph immediately; let the remaining disconnected native frames finish silently.
+      const resumeCancelled=()=>{void native.resume().catch(()=>{});};
+      options.signal?.addEventListener("abort",resumeCancelled,{once:true});
+      void rendering.finally(()=>options.signal?.removeEventListener("abort",resumeCancelled)).catch(()=>{});
       while (suspended) {
-        await Promise.race([suspended, rendering]);
+        await waitForExport(Promise.race([suspended, rendering]),options.signal);
+        checkExportActive(options.signal);
         scheduleUntil(boundary + window);
         this.onStatus(
           "Rendering " +
@@ -1354,14 +1384,20 @@ export class StudioEngine {
             Math.round((boundary / duration) * 100) +
             "%",
         );
+        checkExportActive(options.signal);
         boundary += window;
-        suspended = boundary < duration ? native.suspend(boundary) : null;
+        suspended = boundary < duration ? suspendAt(boundary) : null;
         await native.resume();
       }
-      const result = (await rendering).get();
+      const result = (await waitForExport(rendering,options.signal)).get();
+      checkExportActive(options.signal);
       if (!result) throw new Error("This song could not be rendered.");
       this.onStatus("Render complete");
-      return result as AudioBuffer;
+      const buffer=result as AudioBuffer;
+      if(!plan?.startFrame)return buffer;
+      const cropped=new AudioBuffer({numberOfChannels:buffer.numberOfChannels,length:buffer.length-plan.startFrame,sampleRate:buffer.sampleRate});
+      for(let channel=0;channel<buffer.numberOfChannels;channel++)cropped.copyToChannel(buffer.getChannelData(channel).subarray(plan.startFrame),channel);
+      return cropped;
     } finally {
       graph.dispose();
       offline.dispose();
