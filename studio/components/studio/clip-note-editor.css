@@ -1,0 +1,49 @@
+.precise-note-editor { display: contents; }
+.precise-note-toolbar, .precise-note-actions, .precise-note-inspector { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 8px; flex-shrink: 0; padding: 4px 10px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.precise-note-toolbar button, .precise-note-actions button, .precise-note-inspector button { padding: 3px 6px; min-height: 24px; font-size: 10px; }
+.precise-note-toolbar label, .precise-note-actions label, .precise-note-inspector label { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--ink-2); }
+.precise-note-toolbar select, .precise-note-actions input, .precise-note-inspector input { min-height: 22px; height: 22px; padding: 1px 4px; font-size: 10px; }
+.precise-note-actions input[type="number"], .precise-note-inspector input[type="number"] { width: 56px; }
+.precise-note-toolbar input[type="checkbox"] { width: auto; accent-color: var(--selection); }
+.precise-note-toolbar input[type="range"] { width: 52px; }
+.precise-note-toolbar input[type="number"] { width: 48px; }
+.precise-note-toolbar { flex-wrap: nowrap; overflow-x: auto; min-height: 28px !important; padding: 2px 8px !important; scrollbar-width: thin; }
+.precise-note-toolbar > * { flex-shrink: 0; }
+.precise-note-actions { flex-wrap: nowrap; height: 27px; min-height: 27px; overflow: auto; scrollbar-width: thin; }
+.precise-note-actions > * { flex-shrink: 0; white-space: nowrap; }
+.precise-note-inspector { max-height: 62px; overflow: auto; }
+.precise-note-inspector { flex-wrap: nowrap; min-height: 28px; height: 28px; padding: 1px 8px; scrollbar-width: thin; }
+.precise-note-inspector > * { flex-shrink: 0; }
+.precise-note-inspector fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.precise-note-inspector .range-field { width: 130px; margin: 0; }
+.precise-note-inspector .range-label { margin: 0; font-size: 10px; }
+.note-transform-proposal { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex-shrink: 0; padding: 5px 10px; background: var(--raised); border-bottom: 1px solid var(--selection); color: var(--ink); font-size: 11px; }
+.note-transform-proposal button { padding: 3px 7px; font-size: 11px; }
+.note-editor-status { flex-shrink: 0; padding: 3px 10px; margin: 0; font-size: 10px; color: var(--ink-2); }
+.clip-editor-grid:has(.precise-note-editor) { overflow-y: auto; overscroll-behavior: contain; }
+.clip-editor-grid:has(.precise-note-editor) .precise-note-scroll { flex: 1 0 90px; }
+.precise-note-scroll { position: relative; min-height: 90px !important; overscroll-behavior: contain; }
+.precise-note-roll { background: var(--panel) !important; background-image: none !important; isolation: isolate; touch-action: none; }
+.note-time-ruler { height: 22px; position: sticky; top: 0; z-index: 9; background: var(--raised); border-bottom: 1px solid var(--border-strong); pointer-events: none; }
+.note-time-ruler > span { position: absolute; top: 4px; font: 9px var(--font-mono); color: var(--ink-2); }
+.note-time-ruler .note-ruler-gutter { position: sticky; left: 0; display: block; width: 44px; height: 20px; padding-left: 4px; background: var(--raised); z-index: 1; }
+.note-grid-lines { position: absolute; background-image: linear-gradient(to right, var(--border-strong) 1px, transparent 1px), linear-gradient(to bottom, var(--border) 1px, transparent 1px); pointer-events: none; }
+.note-pitch-row { position: absolute; height: 18px; pointer-events: none; }
+.note-pitch-row.black-key { background: rgb(0 0 0 / .13); }
+.note-pitch-row.in-scale { background: color-mix(in srgb, var(--selection) 8%, transparent); }
+.note-pitch-row .roll-note-label { position: sticky; left: 0; display: block; width: 44px; height: 18px; padding-left: 4px; margin: 0; background: var(--raised); border-right: 1px solid var(--border-strong); color: var(--ink-2); font: 9px var(--font-mono); line-height: 18px; z-index: 4; }
+.precise-note-roll .roll-note { z-index: 5; cursor: move; }
+.precise-note-roll .roll-note:focus-visible { outline: 2px solid var(--selection); outline-offset: 2px; }
+.note-edge { position: absolute; width: 5px; min-width: 5px; min-height: 6px; margin: 0; padding: 0; transform: translateX(-50%); border: 0; border-radius: 0; background: transparent; z-index: 6; cursor: ew-resize; touch-action: none; }
+.note-edge:hover, .note-edge:focus-visible { width: 8px; background: var(--selection); outline: 1px solid var(--ink); }
+.note-edge-short:hover, .note-edge-short:focus-visible { width: 5px; }
+.note-edge.selected { border-left: 1px solid var(--ink); z-index: 7; }
+.note-insert-cursor { position: absolute; border-left: 1px dashed var(--ink-3); pointer-events: none; z-index: 3; }
+.note-marquee { position: absolute; border: 1px solid var(--selection); background: color-mix(in srgb, var(--selection) 15%, transparent); pointer-events: none; z-index: 8; }
+.note-velocity-scroll { flex-shrink: 0; overflow-x: auto; overflow-y: hidden; height: 40px; scrollbar-width: none; border-top: 1px solid var(--border-strong); overscroll-behavior: contain; }
+.note-velocity-lane { height: 39px; position: relative; background: var(--panel); touch-action: none; }
+.note-velocity-label { position: sticky; left: 0; display: block; width: 44px; height: 39px; padding: 3px 2px; background: var(--raised); color: var(--ink-3); font-size: 8px; z-index: 3; }
+.note-velocity-bar { position: absolute; bottom: 3px; width: 7px; min-width: 7px; min-height: 3px; border: 1px solid var(--track-color, var(--amber)); border-radius: 0; padding: 0; background: var(--track-color, var(--amber)); cursor: ns-resize; touch-action: none; }
+.note-velocity-bar.selected { background: var(--selection); border-color: var(--selection); }
+.note-velocity-bar:focus-visible { outline: 2px solid var(--ink); }
+@media (max-width: 600px) { .precise-note-actions { max-height: 56px; } .precise-note-inspector { max-height: 48px; } .note-velocity-scroll { height: 36px; } .note-velocity-lane { height: 35px; } }

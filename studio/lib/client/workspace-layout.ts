@@ -31,11 +31,11 @@ export function isWorkspaceLayouts(value: unknown): value is WorkspaceLayouts {
 }
 
 /** Requested geometry is never rewritten by temporary viewport constraints. */
-export function effectiveWorkspaceLayout(profile: WorkspaceLayout, width: number, height: number, detailVisible: boolean) {
+export function effectiveWorkspaceLayout(profile: WorkspaceLayout, width: number, height: number, detailVisible: boolean, minimumDetailHeight=220) {
   const available = Math.max(0, height - 72);
   const minimumCanvas = width < 700 ? 160 : 220;
   const browserWidth = profile.browserOpen && width >= 1100 && height >= 520 ? profile.browserWidth : 0;
-  const detailHeight = detailVisible ? Math.max(0, Math.min(Math.max(220, available * (width < 700 ? .6 : profile.detailRatio)), available - minimumCanvas)) : 0;
+  const detailHeight = detailVisible ? Math.max(0, Math.min(Math.max(220, minimumDetailHeight, available * (width < 700 ? .6 : profile.detailRatio)), available - minimumCanvas)) : 0;
   const mixerRoom = available - minimumCanvas - detailHeight - (detailVisible ? 6 : 0);
   const mixerHeight = profile.mixerOpen && mixerRoom >= 180 ? Math.min(available * profile.mixerRatio, mixerRoom) : 0;
   return { browserWidth, detailHeight, mixerHeight, canvasHeight: Math.max(0, available - detailHeight - mixerHeight - (detailVisible ? 6 : 0) - (mixerHeight ? 6 : 0)) };

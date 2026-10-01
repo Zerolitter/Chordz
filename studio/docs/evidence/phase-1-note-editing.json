@@ -1,0 +1,61 @@
+{
+  "date": "2026-10-01",
+  "startingCommit": "42f935e",
+  "noteOperationsCommit": "50b9643",
+  "standards": {
+    "typecheck": "passed",
+    "unitTests": { "passed": 309, "files": 35 },
+    "lintWarnings": 0,
+    "productionBuild": "passed",
+    "buildAdvisory": "Existing large client chunk",
+    "diffCheck": "passed"
+  },
+  "chrome": {
+    "distinctVerifiedScenarios": 179,
+    "coverage": "Aggregate broad and focused runs; not one uninterrupted green suite",
+    "broad": { "passed": 174, "total": 177, "elapsedMinutes": 18.3 },
+    "correctedExisting": { "passed": 2, "total": 2 },
+    "nativePointerRegressions": { "passed": 3, "total": 3, "newScenarios": 2 },
+    "finalAffected": {
+      "passed": 51,
+      "total": 51,
+      "elapsedMinutes": 4.7,
+      "arrangement": 5,
+      "noteEditing": 29,
+      "workspaceLifecycle": 17
+    },
+    "automationRouting": { "passed": 4, "includedInBroadRun": true },
+    "interimRun": "Cancelled for a further pointer correction; excluded from completed evidence"
+  },
+  "viewports": [
+    { "width": 1366, "height": 768 },
+    { "width": 1920, "height": 1080 },
+    { "width": 1024, "height": 768 },
+    { "width": 390, "height": 844 }
+  ],
+  "inspectedNoteScreenshots": 8,
+  "reference": {
+    "tracks": 16,
+    "recordedSeconds": 2.112,
+    "recordedBytes": 1428736,
+    "exportSeconds": 304.8,
+    "sampleRate": 48000,
+    "bitDepth": 24,
+    "channels": 2,
+    "rms": 0.010181965515043944,
+    "peak": 0.1425989866256714,
+    "nonzeroSamples": 29041951,
+    "renderWallSeconds": 61.691
+  },
+  "humanComparison": "Deferred by the user; unperformed",
+  "unverified": [
+    "Physical microphone and MIDI devices or hotplug",
+    "Physical touch",
+    "Human listening and perceptual timing",
+    "Hosted end-to-end behavior",
+    "Reopened WebView2"
+  ],
+  "releaseAuthorization": "User requested committing, merging to GitHub and publishing the existing Site",
+  "releaseVerification": "Separate from local browser evidence",
+  "hardwareOrOperatingSystemPerformanceChanges": false
+}

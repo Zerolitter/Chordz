@@ -38,4 +38,16 @@ describe("workspace focus layouts", () => {
     expect(workspaceLayoutKey("a:b", "song/c")).toBe("chordz-layout-v1:a%3Ab:song%2Fc");
     expect(workspaceLayoutKey("guest", "song")).not.toBe(workspaceLayoutKey("artist", "song"));
   });
+
+  it("fits note controls before an optional mixer and keeps requested geometry intact", () => {
+    const requested = { ...defaultWorkspaceLayouts().mix, detailOpen:true, detailRatio:.2 };
+    const before = {...requested};
+    const desktop = effectiveWorkspaceLayout(requested,1366,650,true,320);
+    expect(desktop.detailHeight).toBeGreaterThanOrEqual(320);
+    expect(desktop.mixerHeight).toBe(0);
+    const narrow = effectiveWorkspaceLayout(requested,390,500,true,320);
+    expect(narrow.browserWidth).toBe(0);
+    expect(narrow.detailHeight).toBeLessThanOrEqual(500-72-160);
+    expect(requested).toEqual(before);
+  });
 });

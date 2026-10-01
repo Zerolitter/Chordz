@@ -29,6 +29,7 @@ import {
 import {
   uid,
   type AssetReference,
+  type AutomationParameter,
   type CloudProject,
   type Clip,
   type NoteEvent,
@@ -110,6 +111,7 @@ function useStudioController(
   const selectionHistory=useRef(new WeakMap<ProjectDocument,string>());
   const [mode, setModeState] = useState<StudioMode>("arrange");
   const [detailTool, setDetailToolState] = useState<DetailTool>("notes");
+  const [automationFocus,setAutomationFocus]=useState<{scope:string;parameter:AutomationParameter}>({scope:"",parameter:"volume"});
   const [songViewport,setSongViewportState]=useState<SongViewport>(()=>defaultStudioView(initialProject).songViewport);
   const songViewportRef=useRef(songViewport);
   const [clipEditorRequest,setClipEditorRequest]=useState(0);
@@ -307,7 +309,7 @@ function useStudioController(
     fieldOwner.current=owner;renderEdit({owner,projectId:committedRef.current.id,label:"Edit",patches:[],invalid:null});return true;
   }
   function ownsEdit(owner:string){return activeEdit.current?.owner===owner;}
-  const stagedOwner = (owner?: string) => !!owner && (owner.startsWith("reference-") || owner.startsWith("reference:") || owner.startsWith("modulation-ab:"));
+  const stagedOwner = (owner?: string) => !!owner && (owner.startsWith("reference-") || owner.startsWith("reference:") || owner.startsWith("modulation-ab:") || owner.startsWith("note-transform:"));
   function ownsGesture(owner:string){
     const gesture=activeGesture.current;
     return gesture?.owner===owner && activeEdit.current?.projectId===gesture.projectId &&
@@ -352,7 +354,7 @@ function useStudioController(
     if(activeGesture.current){if(owner===activeGesture.current.owner)return finishGesture(owner);if(!finishGesture())return false;}
     if(owner&&!ownsEdit(owner))return true;
     const tx=activeEdit.current;if(!tx)return true;
-    if(tx.owner&&(tx.owner.startsWith("reference-")||tx.owner.startsWith("reference:")||tx.owner.startsWith("modulation-ab:"))&&owner!==tx.owner){cancelEdit();return true;}
+    if(stagedOwner(tx.owner)&&owner!==tx.owner){cancelEdit();return true;}
     if(tx.invalid){setError(tx.invalid);return false;}
     const result=commitTransaction(committedRef.current,tx);
     if(!result.ok){renderEdit(null);fieldOwner.current="";setEditConflict(tx);setError(result.error);return false;}
@@ -377,6 +379,17 @@ function useStudioController(
     if(value!==detailTool)terminateDetailInputs();
     if(!finishEdit())return false;
     cancelPreview();setDetailToolState(value);return true;
+  }
+  function setAutomationLane(parameter:AutomationParameter){
+    if(!finishEdit())return false;
+    setAutomationFocus({scope:JSON.stringify([ownerRef.current,committedRef.current.id]),parameter});return true;
+  }
+  function openAutomation(parameter:AutomationParameter,trackId=selectedTrackRef.current?.id){
+    if(!trackId||!committedRef.current.tracks.some(track=>track.id===trackId))return false;
+    if(trackId!==selectedTrackRef.current?.id&&!selectTrack(trackId))return false;
+    if(!setDetailTool("automation"))return false;
+    setAutomationFocus({scope:JSON.stringify([ownerRef.current,committedRef.current.id]),parameter});
+    setClipEditorRequest(request=>request+1);return true;
   }
   function setSelectedSectionId(value:string){
     cancelLibraryOperationRef.current();
@@ -544,7 +557,7 @@ function useStudioController(
       viewScopeRef.current=null;setViewRestoreRequest(request=>request+1);
       clipsByTrack.current.clear();setModeState("arrange");setDetailToolState("notes");
     }
-    libraryRevisions.reset();committedRef.current=document;setSelectedChordId(chordId);
+    libraryRevisions.reset();committedRef.current=document;setSelectedChordId(chordId);setAutomationFocus({scope:"",parameter:"volume"});
     pendingPreview.current=null;++audioIntent.current; heldInputs.current.clear(); controlTargets.current.clear(); controllerStates.current.clear(); syncHeld();
     movement.current?.clear();cancelMidiLearn();runtimeMacrosRef.current={};setRuntimeMacros({});engineRef.current?.stop();
     projectRef.current = document;
@@ -671,7 +684,8 @@ function useStudioController(
           owner,
           document:
             projectRef.current.id === snapshot.id
-              ? projectRef.current
+              ? (stagedOwner(activeEdit.current?.owner) || activeEdit.current?.owner?.startsWith("note-gesture:")
+                ? committedRef.current : projectRef.current)
               : snapshot,
           revision: result.revision,
           savedFingerprint: fingerprint,
@@ -772,7 +786,8 @@ function useStudioController(
   }, [owner, user]);
   useEffect(() => {
     if (!hydrated) return;
-    const audition=transaction?.owner?.startsWith("reference-")||transaction?.owner?.startsWith("reference:")||transaction?.owner?.startsWith("modulation-ab:");
+    // Unfinished note input and explicit proposals must not become recovered music.
+    const audition=transaction?.owner?.startsWith("reference-")||transaction?.owner?.startsWith("reference:")||transaction?.owner?.startsWith("modulation-ab:")||transaction?.owner?.startsWith("note-transform:")||transaction?.owner?.startsWith("note-gesture:");
     const draftDocument=audition?history.present:project;
     const timer = setTimeout(() => {
       if (takeSession.current?.phase === "finalizing" || !projectSchema.safeParse(draftDocument).success) return;
@@ -1519,6 +1534,8 @@ function useStudioController(
   useLayoutEffect(()=>{cancelLibraryOperationRef.current=library.cancelLibraryOperation;cancelLibraryPreviewRef.current=library.cancelLibraryPreview;},[library]);
   return {
     ...library,
+    automationLane:automationFocus.scope===JSON.stringify([owner,project.id])?automationFocus.parameter:"volume" as AutomationParameter,
+    setAutomationLane,openAutomation,
     user,
     owner,
     signIn,

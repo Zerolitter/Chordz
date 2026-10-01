@@ -6,6 +6,8 @@ import { KnobHeadless, type KnobHeadlessHandle } from "./knob-headless";
 import { useStudio } from "./use-studio";
 import "./daw-knob.css";
 import { useToolInputTermination, useToolVisibility } from "./tool-visibility";
+import {ControlAutomation} from "./control-automation";
+import type {AutomationParameter} from "../../lib/music/types";
 
 export interface DawKnobProps {
   label: string; displayLabel?: string; value: number; min?: number; max?: number; step?: number;
@@ -13,6 +15,7 @@ export interface DawKnobProps {
   disabled?: boolean; size?: "normal" | "small"; stageOwner?: string; performance?: boolean;
   effectiveValue?: number; modulationRange?: readonly [number, number]; modulationTarget?: ModTarget; modulationTargets?: readonly ModTarget[];
   trackId?: string; onModulationDrop?: (sourceId: string, target: ModTarget) => void;
+  automationParameter?:AutomationParameter;
   onChange: (value: number) => void;
 }
 const SOURCE_MIME = "application/x-chordz-mod-source", TRACK_MIME = "application/x-chordz-track-id";
@@ -20,7 +23,7 @@ type Gesture = { kind: "pointer" | "keyboard" | "numeric" | "reset"; start: numb
 
 export function DawKnob({ label, displayLabel, value, min = 0, max = 1, step = .01, defaultValue,
   unit = "", format, log = false, disabled: disabledProp = false, size = "normal", stageOwner, performance = false,
-  effectiveValue, modulationRange, modulationTarget, modulationTargets, trackId, onModulationDrop, onChange }: DawKnobProps) {
+  effectiveValue, modulationRange, modulationTarget, modulationTargets, trackId, onModulationDrop, automationParameter, onChange }: DawKnobProps) {
   const s = useStudio(), owner = "knob:" + useId(), labelId = useId(), helpId = useId(), inputId = useId();
   const active = useToolVisibility();
   const disabled = !active || disabledProp || (performance ? !["idle","count-in","capturing"].includes(s.recordingPhase) : s.recordingPhase !== "idle");
@@ -29,6 +32,7 @@ export function DawKnob({ label, displayLabel, value, min = 0, max = 1, step = .
   const [raw, setRaw] = useState<string | null>(null), [invalid, setInvalid] = useState(false), [dragOver, setDragOver] = useState(false);
   const [pendingDrop, setPendingDrop] = useState<{ sourceId: string; origin: string } | null>(null);
   const targets = [...new Set(modulationTargets ?? (modulationTarget ? [modulationTarget] : []))];
+  const automation=automationParameter??({"track.pan":"pan","track.cutoff":"cutoff","track.reverb":"reverb","track.delay":"delay","track.gain":"volume"} as Partial<Record<ModTarget,AutomationParameter>>)[targets[0]];
   const display = (n: number) => (format ? format(n) : (min < 0 && n > 0 ? "+" : "") + (Number.isInteger(step) ? Math.round(n).toString() : Number(n.toPrecision(4)).toString())) + unit;
   function stopGesture(restorePerformance = true) {
     const current = gesture.current;
@@ -179,6 +183,7 @@ export function DawKnob({ label, displayLabel, value, min = 0, max = 1, step = .
     {format && <output className="daw-knob-display" aria-hidden="true">{display(value)}</output>}
     {effectiveValue !== undefined && effective !== p && <span className="daw-knob-effective">Now {display(effectiveValue)}</span>}
     {modulationRange && effectiveValue === undefined && <span className="daw-knob-effective">{targets.every(target => target.startsWith("voice.")) ? "Awaiting voice" : "Awaiting audio"}</span>}
+    {automation&&<ControlAutomation parameter={automation} label={label} trackId={trackId} disabled={!!stageOwner}/>}
     <span id={helpId} className="sr-only">Drag up or down. Hold Shift for fine control. Arrow keys adjust; Home and End set limits. Enter a number below. Escape cancels.{modulationRange ? ` Modulation range ${display(modulationRange[0])} to ${display(modulationRange[1])}.` : ""}{targets.length ? " Drop a modulation source to assign it." : ""}</span>
     {invalid && <span role="alert" className="daw-knob-error">{min}–{max} required</span>}
     {pendingDrop && <div className="daw-knob-destinations" role="group" aria-label={`Modulation destination for ${label}`}>

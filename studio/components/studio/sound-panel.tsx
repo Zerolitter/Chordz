@@ -216,7 +216,7 @@ function InstrumentSoundBody({ onOpenMovement }: { onOpenMovement?: () => void }
           }
           {instrument.kind!=="drums"&&<Range
             variant="knob" performance defaultValue={0}
-            label="Pitch bend"
+            label="Pitch bend" automationParameter="pitchBend"
             min={-1}
             max={1}
             value={bend}
@@ -228,7 +228,7 @@ function InstrumentSoundBody({ onOpenMovement }: { onOpenMovement?: () => void }
           }
           <Range
             variant="knob" performance defaultValue={1}
-            label="Expression"
+            label="Expression" automationParameter="expression"
             value={expression}
             onChange={(v) => {
               setExpression(v);
@@ -337,7 +337,7 @@ function InstrumentSoundBody({ onOpenMovement }: { onOpenMovement?: () => void }
           />
           <Range
             variant="knob" performance defaultValue={0}
-            label="Modulation"
+            label="Modulation" automationParameter="modulation"
             value={modulation}
             onChange={(v) => {
               setModulation(v);

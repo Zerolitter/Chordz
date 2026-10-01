@@ -156,7 +156,7 @@ Reply with the table or a short account of both runs. Prototype approval alone i
 
 ## Phase 0B follow-on: discovery and reusable library
 
-**Not implemented in 0A; now authorized and in progress.** The user explicitly authorized starting 0B while deferring the observed comparison. Use the agreed scope rather than treating the roadmap's original Phase 2 timing as the current schedule.
+**Delivered after 0A:** discovery and reusable content are implemented and technically verified in the [0B receipt](phase-0b-library.md). The user explicitly authorized starting 0B while deferring the observed comparison. Use the agreed scope rather than treating the roadmap's original Phase 2 timing as the current schedule.
 
 - One searchable browser for existing sounds and ideas, with categories, favorites and recents. Reusable user-saved phrases and sound patches work across songs. Show destination and musical range alongside applicable Preview, Insert and Replace actions; retain keyboard actions and the alternative-track path for overlap.
 - The library is device-local and owner-scoped, with downloadable backup and validated import. It includes MIDI/drum phrases and audio phrases. Audio supports **Insert only**; audio Replace remains excluded.
@@ -178,6 +178,8 @@ The final user-approved contracts further require:
 - Stage destination-owned asset copies atomically and exclude them from upload until commit succeeds. Library deletion waits for active jobs and removes only library blobs. Committed destination copies survive source deletion, Undo/Redo and recovery. Failed jobs clean only their unused operation-owned copies. Add no general project-audio garbage collector in 0B. Validate bounded manifests and exact blobs before atomic import as fresh copies, preserving project backups and legacy patch formats.
 
 ## Later roadmap work
+
+The user's next request to continue the roadmap starts [Phase 1 precise editing](phase-1-note-editing.md) from the delivered 0A/0B source. Preserve the completed work and the deferred human comparison.
 
 After 0A and 0B, keep precise note editing, note-edge resizing, multi-note/group operations, velocity/scale tools, direct automation and task help as distinct later increments. Real-device recording readiness, take comparison, export scope and listening validation follow the existing recording/export workflow. Warping, comping, bounce, launchers, deeper routing, MPE/tuning and new effects require their own task evidence, timing/ownership contracts and any explicit migration work.
 

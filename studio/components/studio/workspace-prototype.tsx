@@ -58,7 +58,10 @@ export function WorkspacePrototype() {
   const profile = layout.layouts[s.mode];
   const hasTool = s.detailTool !== "notes" || !!s.selectedClip;
   const detailRequested = profile.detailOpen && hasTool;
-  const geometry = effectiveWorkspaceLayout({...profile,detailRatio:maximized ? .7 : profile.detailRatio}, size.width, size.height, detailRequested);
+  // Precise note controls need room for the grid, velocities and selected-note values.
+  // This is an effective clamp; the user's requested ratio stays in the layout record.
+  const minimumDetailHeight=s.detailTool==="notes"&&s.selectedClip&&!s.selectedClip.audio?320:220;
+  const geometry = effectiveWorkspaceLayout({...profile,detailRatio:maximized ? .7 : profile.detailRatio}, size.width, size.height, detailRequested,minimumDetailHeight);
   const detailVisible = detailRequested && geometry.detailHeight > 0;
   const assetsVisible = !!geometry.browserWidth || assetsOverlay;
   const lastVisibility = useRef({detail:false,mixer:false});
@@ -100,7 +103,7 @@ export function WorkspacePrototype() {
   function settleLayoutEdit() {
     if (!s.finishGesture()) return false;
     if(s.transaction?.invalid) return s.finishEdit(s.transaction.owner);
-    const staged = /^(reference[-:]|modulation-ab:)/.test(s.transaction?.owner ?? "");
+    const staged = /^(reference[-:]|modulation-ab:|note-transform:)/.test(s.transaction?.owner ?? "");
     return staged || s.finishEdit();
   }
   const primary:DetailTool[] = ["notes","sound"];

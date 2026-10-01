@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, type CSSProperties, type PointerEvent } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { Trash2 } from "lucide-react";
 import { DraftInput } from "./draft-field";
 import { IconButton } from "./primitives";
@@ -11,6 +11,7 @@ import { clamp, type AutomationParameter } from "../../lib/music/types";
 import { MAX_TICK, automationBounds, automationPointAt, clampAutomationTick, moveAutomationPoint, putAutomationPoint, type AutomationPoint } from "../../lib/music/arrangement";
 import {inactiveAutomationBindings} from "../../lib/music/automation-bindings";
 import {instrumentFor} from "../../lib/audio/catalog";
+import {useToolInputTermination,useToolVisibility} from "./tool-visibility";
 
 type PointGesture = {
   points: AutomationPoint[]; sourceTick: number | null; current: AutomationPoint;
@@ -18,17 +19,35 @@ type PointGesture = {
 };
 
 export function AutomationEditor({ grid }: { grid: number }) {
-  const s = useStudio(), transport = useTransport(), track = s.selectedTrack;
-  const [lane, setLane] = useState<AutomationParameter>("volume");
+  const s = useStudio(), active=useToolVisibility(), transport = useTransport(active), track = s.selectedTrack;
+  const lane=s.automationLane;
   const [selection, setSelection] = useState<{ context: string; tick: number } | null>(null);
   const [fieldKeys, setFieldKeys] = useState<Record<string, string>>({});
   const end = Math.min(projectEnd(s.project), MAX_TICK), bar = ticksPerBar(s.project), [min, max] = automationBounds[lane];
-  const context = `${s.project.id}:${track?.id}:${lane}`;
-  const rawPoints = track?.automation.find(a => a.parameter === lane)?.points;
+  const context = JSON.stringify([s.owner,s.project.id,track?.id,lane]);
+  const rawPoints = active?track?.automation.find(a => a.parameter === lane)?.points:undefined;
   const points = useMemo(() => [...new Map((rawPoints ?? []).map(p => [p.tick, p])).values()]
     .sort((a, b) => a.tick - b.tick), [rawPoints]);
   const selectedTick = selection?.context === context ? selection.tick : null;
   const gesture = useArrangementGesture<PointGesture>("automation:" + context);
+  const captured = useRef<{target:SVGSVGElement;pointerId:number}|null>(null);
+  function releaseCapture(){
+    const input=captured.current;captured.current=null;
+    if(input?.target.hasPointerCapture(input.pointerId))input.target.releasePointerCapture(input.pointerId);
+  }
+  function finishInput(){
+    // A later field can own the draft. Closing must never settle that other field.
+    if(gesture.owns())gesture.finish();else gesture.cancel();
+    releaseCapture();
+  }
+  useToolInputTermination(finishInput);
+  const reconcileInput=useEffectEvent(()=>{if(!active||!gesture.owns()){gesture.cancel();releaseCapture();}});
+  useLayoutEffect(()=>{reconcileInput();},[active,context,s.transaction]);
+  const cancelInput=useEffectEvent(()=>{gesture.cancel();releaseCapture();});
+  useEffect(()=>{
+    const blur=()=>cancelInput();window.addEventListener("blur",blur);
+    return()=>{window.removeEventListener("blur",blur);cancelInput();};
+  },[]);
   const identities = useMemo(() => {
     const result = new Map<number, string>(), used = new Set<string>();
     // Prioritise the moved field's identity; Undo can restore its old time.
@@ -70,7 +89,7 @@ export function AutomationEditor({ grid }: { grid: number }) {
       ((event.clientY - rect.top) / rect.height * 70 - 5) / 60, songEnd, grid, lane);
   }
   function begin(event: PointerEvent<SVGSVGElement>) {
-    if (event.button !== 0 || !track || s.recording || gesture.active.current) return;
+    if (!active || event.button !== 0 || !track || s.recording || gesture.active.current) return;
     event.preventDefault();
     const rect = event.currentTarget.getBoundingClientRect();
     const source = (event.target as Element).closest("[data-automation-tick]")?.getAttribute("data-automation-tick");
@@ -78,6 +97,7 @@ export function AutomationEditor({ grid }: { grid: number }) {
     const point = sourceTick === null ? at(event, rect, end) : points.find(p => p.tick === sourceTick)!;
     if (!gesture.begin({ points, sourceTick, current: point, rect, end, x: event.clientX, y: event.clientY, pointerId: event.pointerId })) return;
     event.currentTarget.setPointerCapture(event.pointerId);
+    captured.current={target:event.currentTarget,pointerId:event.pointerId};
     select(point.tick);
     if (sourceTick === null) updatePoints(putAutomationPoint(points, point, lane, end));
   }
@@ -94,6 +114,7 @@ export function AutomationEditor({ grid }: { grid: number }) {
   function cancel() {
     const original = gesture.active.current?.sourceTick;
     gesture.cancel();
+    releaseCapture();
     if (original !== null && original !== undefined) select(original);
     else setSelection(null);
   }
@@ -102,12 +123,14 @@ export function AutomationEditor({ grid }: { grid: number }) {
     {track&&inactiveAutomationBindings(track,instrumentFor(s.project,track)).map(binding=><p className="helper" role="status" key={binding.target}>Inactive {binding.target}: {binding.reason}. Automation data is retained.</p>)}
     <div className="subheading">
       <h3>{track?.name ?? "Track"} automation</h3>
-      <select aria-label="Automation parameter" value={lane} onChange={e => { if (s.finishEdit()) setLane(e.target.value as AutomationParameter); }}>
+      <select aria-label="Automation parameter" value={lane} onChange={e => s.setAutomationLane(e.target.value as AutomationParameter)}>
         {Object.keys(automationBounds).map(parameter => <option key={parameter} value={parameter}>{parameter}</option>)}
       </select>
       <button className="text-button" disabled={!track || !!s.recording} onClick={() => {
         if (!track || !s.finishEdit()) return;
-        const value = lane === "volume" ? track.volume : lane === "cutoff" ? track.sound.cutoff : lane === "expression" ? 1 : 0;
+        const value = lane === "cutoff" ? track.sound.cutoff : lane === "expression" ? 1 :
+          /^M[1-4]$/.test(lane)?track.modulation?.macros[Number(lane[1])-1]??0:
+          lane === "volume" || lane === "pan" || lane === "reverb" || lane === "delay" ? track[lane] : 0;
         const point = { tick: clampAutomationTick(transport.tick, end), value: clamp(value, min, max) };
         updatePoints(putAutomationPoint(points, point, lane, end)); select(point.tick);
       }}>+ Point at playhead</button>
@@ -115,9 +138,9 @@ export function AutomationEditor({ grid }: { grid: number }) {
         onClick={() => { if (selectedTick !== null) remove(selectedTick); }}><Trash2 size={14} /></IconButton>
     </div>
     <svg className="automation-graph" viewBox="0 0 800 70" preserveAspectRatio="none" aria-label={lane + " automation curve"}
-      onPointerDown={begin} onPointerMove={move} onPointerUp={e => { if (gesture.active.current?.pointerId === e.pointerId) { move(e); gesture.finish(); } }}
+      onPointerDown={begin} onPointerMove={move} onPointerUp={e => { if (gesture.active.current?.pointerId === e.pointerId) { move(e); finishInput(); } }}
       onPointerCancel={e => { if (gesture.active.current?.pointerId === e.pointerId) cancel(); }}
-      onLostPointerCapture={() => { if (gesture.active.current) cancel(); }}>
+      onLostPointerCapture={e => { if (gesture.active.current?.pointerId===e.pointerId) cancel(); }}>
       <polyline points={points.map(p => `${p.tick / end * 800},${y(p.value)}`).join(" ")} />
       {points.map((point, i) => <circle key={point.tick} className={"automation-point" + (point.tick === selectedTick ? " selected" : "")}
         data-automation-tick={point.tick} cx={point.tick / end * 800} cy={y(point.value)} r={point.tick === selectedTick ? 5 : 4}

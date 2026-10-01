@@ -7,6 +7,7 @@ import { trackDisplayColor } from "../../lib/client/appearance";
 import { useKnobModulation } from "./use-knob-modulation";
 import "./mixer-panel.css";
 import { ToolVisibilityProvider } from "./tool-visibility";
+import {ControlAutomation} from "./control-automation";
 
 export function MixerPanel({ active }: { active?: boolean } = {}) {
   const s = useStudio();
@@ -111,6 +112,7 @@ export function MixerPanel({ active }: { active?: boolean } = {}) {
                 />
               </div>
               <output className="mono">{track.volume.toFixed(1)} dB</output>
+              <ControlAutomation parameter="volume" label={track.name+" volume"} trackId={track.id}/>
               <Range
                 variant="knob" size="small" defaultValue={0}
                 trackId={track.id} modulationTarget="track.reverb" effectiveValue={effective(track,"track.reverb")}

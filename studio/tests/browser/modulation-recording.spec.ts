@@ -5,6 +5,9 @@ test("live movement records emitted notes once and keeps four independent macros
   await expect(page.getByLabel("Song title")).toBeEnabled();
   await page.getByRole("button", { name: "Songs", exact: true }).click();
   await page.getByRole("button", { name: "Blank song", exact: true }).click();
+  // Test movement and macro capture independently of downloading the acoustic catalog.
+  await page.getByRole("button", { name: "Glass FM Synthesizers", exact: true }).click();
+  await page.getByRole("button", { name: "Use on selected track", exact: true }).click();
   await page.getByRole("navigation").getByRole("button", { name: "03 Sound" }).click();
   const rack = page.getByRole("region", { name: "Selected track modulation rack" });
   await page.getByLabel("Other detail tools").selectOption("movement");

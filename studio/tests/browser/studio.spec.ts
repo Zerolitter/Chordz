@@ -40,7 +40,9 @@ test("writing, arrangement, keyboard, undo, mixer and responsive layout", async 
   await page.getByLabel("Duplicate selected clip").click();
   await expect(page.locator(".timeline-clip")).toHaveCount(2);
   await expect(page.getByRole("button", { name: "Drum steps", exact: true })).toBeDisabled();
+  await page.getByLabel("Note transform scope",{exact:true}).selectOption("phrase");
   await page.getByRole("button",{name:"Quantize",exact:true}).click();
+  await page.getByRole("button",{name:"Apply note transform",exact:true}).click();
   await page.locator(".clip-editor-metadata > summary").click();
   await page.getByLabel("Clip transpose").fill("2");
   await page

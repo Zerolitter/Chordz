@@ -8,12 +8,15 @@ import { clamp, PPQ } from "../../lib/music/types";
 import { ticksPerBar, tickToSeconds } from "../../lib/music/project";
 import { duplicateClip, splitClip } from "../../lib/music/edit";
 import { ClipNoteEditor } from "./clip-note-editor";
+import { noteEditorContext, useNoteEditorSession } from "./use-note-editor-session";
 import { ToolVisibilityProvider, useToolVisibility } from "./tool-visibility";
 
 export function ClipEditor({ grid, setGrid, swing, setSwing, embedded = false, active = true }: { grid: number; setGrid: (value: number) => void; swing: number; setSwing: (value: number) => void; embedded?: boolean; active?: boolean }) {
   const parentActive = useToolVisibility(), visible = active && parentActive;
   const s = useStudio(), transport = useTransport(visible);
   const clip = s.selectedClip, track = s.selectedTrack, bar = ticksPerBar(s.project);
+  const ownerId = s.user?.userId ?? "guest";
+  const noteSession = useNoteEditorSession(ownerId, noteEditorContext(ownerId, s.project.id, track?.id, clip?.id));
   const [eventType, setEventType] = useState<"sustain" | "pitchBend" | "modulation" | "expression">("expression");
   useEffect(() => {
     if (visible && clip?.audio) void s.hydrateWaveform(clip.audio.assetId);
@@ -258,7 +261,7 @@ export function ClipEditor({ grid, setGrid, swing, setSwing, embedded = false, a
             </div>
           ) : (
             <div className="clip-editor-grid">
-              <ClipNoteEditor grid={grid} setGrid={setGrid} swing={swing} setSwing={setSwing} />
+              <ClipNoteEditor noteSession={noteSession} grid={grid} setGrid={setGrid} swing={swing} setSwing={setSwing} />
             </div>
           )}
           <details className="performance-events advanced-inspector">
