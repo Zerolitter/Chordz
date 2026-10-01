@@ -10,6 +10,7 @@ import { duplicateClip, splitClip } from "../../lib/music/edit";
 import { ClipNoteEditor } from "./clip-note-editor";
 import { noteEditorContext, useNoteEditorSession } from "./use-note-editor-session";
 import { ToolVisibilityProvider, useToolVisibility } from "./tool-visibility";
+import { AudioTakeReview } from "./audio-take-review";
 
 export function ClipEditor({ grid, setGrid, swing, setSwing, embedded = false, active = true }: { grid: number; setGrid: (value: number) => void; swing: number; setSwing: (value: number) => void; embedded?: boolean; active?: boolean }) {
   const parentActive = useToolVisibility(), visible = active && parentActive;
@@ -200,6 +201,7 @@ export function ClipEditor({ grid, setGrid, swing, setSwing, embedded = false, a
           </div>
           {clip.audio ? (
             <div className="audio-editor">
+              <AudioTakeReview active={visible} />
               <h3>Audio region</h3>
               <p className="helper">
                 Trim with the source offset and clip length. Move the start to

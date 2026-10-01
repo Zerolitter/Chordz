@@ -1,0 +1,13 @@
+.recording-setup { position: relative; flex: 0 1 180px; min-width: 100px; }
+.recording-setup > summary { display: flex; flex-direction: column; justify-content: center; min-height: 44px; cursor: pointer; font-size: 12px; gap: 2px; }
+.recording-setup > summary .tiny { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px; }
+.recording-setup-body { position: fixed; top: var(--record-setup-top, 145px); left: var(--record-setup-left, 12px); z-index: 30; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; width: min(640px, calc(100vw - 24px)); max-height: min(320px, 55vh); overflow: auto; padding: 14px; border: 1px solid var(--line); background: var(--panel, #292929); border-radius: 4px; }
+.recording-setup-body label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; flex: 1 1 140px; min-width: 0; }
+.recording-setup-body label.checkbox-label { flex-direction: row; align-items: center; min-height: 44px; }
+.recording-setup-body select { min-height: 36px; width: 100%; font-size: 12px; }
+.recording-setup-body button { min-height: 44px; }
+.recording-setup-body .level-meter { width: 90px; }
+.recording-readiness { flex-basis: 100%; font-size: 12px; color: var(--soft); }
+.device-draft-status { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 11px; color: var(--soft); }
+.device-draft-status .text-button { min-height: 24px; padding: 0 4px; }
+@media (max-width: 700px) { .recording-setup { flex-basis: 110px; } }

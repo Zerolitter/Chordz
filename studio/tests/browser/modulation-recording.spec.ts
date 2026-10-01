@@ -48,6 +48,8 @@ test("live movement records emitted notes once and keeps four independent macros
     expect.objectContaining({ type: "macro", macroId: "M2", value: .28 }),
   ]));
   expect(saved.patch.macros.slice(0, 2)).toEqual([.73, .28]);
+  // Finish now opens the captured take for review; return to Sound to set the next macro.
+  await page.getByRole("tab", { name: "Sound", exact: true }).click();
   await rack.getByLabel("M1 amount value", { exact: true }).fill("0.12");
   await rack.getByLabel("M1 amount value", { exact: true }).blur();
   await page.getByLabel("Start recording", { exact: true }).click();
@@ -63,6 +65,7 @@ test("live movement records emitted notes once and keeps four independent macros
   expect(secondEvents).toEqual(expect.arrayContaining([expect.objectContaining({ type: "macro", macroId: "M1", tick: 0, value: .12 })]));
   await page.reload();
   await expect(page.getByLabel("Song title")).toBeEnabled();
+  await page.getByRole("tab", { name: "Sound", exact: true }).click();
   await expect(rack.getByLabel("M1 amount value", { exact: true })).toHaveValue("0.12");
   await expect(rack.getByLabel("M2 amount value", { exact: true })).toHaveValue("0.28");
   await page.getByLabel("Stop song", { exact: true }).click();
@@ -93,7 +96,9 @@ test("releasing live input removes queued arpeggio notes from the recorded take"
   await expect(page.locator(".transport-position")).toContainText("Recording ·");
   await page.locator("main.studio-shell").evaluate(element => { element.tabIndex = -1; element.focus(); });
   await page.keyboard.down("a");
-  await page.waitForTimeout(40);
+  // Cross at least one 240-tick step (125 ms at 120 BPM) regardless of song-grid phase.
+  // The assertions still use the measured hold window and bound every released note.
+  await page.waitForTimeout(180);
   await page.keyboard.up("a");
   await page.waitForTimeout(400);
   await page.getByLabel("Finish recording", { exact: true }).click();
