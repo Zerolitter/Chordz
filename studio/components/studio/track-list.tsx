@@ -4,7 +4,6 @@ import {
   Headphones,
   Music2,
   Plus,
-  AudioLines,
   ChevronDown,
   Trash2,
 } from "lucide-react";
@@ -17,7 +16,7 @@ import {
 } from "../../lib/audio/catalog";
 import {SoundReadiness} from "./sound-readiness";
 import { IconButton, Modal } from "./primitives";
-import { trackDisplayColor } from "../../lib/client/appearance";
+import { TrackHeader } from "./track-header";
 
 export function TrackList({ onNavigate }: { onNavigate?: () => void } = {}) {
   const s = useStudio();
@@ -65,62 +64,7 @@ export function TrackList({ onNavigate }: { onNavigate?: () => void } = {}) {
         </IconButton>
       </div>
       <div className="track-rows">
-        {s.project.tracks.map((track, index) => (
-          <div
-            key={track.id}
-            className={
-              "track-row " + (track.id === s.selectedTrackId ? "selected" : "")
-            }
-            style={{ "--track-color": trackDisplayColor(s.project, track) } as React.CSSProperties}
-          >
-            <button
-              className="track-select"
-              onClick={() => { s.selectTrack(track.id); onNavigate?.(); }}
-              aria-label={"Select " + track.name}
-            >
-              <span className="track-number mono">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <span className="track-icon">
-                {track.kind === "audio" ? (
-                  <AudioLines size={18} />
-                ) : (
-                  <Music2 size={18} />
-                )}
-              </span>
-              <span className="track-text">
-                <strong>{track.name}</strong>
-                <small className={track.mute ? "muted-state" : track.solo ? "solo-state" : ""}>
-                  {track.mute ? "Muted" : track.solo ? "Soloed" : track.kind === "audio"
-                    ? "Audio take"
-                    : instrumentFor(s.project, track).family}
-                </small>
-              </span>
-            </button>
-            <div className="track-switches">
-              <button
-                aria-label={"Mute " + track.name}
-                aria-pressed={track.mute}
-                className={track.mute ? "on" : ""}
-                onClick={() =>
-                  s.updateTrack(track.id, { mute: !track.mute }, "Mute track")
-                }
-              >
-                M
-              </button>
-              <button
-                aria-label={"Solo " + track.name}
-                aria-pressed={track.solo}
-                className={track.solo ? "on" : ""}
-                onClick={() =>
-                  s.updateTrack(track.id, { solo: !track.solo }, "Solo track")
-                }
-              >
-                S
-              </button>
-            </div>
-          </div>
-        ))}
+        {s.project.tracks.map((track, index) => <TrackHeader key={track.id} track={track} index={index} onNavigate={onNavigate} />)}
       </div>
       {selected && (
         <div className="selected-instrument">

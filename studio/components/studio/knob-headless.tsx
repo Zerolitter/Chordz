@@ -23,18 +23,21 @@ export const KnobHeadless = forwardRef<KnobHeadlessHandle, KnobHeadlessProps>(fu
   onPointerDown, onPointerCancel, onLostPointerCapture, ...props
 }, ref) {
   const active = useRef(false), raw = useRef(valueRaw), stop = useRef<(() => void) | null>(null);
+  const captured = useRef<{ id: number; element: HTMLDivElement } | null>(null);
   const cancel = () => {
-    if (!active.current) return;
+    const wasActive = active.current;
     active.current = false;
     stop.current?.();
     stop.current = null;
-    onGestureEnd(true);
+    const pointer = captured.current; captured.current = null;
+    if (pointer?.element.hasPointerCapture(pointer.id)) pointer.element.releasePointerCapture(pointer.id);
+    if (wasActive) onGestureEnd(true);
   };
   useImperativeHandle(ref, () => ({ cancel }));
   const bind = useDrag(state => {
     if (state.canceled || state.event.type === "pointercancel") { cancel(); return; }
     if (state.first) {
-      if (disabled || !onGestureStart()) { state.cancel(); return; }
+      if (disabled || !onGestureStart()) { state.cancel(); cancel(); return; }
       active.current = true;
       raw.current = valueRaw;
       stop.current = state.cancel;
@@ -46,14 +49,14 @@ export const KnobHeadless = forwardRef<KnobHeadlessHandle, KnobHeadlessProps>(fu
       raw.current = knobFromUnit(knobToUnit(raw.current, valueMin, valueMax, log) + delta, valueMin, valueMax, log);
       onValueRawChange(raw.current);
     }
-    if (state.last) { active.current = false; stop.current = null; onGestureEnd(false); }
+    if (state.last) { active.current = false; stop.current = null; captured.current = null; onGestureEnd(false); }
   }, { enabled: !disabled, pointer: { keys: false, capture: true }, filterTaps: false });
   const drag = bind();
   return <div {...props} {...drag} role="slider" tabIndex={disabled ? -1 : 0}
     aria-disabled={disabled || undefined} aria-valuemin={valueMin} aria-valuemax={valueMax}
     aria-valuenow={valueRaw} aria-valuetext={valueRawDisplayFn(valueRaw)} aria-orientation="vertical"
     style={{ ...style, touchAction: "none" }}
-    onPointerDown={event => { if (!disabled) event.currentTarget.focus(); drag.onPointerDown?.(event); onPointerDown?.(event); }}
+    onPointerDown={event => { if (!disabled) { captured.current = { id: event.pointerId, element: event.currentTarget }; event.currentTarget.focus(); } drag.onPointerDown?.(event); onPointerDown?.(event); }}
     onPointerCancel={event => { cancel(); drag.onPointerCancel?.(event); onPointerCancel?.(event); }}
     onLostPointerCapture={event => { cancel(); onLostPointerCapture?.(event); }}>
     {children}

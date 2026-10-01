@@ -19,7 +19,7 @@ async function openRouteSettings(rack: Locator) {
 
 async function savedRoutes(page: Page) {
   return page.evaluate(() => new Promise<{ count: number; amount?: number } | null>(resolve => {
-    const opened = indexedDB.open("chordz-recovery-v1", 1);
+    const opened = indexedDB.open("chordz-recovery-v1");
     opened.onerror = () => resolve(null);
     opened.onsuccess = () => {
       const db = opened.result;
@@ -151,19 +151,20 @@ test("pointer cancellation restores a macro and dock arpeggiator controls share 
   await blankSound(page);
   const rack = page.getByRole("region", { name: "Selected track modulation rack" });
   const macro = rack.getByRole("slider", { name: "M1 amount", exact: true });
+  await macro.scrollIntoViewIfNeeded();
   const box = (await macro.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down(); await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 40);
   await expect(rack.getByLabel("M1 amount value", { exact: true })).not.toHaveValue("0");
   await macro.dispatchEvent("pointercancel", { pointerId: 1 }); await page.mouse.up();
   await expect(rack.getByLabel("M1 amount value", { exact: true })).toHaveValue("0");
-  await page.getByRole("button", { name: "Performance dock", exact: true }).click();
+  await page.getByLabel("Other detail tools").selectOption("keyboard");
   await page.getByLabel("Performance live arpeggiator", { exact: true }).check();
   await page.getByLabel("Performance arpeggiator hold", { exact: true }).check();
-  await rack.getByText("Live & generated chord movement", { exact: true }).click();
+  await page.getByRole("button", { name: "Edit movement", exact: true }).click();
   await expect(rack.getByLabel("Live arpeggiator", { exact: true })).toBeChecked();
   await expect(rack.getByLabel("Hold input notes", { exact: true })).toBeChecked();
-  await page.getByRole("button", { name: "Performance dock", exact: true }).click();
+  await page.getByLabel("Collapse detail dock", { exact: true }).click();
   await page.getByLabel("Stop song", { exact: true }).click();
   await expect(page.locator(".piano-key.held")).toHaveCount(0);
 });
@@ -182,14 +183,14 @@ test("source routing rejects feedback and instrument-incompatible destinations",
 
 test("movement controls produce editable notes and fit tablet/mobile layouts", async ({ page }) => {
   await blankSound(page);
-  await page.getByRole("navigation").getByRole("button", { name: "01 Write" }).click();
+  await page.getByRole("navigation").getByRole("button", { name: "02 Write" }).click();
   const idea = page.locator(".idea-panel");
   await idea.getByText("Voicing, rhythm & movement", { exact: true }).click();
   await idea.getByLabel("Use in generation", { exact: true }).check();
   await idea.getByLabel("Movement pattern", { exact: true }).selectOption("upDown");
   await idea.getByLabel("Movement rate").selectOption("240");
   await page.getByRole("button", { name: "Insert", exact: true }).click();
-  await page.getByRole("navigation").getByRole("button", { name: "02 Arrange" }).click();
+  await page.getByRole("navigation").getByRole("button", { name: "01 Arrange" }).click();
   await expect(page.locator(".timeline-clip")).toHaveCount(1);
   await page.getByRole("navigation").getByRole("button", { name: "03 Sound" }).click();
   for (const [width, height] of [[960, 720], [390, 844]]) {

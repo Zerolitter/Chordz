@@ -1,23 +1,29 @@
 import { test, expect } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
+import { encodeWav } from "../../lib/audio/wav";
 
 test("workspace preferences, selected phrases and responsive layout survive navigation",async({page})=>{
   await page.goto("/");await expect(page.getByLabel("Song title")).toBeEnabled();await page.getByRole("button",{name:"Songs",exact:true}).click();await page.getByRole("button",{name:"Blank song"}).click();
+  await page.getByRole("navigation").getByRole("button",{name:"02 Write"}).click();
   await page.getByLabel("Density",{exact:true}).fill("0.73");await page.getByRole("button",{name:"Insert",exact:true}).click();await page.getByRole("button",{name:"Edit phrase",exact:true}).click();
+  await page.locator(".clip-editor-metadata > summary").click();
+  const clipName=await page.getByLabel("Clip name").inputValue();
   await page.getByLabel("Timeline zoom").fill("67");await page.getByLabel("Quantization grid").selectOption("480");
-  await page.getByRole("navigation").getByRole("button",{name:"01 Write"}).click();await expect(page.getByLabel("Density",{exact:true})).toHaveValue("0.73");
-  await page.getByRole("navigation").getByRole("button",{name:"02 Arrange"}).click();await expect(page.getByLabel("Timeline zoom")).toHaveValue("67");await expect(page.getByLabel("Quantization grid")).toHaveValue("480");await expect(page.getByLabel("Clip name")).toBeVisible();
-  await page.getByRole("navigation").getByRole("button",{name:"01 Write"}).click();
+  await page.getByRole("navigation").getByRole("button",{name:"02 Write"}).click();await expect(page.getByLabel("Density",{exact:true})).toHaveValue("0.73");
+  await page.getByRole("navigation").getByRole("button",{name:"01 Arrange"}).click();await expect(page.getByLabel("Timeline zoom")).toHaveValue("67");await expect(page.getByLabel("Quantization grid")).toHaveValue("480");await expect(page.getByLabel("Clip name")).toHaveValue(clipName);
+  await page.getByRole("navigation").getByRole("button",{name:"02 Write"}).click();
   for(const [width,height]of [[1440,1000],[820,1180],[390,844]]){await page.setViewportSize({width,height});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:"output/playwright/workflow-"+width+".png",fullPage:true});}
-  await page.getByRole("navigation").getByRole("button",{name:"02 Arrange"}).click();
-  await page.waitForTimeout(500);await page.reload();await expect(page.getByLabel("Song title")).toBeEnabled();await expect(page.getByLabel("Timeline zoom")).toBeVisible();await expect(page.getByLabel("Clip name")).toBeVisible();await expect(page.getByLabel("Timeline zoom")).toHaveValue("67");
-  await page.getByRole("navigation").getByRole("button",{name:"01 Write"}).click();await expect(page.getByLabel("Density",{exact:true})).toHaveValue("0.73");
+  await page.setViewportSize({width:1440,height:1000});
+  await page.getByRole("navigation").getByRole("button",{name:"01 Arrange"}).click();
+  await page.waitForTimeout(500);await page.reload();await expect(page.getByLabel("Song title")).toBeEnabled();await expect(page.getByLabel("Timeline zoom")).toBeVisible();await expect(page.getByLabel("Timeline zoom")).toHaveValue("67");
+  await page.locator(".clip-editor-metadata > summary").click();await expect(page.getByLabel("Clip name")).toHaveValue(clipName);
+  await page.getByRole("navigation").getByRole("button",{name:"02 Write"}).click();await expect(page.getByLabel("Density",{exact:true})).toHaveValue("0.73");
 });
 
 test("accessible piano releases after focus changes and ignores held-key repeats",async({page})=>{
   await page.goto("/");await expect(page.getByLabel("Song title")).toBeEnabled();
+  await page.getByLabel("Other detail tools").selectOption("keyboard");
   for(const key of ["Play C3","Play C#3"]){
-    if(await page.getByRole("button",{name:"Performance dock",exact:true}).getAttribute("aria-expanded")==="false")await page.getByRole("button",{name:"Performance dock",exact:true}).click();
     const button=page.getByRole("button",{name:key,exact:true});await button.focus();await page.keyboard.down("Enter");await expect(button).toHaveClass(/held/);
     await page.keyboard.down("Enter");await expect(button).toHaveClass(/held/);
     await page.getByLabel("Song title").focus();await page.keyboard.up("Enter");await expect(button).not.toHaveClass(/held/);
@@ -27,15 +33,16 @@ test("accessible piano releases after focus changes and ignores held-key repeats
 });
 
 test("single-zone sample readiness emits loading, retry and cached instrument changes",async({page})=>{
-  await page.goto("/");const result=await page.evaluate(async()=>{
-    const {StudioEngine}=await import("/lib/audio/engine.ts" as string),{createProject,createTrack}=await import("/lib/music/project.ts" as string),{encodeWav}=await import("/lib/audio/wav.ts" as string);
+  const wavBytes=[...new Uint8Array(encodeWav([new Float32Array(4800)],48000,16))];
+  await page.goto("/");const result=await page.evaluate(async bytes=>{
+    const {StudioEngine}=await import("/lib/audio/engine.ts" as string),{createProject,createTrack}=await import("/lib/music/project.ts" as string);
     const p=createProject(),t=createTrack("user");p.tracks=[t];p.userInstruments=[{id:"user",name:"Fixture",family:"test",description:"test",kind:"sample",zones:[{assetId:"fixture",root:60,low:0,high:127,velocityLow:0,velocityHigh:1,roundRobin:0,articulation:"sustain"}],articulations:["sustain"],license:"User supplied",source:"fixture",defaults:{attack:.01,release:.1,detune:0}}];
-    const blob=new Blob([encodeWav([new Float32Array(4800)],48000,16)],{type:"audio/wav"});let resolve!:(blob:Blob)=>void,reject!:(e:Error)=>void;let pending=new Promise<Blob>((a,b)=>{resolve=a;reject=b;});
+    const blob=new Blob([Uint8Array.from(bytes)],{type:"audio/wav"});let resolve!:(blob:Blob)=>void,reject!:(e:Error)=>void;let pending=new Promise<Blob>((a,b)=>{resolve=a;reject=b;});
     const engine=new StudioEngine(p,()=>pending),states:string[]=[];engine.subscribe(()=>states.push(engine.instrumentReadiness(t.id).state));await engine.unlock();
     const first=engine.ensureBuffers();await new Promise(r=>setTimeout(r,50));reject(Error("Fixture load failed"));await first.catch(()=>{});const failure=engine.instrumentReadiness(t.id);
     pending=new Promise<Blob>((a,b)=>{resolve=a;reject=b;});const retry=engine.ensureBuffers();await new Promise(r=>setTimeout(r,50));resolve(blob);await retry;
     const ready=engine.instrumentReadiness(t.id).state;p.userInstruments[0].zones[0].assetId="different";engine.updateProject(p);const last=states.at(-1);engine.dispose();return {states,failure,ready,last};
-  });expect(result.states).toContain("loading");expect(result.failure.state).toBe("failed");expect(result.ready).toBe("ready");expect(result.last).toBe("unloaded");
+  },wavBytes);expect(result.states).toContain("loading");expect(result.failure.state).toBe("failed");expect(result.ready).toBe("ready");expect(result.last).toBe("unloaded");
 });
 
 test("microphone cutoff is frame exact and disconnected pedal sources release only their ownership",async({page})=>{
@@ -56,6 +63,7 @@ test("microphone cutoff is frame exact and disconnected pedal sources release on
 test("generated phrases, alternative destination, stale audition and existing editor handoff",async({page})=>{
   await page.goto("/");await expect(page.getByLabel("Song title")).toBeEnabled();
   await page.getByRole("button",{name:"Songs",exact:true}).click();await page.getByRole("button",{name:"Blank song"}).click();
+  await page.getByRole("navigation").getByRole("button",{name:"02 Write"}).click();
   await page.getByRole("button",{name:"Audition",exact:true}).click();await expect(page.locator(".transport-position")).toContainText(/Audition/);
   await page.getByLabel("Song title").fill("Unrelated title edit");await page.getByLabel("Song title").press("Enter");await expect(page.locator(".transport-position")).toContainText(/Audition/);
   await page.getByLabel("Energy",{exact:true}).fill("0.8");await expect(page.locator(".transport-position")).not.toContainText(/Audition/);
@@ -63,18 +71,19 @@ test("generated phrases, alternative destination, stale audition and existing ed
   await page.getByRole("button",{name:"Insert",exact:true}).click();await expect(page.getByRole("alert").filter({hasText:"overlaps"})).toBeVisible();
   await page.getByRole("button",{name:"Insert on alternative track",exact:true}).click();await expect(page.getByLabel("Phrase destination")).toContainText("alternative");
   await page.getByRole("button",{name:"Edit phrase",exact:true}).click();await expect(page.locator(".piano-roll")).toBeVisible();await expect(page.getByRole("button",{name:"Drum steps",exact:true})).toBeDisabled();
-  await page.getByRole("button",{name:"Piano roll",exact:true}).click();await page.getByLabel("Clip transpose",{exact:true}).fill("2");await page.getByLabel("Clip transpose",{exact:true}).press("Enter");
+  await page.getByRole("button",{name:"Piano roll",exact:true}).click();await page.locator(".clip-editor-metadata > summary").click();await page.getByLabel("Clip transpose",{exact:true}).fill("2");await page.getByLabel("Clip transpose",{exact:true}).press("Enter");
   await page.getByLabel("Undo",{exact:true}).click();await expect(page.getByLabel("Clip transpose",{exact:true})).toHaveValue("0");
 });
 
 test("direct chord editing, grouped fields, invalid draft and guide-only timing",async({page})=>{
   await page.goto("/");await expect(page.getByLabel("Song title")).toBeEnabled();
   await page.getByRole("button",{name:"Songs",exact:true}).click();await page.getByRole("button",{name:"Blank song"}).click();
+  await page.getByRole("navigation").getByRole("button",{name:"02 Write"}).click();
   const original=await page.getByLabel("Song title").inputValue();
   await page.getByLabel("Song title").fill("Grouped title");await page.getByLabel("Song title").press("Enter");
   await page.getByLabel("Undo",{exact:true}).click();await expect(page.getByLabel("Song title")).toHaveValue(original);
   await page.getByLabel("Redo",{exact:true}).click();await expect(page.getByLabel("Song title")).toHaveValue("Grouped title");
-  await page.getByLabel("Tempo",{exact:true}).fill("");await page.getByRole("navigation").getByRole("button",{name:"02 Arrange"}).click();await expect(page.getByRole("heading",{name:"Find the feeling."})).toBeVisible();
+  await page.getByLabel("Tempo",{exact:true}).fill("");await page.getByRole("navigation").getByRole("button",{name:"01 Arrange"}).click();await expect(page.getByRole("heading",{name:"Find the feeling."})).toBeVisible();
   await page.getByLabel("Song title").fill("Must not replace invalid draft");await expect(page.getByLabel("Song title")).toHaveValue("Grouped title");await page.getByRole("button",{name:"Mute Grand piano",exact:true}).click();await expect(page.getByRole("button",{name:"Mute Grand piano",exact:true})).not.toHaveAttribute("aria-pressed","true");
   await page.getByLabel("Tempo",{exact:true}).press("Escape");await expect(page.getByLabel("Tempo",{exact:true})).toHaveValue("120");
   await page.getByText("Custom chord card",{exact:true}).click();await page.getByLabel("New chord symbol").fill("C");await page.locator(".custom-chord-cards .suggestion-card").focus();await page.keyboard.press("d");await page.keyboard.press("Enter");
@@ -89,11 +98,11 @@ test("direct chord editing, grouped fields, invalid draft and guide-only timing"
 });
 
 test("activity cancellation silences common output and delayed loads cannot restart", async ({page}) => {
+  const wavBytes=[...new Uint8Array(encodeWav([new Float32Array(4800).fill(.1)],48000,16))];
   await page.goto("/");
-  const result = await page.evaluate(async () => {
+  const result = await page.evaluate(async bytes => {
     const {StudioEngine} = await import("/lib/audio/engine.ts" as string);
     const {createProject,createTrack} = await import("/lib/music/project.ts" as string);
-    const {encodeWav} = await import("/lib/audio/wav.ts" as string);
     const p=createProject(),t=createTrack("lead"); p.tracks=[t]; p.master.reverbDecay=1;
     t.sound.release=1; t.sound.attack=0.005; t.reverb=0.6; t.delay=0.5; t.volume=0;
     const engine=new StudioEngine(p,async()=>{throw Error("unused");});
@@ -121,7 +130,7 @@ test("activity cancellation silences common output and delayed loads cannot rest
     const heldAfterCancel=engine.meter().master;
     const added=createTrack("bass");p.tracks.push(added);engine.updateProject(p);await engine.noteOn(added.id,48,.8,"computer:KeyS");
     const newTrackPlayable=engine.meter().master;engine.stop();
-    const samples=new Float32Array(4800).fill(.1),blob=new Blob([encodeWav([samples],48000,16)],{type:"audio/wav"});
+    const blob=new Blob([Uint8Array.from(bytes)],{type:"audio/wav"});
     let release!: (blob:Blob)=>void;const delayed=new Promise<Blob>(r=>release=r);
     const sample={id:"user",name:"Delayed",family:"test",description:"test",kind:"sample",zones:[{assetId:"sample",root:60,low:0,high:127,velocityLow:0,velocityHigh:1,roundRobin:0,articulation:"sustain"}],articulations:["sustain"],license:"User supplied",source:"fixture",defaults:{attack:.01,release:.1,detune:0}};
     p.userInstruments=[sample];t.instrumentId="user";engine.updateProject(p);
@@ -132,7 +141,7 @@ test("activity cancellation silences common output and delayed loads cannot rest
     const lateState=slow.state,latePeak=slow.meter().master;
     slow.dispose();engine.dispose();probe.disconnect();silent.disconnect();
     return {before,windows:after,heldAfterRelease,heldAfterCancel,newTrackPlayable,lateWindows,lateState,latePeak};
-  });
+  },wavBytes);
   expect(result.before).toBeGreaterThan(1e-3);
   expect(result.windows.length).toBeGreaterThan(75);
   for(const window of result.windows) { expect(window.finite).toBe(true);expect(window.peak).toBeLessThan(1e-4);expect(window.rms).toBeLessThan(1e-5); }
@@ -147,6 +156,9 @@ test("activity cancellation silences common output and delayed loads cannot rest
 test("pre-capture Stop creates no take; failed preservation retries exactly once",async({page})=>{
   await page.goto("/");await expect(page.getByLabel("Song title")).toBeEnabled();
   await page.getByRole("button",{name:"Songs",exact:true}).click();await page.getByRole("button",{name:"Blank song"}).click();
+  // Recording lifetime and recovery do not depend on loading acoustic samples.
+  await page.getByRole("button",{name:"Glass FM Synthesizers",exact:true}).click();
+  await page.getByRole("button",{name:"Use on selected track",exact:true}).click();
   await page.getByLabel("Recording source").selectOption("audio");
   await page.getByLabel("Start recording",{exact:true}).click();
   await page.getByLabel("Stop song",{exact:true}).click();
@@ -156,7 +168,7 @@ test("pre-capture Stop creates no take; failed preservation retries exactly once
   await page.evaluate(()=>{const original=IDBDatabase.prototype.transaction;let fail=true;IDBDatabase.prototype.transaction=function(...args:Parameters<typeof original>){if(fail&&Array.isArray(args[0])&&args[0].length===3){fail=false;throw new Error("Injected storage failure");}return original.apply(this,args);};});
   await page.getByLabel("Start recording",{exact:true}).click();
   await expect(page.locator(".transport-position")).toContainText("Recording",{timeout:10000});
-  await expect(page.getByLabel("Add instrument track",{exact:true})).toBeDisabled();
+  await expect(page.getByRole("button",{name:"Add instrument track",exact:true})).toBeDisabled();
   await page.waitForTimeout(350);await page.getByLabel("Stop song",{exact:true}).click();
   await expect(page.getByRole("button",{name:"Retry take save"})).toBeVisible();
   await expect(page.getByText("Take kept in memory",{exact:false})).toBeVisible();
@@ -170,6 +182,9 @@ test("pre-capture Stop creates no take; failed preservation retries exactly once
 test("late microphone preparation cannot stop a successor recording",async({page})=>{
   await page.goto("/");await expect(page.getByLabel("Song title")).toBeEnabled();
   await page.getByRole("button",{name:"Songs",exact:true}).click();await page.getByRole("button",{name:"Blank song"}).click();
+  // Microphone ownership does not depend on loading acoustic samples.
+  await page.getByRole("button",{name:"Glass FM Synthesizers",exact:true}).click();
+  await page.getByRole("button",{name:"Use on selected track",exact:true}).click();
   await page.evaluate(()=>{
     const state=globalThis as unknown as {micCalls:number;releaseFirst:()=>void};
     state.micCalls=0;let release!:()=>void;const gate=new Promise<void>(r=>release=r);state.releaseFirst=release;

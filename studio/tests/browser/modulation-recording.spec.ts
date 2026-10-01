@@ -5,12 +5,17 @@ test("live movement records emitted notes once and keeps four independent macros
   await expect(page.getByLabel("Song title")).toBeEnabled();
   await page.getByRole("button", { name: "Songs", exact: true }).click();
   await page.getByRole("button", { name: "Blank song", exact: true }).click();
+  // Test movement and macro capture independently of downloading the acoustic catalog.
+  await page.getByRole("button", { name: "Glass FM Synthesizers", exact: true }).click();
+  await page.getByRole("button", { name: "Use on selected track", exact: true }).click();
   await page.getByRole("navigation").getByRole("button", { name: "03 Sound" }).click();
   const rack = page.getByRole("region", { name: "Selected track modulation rack" });
-  await rack.getByText("Live & generated chord movement", { exact: true }).click();
+  await page.getByLabel("Other detail tools").selectOption("movement");
+  if(await rack.locator(".movement-inspector").getAttribute("open") === null) await rack.getByText("Live & generated chord movement", { exact: true }).click();
   await rack.getByLabel("Live arpeggiator", { exact: true }).check();
   await rack.getByLabel("Movement pattern", { exact: true }).selectOption("up");
   await rack.getByLabel("Movement rate").selectOption("240");
+  await page.getByRole("tab", {name:"Sound",exact:true}).click();
   await rack.getByLabel("Route source", { exact: true }).selectOption("M1");
   await rack.getByRole("button", { name: "Assign", exact: true }).click();
   await page.getByLabel("Recording source").selectOption("midi");
@@ -75,9 +80,13 @@ test("releasing live input removes queued arpeggio notes from the recorded take"
   await expect(page.getByLabel("Song title")).toBeEnabled();
   await page.getByRole("button", { name: "Songs", exact: true }).click();
   await page.getByRole("button", { name: "Blank song", exact: true }).click();
+  // Test input-release timing independently of downloading the acoustic catalog.
+  await page.getByRole("button", { name: "Glass FM Synthesizers", exact: true }).click();
+  await page.getByRole("button", { name: "Use on selected track", exact: true }).click();
   await page.getByRole("navigation").getByRole("button", { name: "03 Sound" }).click();
   const rack = page.getByRole("region", { name: "Selected track modulation rack" });
-  await rack.getByText("Live & generated chord movement", { exact: true }).click();
+  await page.getByLabel("Other detail tools").selectOption("movement");
+  if(await rack.locator(".movement-inspector").getAttribute("open") === null) await rack.getByText("Live & generated chord movement", { exact: true }).click();
   await rack.getByLabel("Live arpeggiator", { exact: true }).check();
   await rack.getByLabel("Movement rate").selectOption("240");
   await page.getByLabel("Start recording", { exact: true }).click();

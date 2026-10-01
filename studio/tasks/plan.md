@@ -11,3 +11,7 @@ Continue from the approved SPEC.md; preserve the archive. Build sequential compl
 Cloud saves compare expected revision before mutation. Recording bytes live in R2 and recovery data in owner-scoped IndexedDB. Audio rendering uses the same graph/event compilation as live playback. Offline processing must not buffer large file uploads inside Worker memory. Public access is to the sign-in surface; project endpoints require authentication and ownership.
 
 Runtime errors, unavailable audio devices, failed samples and unavailable cloud storage are visible and recoverable. Do not substitute browser-only saves for the requested cloud persistence.
+
+The approved workspace and device-local reusable library follow-up is recorded in [Phase 0A](../../docs/phase-0a-prototype.md) and [Phase 0B](../../docs/phase-0b-library.md). The user authorized 0B while deferring the observed music-making comparison; earlier completed checklists are historical evidence, not evidence of that human task.
+
+The [Phase 1 precise editing](../../docs/phase-1-note-editing.md) increment is implemented and locally verified, preserving the completed 0A/0B source. Direct note gestures, scoped musical operations and automation routes pass the recorded technical checks. The user authorized its GitHub merge and existing Site publication. The human comparison remains deferred; subsequent recording/take improvements follow the roadmap separately.

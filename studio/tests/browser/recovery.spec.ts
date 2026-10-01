@@ -54,7 +54,7 @@ test("conflict recovery keeps audio that has not reached the cloud", async ({
     .click();
   await page
     .getByRole("navigation")
-    .getByRole("button", { name: "02 Arrange" })
+    .getByRole("button", { name: "01 Arrange" })
     .click();
   await expect(page.locator(".timeline-clip")).toHaveCount(1);
   await page.getByLabel("Save song", { exact: true }).click();
@@ -102,7 +102,7 @@ test("failed upload keeps a device draft and retries with its original asset", a
   await expect(page.getByLabel("Song title")).toBeEnabled();
   await page
     .getByRole("navigation")
-    .getByRole("button", { name: "02 Arrange" })
+    .getByRole("button", { name: "01 Arrange" })
     .click();
   await expect(page.locator(".timeline-clip")).toHaveCount(1);
   await page.unroute("**/api/assets");

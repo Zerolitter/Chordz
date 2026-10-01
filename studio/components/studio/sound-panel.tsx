@@ -1,10 +1,11 @@
 "use client";
 import {DraftInput} from "./draft-field";
-import { useState } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { useStudio } from "./use-studio";
 import { PanelHeading, Range, frequencyLabel } from "./primitives";
 import {SoundReadiness} from "./sound-readiness";
-import { ModulationRack } from "./modulation-rack";
+import { ModulationRack, type SoundPanelSection } from "./modulation-rack";
+import { ToolVisibilityProvider, useToolInputTermination, useToolVisibility } from "./tool-visibility";
 import { useKnobModulation } from "./use-knob-modulation";
 import { SourceGraphEditor } from "./source-graph-editor";
 import { makeSource } from "../../lib/audio/modulation";
@@ -15,26 +16,48 @@ import {
   type SampleZone,
 } from "../../lib/music/types";
 
-export function SoundPanel() {
+export function releaseSoundPanelInputs(studio: Pick<ReturnType<typeof useStudio>, "releaseSource">) { studio.releaseSource("sound:sustain"); }
+
+export function SoundPanel({ active = true, section, onOpenMovement }: { active?: boolean; section?: SoundPanelSection; onOpenMovement?: () => void } = {}) {
+  const soundVisible = active && (!section || section === "sound");
+  return <div className="sound-panel">
+    <ToolVisibilityProvider active={soundVisible}><div hidden={!soundVisible}><InstrumentSoundBody onOpenMovement={onOpenMovement} /></div></ToolVisibilityProvider>
+    <ModulationRack active={active} section={section} />
+  </div>;
+}
+
+function InstrumentSoundBody({ onOpenMovement }: { onOpenMovement?: () => void }) {
   const s = useStudio(),
     track = s.selectedTrack;
+  const active = useToolVisibility();
+  const sustainHeld = useRef(false);
+  const pedalPointer = useRef<{ id: number; element: HTMLButtonElement } | null>(null);
+  function pressSustain() { if (!active || sustainHeld.current) return; sustainHeld.current = true; s.expression("sustain", 1, "sound:sustain"); }
+  function endSustain() {
+    if (sustainHeld.current) { sustainHeld.current = false; releaseSoundPanelInputs(s); }
+    const pointer = pedalPointer.current; pedalPointer.current = null;
+    if (pointer?.element.hasPointerCapture(pointer.id)) pointer.element.releasePointerCapture(pointer.id);
+  }
+  useToolInputTermination(endSustain);
+  const releaseSustain = useEffectEvent(endSustain);
+  useLayoutEffect(() => { if (!active) releaseSustain(); }, [active]);
+  useEffect(() => () => releaseSustain(), []);
   const [bend, setBend] = useState(0),
     [expression, setExpression] = useState(1),
     [modulation, setModulation] = useState(0);
-  const effective = useKnobModulation(track ? [track.id] : []);
+  const effective = useKnobModulation(track ? [track.id] : [], active);
   const configLocked = s.recordingPhase !== "idle";
   if (track?.kind === "audio")
     return (
       <div>
-        <PanelHeading eyebrow="Recorded audio" title={track.name} />
+        <PanelHeading eyebrow="Recorded audio" title={track.name}>{onOpenMovement && <button data-edit-policy="bypass" className="secondary-button" onClick={onOpenMovement}>Movement</button>}</PanelHeading>
         <p className="helper">
           Edit waveforms, trims and fades in Arrange, then balance this take in
           Mix.
         </p>
-        <button className="primary-button" onClick={() => s.setMode("arrange")}>
+        <button data-edit-policy="bypass" className="primary-button" onClick={() => s.setMode("arrange")}>
           Open arrangement
         </button>
-        <ModulationRack />
       </div>
     );
   if (!track)
@@ -67,7 +90,7 @@ export function SoundPanel() {
     );
   }
   return (
-    <div className="sound-panel">
+    <div className="instrument-sound-body">
       <PanelHeading eyebrow={instrument.family} title={instrument.name}>
         <button
           data-edit-policy="bypass"
@@ -82,6 +105,7 @@ export function SoundPanel() {
         >
           Reset sound
         </button>
+        {onOpenMovement && <button data-edit-policy="bypass" className="secondary-button" onClick={onOpenMovement}>Movement</button>}
       </PanelHeading>
       <div className="sound-instrument-header"><label className="field">
         Track name
@@ -192,7 +216,7 @@ export function SoundPanel() {
           }
           {instrument.kind!=="drums"&&<Range
             variant="knob" performance defaultValue={0}
-            label="Pitch bend"
+            label="Pitch bend" automationParameter="pitchBend"
             min={-1}
             max={1}
             value={bend}
@@ -204,7 +228,7 @@ export function SoundPanel() {
           }
           <Range
             variant="knob" performance defaultValue={1}
-            label="Expression"
+            label="Expression" automationParameter="expression"
             value={expression}
             onChange={(v) => {
               setExpression(v);
@@ -213,13 +237,13 @@ export function SoundPanel() {
           />
           {!isDrumInstrument(instrument)&&<button
             className="secondary-button sound-module-note"
-            onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); s.expression("sustain", 1); }}
-            onPointerUp={() => s.expression("sustain", 0)}
-            onPointerCancel={() => s.expression("sustain", 0)}
-            onLostPointerCapture={() => s.expression("sustain", 0)}
-            onBlur={() => s.expression("sustain", 0)}
-            onKeyDown={event => { if (["Enter"," "].includes(event.key)) { event.preventDefault(); event.stopPropagation(); if (!event.repeat) s.expression("sustain", 1); } }}
-            onKeyUp={event => { if (["Enter"," "].includes(event.key)) { event.preventDefault(); event.stopPropagation(); s.expression("sustain", 0); } }}
+            onPointerDown={event => { if (!active) return; pedalPointer.current = { id: event.pointerId, element: event.currentTarget }; event.currentTarget.setPointerCapture(event.pointerId); pressSustain(); }}
+            onPointerUp={endSustain}
+            onPointerCancel={endSustain}
+            onLostPointerCapture={endSustain}
+            onBlur={endSustain}
+            onKeyDown={event => { if (["Enter"," "].includes(event.key)) { event.preventDefault(); event.stopPropagation(); if (!event.repeat) pressSustain(); } }}
+            onKeyUp={event => { if (["Enter"," "].includes(event.key)) { event.preventDefault(); event.stopPropagation(); endSustain(); } }}
           >
             Hold sustain pedal
           </button>}
@@ -313,7 +337,7 @@ export function SoundPanel() {
           />
           <Range
             variant="knob" performance defaultValue={0}
-            label="Modulation"
+            label="Modulation" automationParameter="modulation"
             value={modulation}
             onChange={(v) => {
               setModulation(v);
@@ -322,7 +346,6 @@ export function SoundPanel() {
           />
         </section>
       </div>
-      <ModulationRack />
       {instrument.kind === "sample" && (
         <details className="sample-map sound-sample-inspector">
           <summary>

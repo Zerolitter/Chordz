@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useEffectEvent,useRef,useState} from "react";
+import {useEffect,useEffectEvent,useLayoutEffect,useRef,useState} from "react";
 import {GripVertical,Play} from "lucide-react";
 import {usePreference} from "./use-preference";
 import {useStudio} from "./use-studio";
@@ -12,10 +12,12 @@ import {ticksPerBar} from "../../lib/music/project";
 import {chordNotes,noteName,recognizeChords,suggestChords,voiceLead} from "../../lib/music/theory";
 import {uid} from "../../lib/music/types";
 import {Range} from "./primitives";
+import {useToolInputTermination,useToolVisibility} from "./tool-visibility";
 
 type CardDrag=PaletteDrag|{kind:"move";projectId:string;sectionId:string;id:string;remainderId:string};
 export function ChordCanvas({tension,setTension,onProgression}:{tension:number;setTension:(n:number)=>void;onProgression:()=>void}){
   const s=useStudio(),section=s.selectedSection,beat=ticksPerBeat(s.project),bar=ticksPerBar(s.project);
+  const active=useToolVisibility();
   const [snap,setSnap]=usePreference<ChordSnap>("chord-snap","beat",(v):v is ChordSnap=>typeof v==="string"&&["beat","half","quarter","bar"].includes(v)),[cursor,setCursor]=useState(0),[symbol,setSymbol]=useState("Dm"),[error,setError]=useState("");
   const [drag,setDrag]=useState<CardDrag|null>(null),[drop,setDrop]=useState<number|null>(null),[dropLabel,setDropLabel]=useState(""),[dropError,setDropError]=useState<string|null>(null),[proposal,setProposal]=useState<ChordCommand|null>(null);
   const lane=useRef<HTMLDivElement>(null),dragRef=useRef<CardDrag|null>(null);
@@ -24,10 +26,15 @@ export function ChordCanvas({tension,setTension,onProgression}:{tension:number;s
   const previous=selected?.notes??chords.filter(c=>c.tick<=section.startTick+position).at(-1)?.notes??s.selectedNotes;
   const suggestions=suggestChords(previous,s.project.key,s.project.mode,tension).slice(0,6);
   let customNotes:number[]=[];try{customNotes=voiceLead(previous,chordNotes(symbol,s.octave)).notes;}catch{}
-  const performAuto=useEffectEvent(()=>{if(selected&&s.mode==="write")void s.audition(selected.notes,.9,true);});
+  const performAuto=useEffectEvent(()=>{if(active&&selected&&s.mode==="write")void s.audition(selected.notes,.9,true);});
   const selectedIdentity=JSON.stringify([selected?.id,selected?.notes]);useEffect(()=>{performAuto();},[selectedIdentity]);
   function startDrag(next:CardDrag|null){dragRef.current=next;setDrag(next);}
   function cancel(){const d=dragRef.current;if(d?.kind==="move")s.cancelEdit("chord-drag:"+d.id);startDrag(null);setDrop(null);}
+  function cancelPalette(card:PaletteDrag){if(dragRef.current===card)cancel();}
+  function endDragInput(){if(!dragRef.current)return;startDrag(null);setDrop(null);}
+  useToolInputTermination(endDragInput);
+  const releaseDragInput=useEffectEvent(endDragInput);
+  useLayoutEffect(()=>{if(!active)releaseDragInput();return()=>releaseDragInput();},[active]);
   const cancelDrag=useEffectEvent(cancel);
   const registerInteraction=s.registerInteraction;
   useEffect(()=>{if(drag)return registerInteraction(()=>{cancelDrag();return true;});},[drag,registerInteraction]);
@@ -91,8 +98,8 @@ export function ChordCanvas({tension,setTension,onProgression}:{tension:number;s
       <details className="chord-detail-actions"><summary>More chord options</summary><div className="button-row"><button className="secondary-button" disabled={selected.notes.length>=12||selected.notes.at(-1)!>115} onClick={()=>notesChanged([...selected.notes,selected.notes.at(-1)!+12])}>Double top note</button><button className="secondary-button" onClick={()=>moveStep(-1)}>Move earlier</button><button className="secondary-button" onClick={()=>moveStep(1)}>Move later</button><button className="secondary-button" onClick={()=>apply({type:"remove",sectionId:section.id,chordId:selected.id})}>Remove · leave rest</button><button className="secondary-button" onClick={()=>apply({type:"deleteTime",sectionId:section.id,chordId:selected.id})}>Delete time · shift later</button></div><div className="voicing-midi">{selected.notes.map((n,i)=><label key={i}>Note {i+1} · MIDI<DraftInput aria-label={"Chord note "+(i+1)+" MIDI pitch"} type="number" min={0} max={127} value={n} onChange={e=>notesChanged(selected.notes.map((p,j)=>j===i?Math.round(Number(e.target.value)):p))}/></label>)}</div></details>
     </section>}
     <div className="subheading spaced"><h3>Where could it go?</h3><span className="tiny">Click to hear · drag into a bar</span></div>
-    <div className="compact-suggestions">{suggestions.map(c=><ChordPaletteCard key={c.symbol} name={c.symbol} notes={c.notes} detail={c.common.length+" shared · "+c.movement+" steps"} laneRef={lane} grid={grid} bar={bar} start={section.startTick} end={section.startTick+section.lengthTick} initialTick={section.startTick+position} onPrepare={paletteCard} onStart={startDrag} onHover={hover} onPlace={place} onCancel={cancel} onHear={notes=>void s.audition(notes)} toTick={atX}/> )}</div>
-    <details className="custom-chord-cards"><summary>Custom chord card</summary><div><label>Chord symbol <input aria-label="New chord symbol" value={symbol} onChange={e=>setSymbol(e.target.value)} placeholder="Dm9, Fmaj7, C/E…"/></label>{customNotes.length?<ChordPaletteCard name={symbol} notes={customNotes} detail={"1 bar · "+customNotes.map(n=>noteName(n,s.project.key,false)).join(" · ")} laneRef={lane} grid={grid} bar={bar} start={section.startTick} end={section.startTick+section.lengthTick} initialTick={section.startTick+position} onPrepare={paletteCard} onStart={startDrag} onHover={hover} onPlace={place} onCancel={cancel} onHear={notes=>void s.audition(notes)} toTick={atX}/>:<span role="status">Enter a recognised chord symbol.</span>}</div></details>
+    <div className="compact-suggestions">{suggestions.map(c=><ChordPaletteCard key={c.symbol} name={c.symbol} notes={c.notes} detail={c.common.length+" shared · "+c.movement+" steps"} laneRef={lane} grid={grid} bar={bar} start={section.startTick} end={section.startTick+section.lengthTick} initialTick={section.startTick+position} onPrepare={paletteCard} onStart={startDrag} onHover={hover} onPlace={place} onCancel={cancelPalette} onHear={notes=>void s.audition(notes)} toTick={atX}/> )}</div>
+    <details className="custom-chord-cards"><summary>Custom chord card</summary><div><label>Chord symbol <input aria-label="New chord symbol" value={symbol} onChange={e=>setSymbol(e.target.value)} placeholder="Dm9, Fmaj7, C/E…"/></label>{customNotes.length?<ChordPaletteCard name={symbol} notes={customNotes} detail={"1 bar · "+customNotes.map(n=>noteName(n,s.project.key,false)).join(" · ")} laneRef={lane} grid={grid} bar={bar} start={section.startTick} end={section.startTick+section.lengthTick} initialTick={section.startTick+position} onPrepare={paletteCard} onStart={startDrag} onHover={hover} onPlace={place} onCancel={cancelPalette} onHear={notes=>void s.audition(notes)} toTick={atX}/>:<span role="status">Enter a recognised chord symbol.</span>}</div></details>
     <p className="helper palette-keyboard">Keyboard: focus a card, D to pick up, arrows to position, Enter to drop.</p>
     <Range label="Harmonic tension" value={tension} onChange={setTension}/>
   </section>;

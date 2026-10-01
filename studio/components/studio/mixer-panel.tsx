@@ -6,25 +6,28 @@ import { Meter, PanelHeading, Range } from "./primitives";
 import { trackDisplayColor } from "../../lib/client/appearance";
 import { useKnobModulation } from "./use-knob-modulation";
 import "./mixer-panel.css";
+import { ToolVisibilityProvider } from "./tool-visibility";
+import {ControlAutomation} from "./control-automation";
 
-export function MixerPanel() {
+export function MixerPanel({ active }: { active?: boolean } = {}) {
   const s = useStudio();
+  const visible = active ?? s.mode === "mix";
   const configLocked = s.recordingPhase !== "idle";
-  const effective = useKnobModulation(s.project.tracks.map(track => track.id));
+  const effective = useKnobModulation(s.project.tracks.map(track => track.id), visible);
   const [meters, setMeters] = useState<{
     master: number;
     tracks: Record<string, number>;
   }>({ master: 0, tracks: {} });
   useEffect(() => {
-    if(s.mode!=="mix")return;
+    if (!visible) return;
     const timer = setInterval(
       () => setMeters(s.engine?.meter() ?? { master: 0, tracks: {} }),
       100,
     );
     return () => clearInterval(timer);
-  }, [s.engine,s.mode]);
+  }, [s.engine, visible]);
   return (
-    <div className="mix-panel">
+    <ToolVisibilityProvider active={visible}><div className="mix-panel">
       <PanelHeading
         title="Mixer"
       ><span className="tiny">{s.project.tracks.length} channels · stereo output</span></PanelHeading>
@@ -41,6 +44,7 @@ export function MixerPanel() {
             >
               <span className="channel-number mono">{String(index + 1).padStart(2, "0")}</span>
               <button
+                data-edit-policy="bypass"
                 className="channel-title"
                 onClick={() => s.selectTrack(track.id)}
               >
@@ -108,6 +112,7 @@ export function MixerPanel() {
                 />
               </div>
               <output className="mono">{track.volume.toFixed(1)} dB</output>
+              <ControlAutomation parameter="volume" label={track.name+" volume"} trackId={track.id}/>
               <Range
                 variant="knob" size="small" defaultValue={0}
                 trackId={track.id} modulationTarget="track.reverb" effectiveValue={effective(track,"track.reverb")}
@@ -230,6 +235,6 @@ export function MixerPanel() {
           </div>
         </section>
       )}
-    </div>
+    </div></ToolVisibilityProvider>
   );
 }

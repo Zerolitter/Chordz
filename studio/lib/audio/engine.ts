@@ -94,6 +94,7 @@ export class StudioEngine {
   private audioBindings=new WeakMap<Voice,{key:string;cycleOrigin:number}>();
   private activity: TransportState["activity"] = "idle";
   private previewTimer: ReturnType<typeof setInterval> | null = null;
+  private candidateAudition: {identity:string;project:ProjectDocument;graph:SongGraph|null;voices:Voice[];timer:ReturnType<typeof setInterval>|null;loaded:boolean} | null = null;
   private liveModTimer: ReturnType<typeof setInterval> | null = null;
   private liveModVoices = new Set<Voice>();
   private liveModEvents: (PerformanceEvent&{trackId:string;at:number;source:string})[] = [];
@@ -107,6 +108,7 @@ export class StudioEngine {
   private pedals = new Map<string, { trackId: string; down: boolean }>();
   private clicks = new Set<OscillatorNode>();
   private buffers = new Map<string, AudioBuffer>();
+  private candidateBufferKeys = new Set<string>();
   private bufferJobs = new Map<string, Promise<void>>();
   private bufferErrors=new Map<string,string>();
   private voices: Voice[] = [];
@@ -180,6 +182,7 @@ export class StudioEngine {
   }
   get state(): TransportState {
     const current = this.context?.currentTime ?? 0;
+    const activity=!this.playing&&!this.previewId&&this.candidateAudition?(this.candidateAudition.loaded?"audition":"audition-loading"):this.activity;
     let tick =
       this.startTick +
       secondsToTick(current - this.baseTime, this.project.tempo);
@@ -189,9 +192,9 @@ export class StudioEngine {
       playing: this.playing,
       tick: this.playing ? Math.max(0, tick) : this.pausedTick,
       countIn: this.playing && current < this.countInUntil,
-      loading: this.activity.endsWith("loading"),
-      activity: this.activity,
-      previewId: this.previewId,
+      loading: activity.endsWith("loading"),
+      activity,
+      previewId: this.previewId ?? this.candidateAudition?.identity ?? null,
     };
   }
   private emit() {
@@ -221,7 +224,7 @@ export class StudioEngine {
     const context = await this.unlock();
     return context.decodeAudioData(await blob.arrayBuffer());
   }
-  async ensureBuffers(project = this.project, trackIds?: string[]) {
+  async ensureBuffers(project = this.project, trackIds?: string[], assetResolver:AssetResolver=this.asset) {
     const retries=new Map([...this.backendJobs].filter(([id,job])=>{
       const requested=project.tracks.find(t=>t.id===id),current=this.project.tracks.find(t=>t.id===id);
       return job.failed&&requested&&current&&backendSignature(project,requested)===backendSignature(this.project,current);
@@ -244,7 +247,7 @@ export class StudioEngine {
               try {
                 this.onStatus("Loading " + instrument.name + "…");
                 const data = zone.assetId
-                  ? await (await this.asset(zone.assetId)).arrayBuffer()
+                  ? await (await assetResolver(zone.assetId)).arrayBuffer()
                   : await fetch(zone.url!, {
                       signal: AbortSignal.timeout(30000),
                     }).then((r) => {
@@ -286,6 +289,7 @@ export class StudioEngine {
               } finally {
                 this.loadCount--;
                 this.bufferJobs.delete(key);
+                this.releaseCandidateBuffers();
                 this.emit();
               }
             })(),
@@ -307,12 +311,13 @@ export class StudioEngine {
                   this.buffers.set(
                     key,
                     await context.decodeAudioData(
-                      await (await this.asset(key)).arrayBuffer(),
+                      await (await assetResolver(key)).arrayBuffer(),
                     ),
                   );
                 } finally {
                   this.loadCount--;
                   this.bufferJobs.delete(key);
+                  this.releaseCandidateBuffers();
                   this.emit();
                 }
               })(),
@@ -752,11 +757,13 @@ export class StudioEngine {
     setTimeout(() => graph.dispose(), 40);
   }
   pause() {
+    this.cancelCandidateAudition();
     ++this.epoch;
     if (this.playing) this.pausedTick = Math.min(projectEnd(this.project), this.state.tick);
     this.playing = false;
     this.previewId = null;
     this.previewTrackId=null;this.previewInstrument=null;this.previewVoices.clear();
+    this.releaseCandidateBuffers();
     this.activity = "idle";
     if (this.timer) clearInterval(this.timer);
     if (this.previewTimer) clearInterval(this.previewTimer);
@@ -769,7 +776,88 @@ export class StudioEngine {
     this.retireGraph(this.graph); this.graph = null;
     this.emit();
   }
-  cancelAudition() { if (this.previewId !== null) this.pause(); }
+  cancelAudition() { this.cancelCandidateAudition(); if (this.previewId !== null) this.pause(); }
+  /** Release only decoded copies owned by candidate auditions, never project blobs. */
+  private releaseCandidateBuffers() {
+    if(!this.candidateBufferKeys.size)return;
+    const main=new Set(this.project.assets.map(asset=>asset.id)),keep=new Set(this.candidateAudition?.project.assets.map(asset=>asset.id));
+    const previewTrack=this.previewId?this.project.tracks.find(track=>track.id===this.previewTrackId):undefined;
+    if(previewTrack){
+      for(const zone of this.readyInstrument(previewTrack).zones)if(zone.assetId)keep.add(zone.assetId);
+      for(const clip of previewTrack.clips)if(clip.audio)keep.add(clip.audio.assetId);
+    }
+    for(const key of this.candidateBufferKeys){
+      // Once adopted by the song, its normal cache lifetime applies.
+      if(main.has(key)){this.candidateBufferKeys.delete(key);continue;}
+      if(keep.has(key)||this.bufferJobs.has(key))continue;
+      this.buffers.delete(key);this.bufferErrors.delete(key);this.candidateBufferKeys.delete(key);
+    }
+  }
+  cancelCandidateAudition() {
+    const audition=this.candidateAudition;if(!audition){this.releaseCandidateBuffers();return;}
+    this.candidateAudition=null;
+    if(audition.timer)clearInterval(audition.timer);
+    const at=this.context?.currentTime??0;
+    for(const voice of audition.voices)voice.cancel(at);
+    this.retireGraph(audition.graph);this.releaseCandidateBuffers();this.emit();
+  }
+  /** Immutable, separately owned audition graph within the existing engine/clock. */
+  async previewSnapshot(document:ProjectDocument,assetResolver:AssetResolver,identity:string):Promise<boolean> {
+    if(this.candidateAudition?.identity===identity){this.cancelCandidateAudition();return false;}
+    this.cancelAudition();
+    const project=structuredClone(document),audition={identity,project,graph:null as SongGraph|null,voices:[] as Voice[],timer:null as ReturnType<typeof setInterval>|null,loaded:false};
+    for(const asset of project.assets)this.candidateBufferKeys.add(asset.id);
+    this.candidateAudition=audition;this.emit();
+    try {
+      await this.ensureBuffers(project,undefined,assetResolver);
+      if(this.candidateAudition!==audition)return false;
+      const graph=makeGraph(this.context!,project,undefined,this.output!,false),compiled=compileSong(project);
+      audition.graph=graph;audition.loaded=true;
+      const start=this.context!.currentTime+.04;
+      configureModulation(graph,project,compiled.events.map(event=>({...event,seconds:tickToSeconds(event.tick,project.tempo)})),start);
+      let noteCursor=0,audioCursor=0,eventCursor=0;
+      const end=start+tickToSeconds(projectEnd(project),project.tempo);
+      const schedule=()=>{
+        if(this.candidateAudition!==audition)return;
+        const now=this.context!.currentTime,horizon=now+.16;
+        // A bend later in this window must see voices scheduled earlier in it.
+        // Events precede notes at the same tick so each onset inherits their state.
+        while(true){
+          const eventTick=compiled.events[eventCursor]?.tick??Infinity,noteTick=compiled.notes[noteCursor]?.tick??Infinity,audioTick=compiled.audio[audioCursor]?.tick??Infinity;
+          const tick=Math.min(eventTick,noteTick,audioTick);
+          if(!Number.isFinite(tick)||start+tickToSeconds(tick,project.tempo)>horizon)break;
+          const at=Math.max(now,start+tickToSeconds(tick,project.tempo));
+          if(eventTick===tick){
+            const event=compiled.events[eventCursor++],track=project.tracks.find(t=>t.id===event.trackId)!,strip=graph.tracks.get(track.id)!;
+            if(event.type==="expression")strip.expression.gain.setValueAtTime(clamp(event.value,0,1),at);
+            if(event.type==="modulation"||event.type==="pressure")strip.lfoGain.gain.setValueAtTime(track.sound.cutoff*.35*clamp(track.sound.lfoDepth+event.value,0,1),at);
+            if(event.type==="pitchBend")for(const voice of audition.voices.filter(v=>v.trackId===track.id&&v.end>=at))voice.bend.forEach((param,index)=>param.setTargetAtTime(voice.baseBend[index]+clamp(event.value,-1,1)*200,at,.008));
+          }else if(noteTick===tick){
+            const note=compiled.notes[noteCursor++],track=project.tracks.find(t=>t.id===note.trackId)!;
+            const voice=makeVoice(graph,track,instrumentFor(project,track),note,at,tickToSeconds(note.duration,project.tempo),this.buffers);
+            const bend=compiled.events.filter(e=>e.trackId===track.id&&e.type==="pitchBend"&&e.tick<=note.tick).at(-1)?.value??0;
+            voice.bend.forEach((param,index)=>param.setValueAtTime(voice.baseBend[index]+clamp(bend,-1,1)*200,at));audition.voices.push(voice);
+          }else{
+            const audio=compiled.audio[audioCursor++],buffer=this.buffers.get(audio.region.assetId);
+            if(!buffer)throw Error("This library audio is unavailable.");
+            audition.voices.push(scheduleAudio(graph,audio.trackId,buffer,at,tickToSeconds(audio.duration,project.tempo),audio.region.offsetSec,audio.region.gain,audio.region.fadeInSec,audio.region.fadeOutSec));
+          }
+        }
+        audition.voices=audition.voices.filter(voice=>voice.end>now);
+        scheduleModulation(graph,Math.max(now,start),horizon,audition.voices,true);
+        if(now>=Math.max(end+Math.max(project.master.reverbDecay*2,4),...audition.voices.map(voice=>voice.end)))this.cancelCandidateAudition();
+        else this.emit();
+      };
+      audition.timer=setInterval(()=>{try{schedule();}catch(error){if(this.candidateAudition===audition){this.cancelCandidateAudition();this.onStatus(error instanceof Error?error.message:"Library preview failed.");}}},25);
+      schedule();return true;
+    }catch(error){if(this.candidateAudition===audition){this.cancelCandidateAudition();throw error;}return false;}
+    finally{
+      // Cancellation can precede unlock/job creation, and Promise.all can reject
+      // while another decode is pending. Retain ownership through both cases.
+      for(const asset of project.assets)this.candidateBufferKeys.add(asset.id);
+      this.releaseCandidateBuffers();
+    }
+  }
   stop(reset = true) {
     this.pause();
     const at = this.context?.currentTime ?? 0;

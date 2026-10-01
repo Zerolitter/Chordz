@@ -28,6 +28,6 @@ test("intentional device recovery discards an invalid field while normal song ac
   await expect(meter).toHaveValue("4");
   await expect(page.getByLabel("Tempo", { exact: true })).toHaveValue("97");
   await expect(page.locator(".studio-shell > .studio-notice.error")).toHaveCount(0);
-  await page.getByRole("navigation").getByRole("button", { name: "02 Arrange" }).click();
+  await page.getByRole("navigation").getByRole("button", { name: "01 Arrange" }).click();
   await expect(page.getByLabel("Timeline zoom")).toBeVisible();
 });
