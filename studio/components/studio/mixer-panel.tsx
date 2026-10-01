@@ -5,6 +5,7 @@ import { useStudio } from "./use-studio";
 import { Meter, PanelHeading, Range } from "./primitives";
 import { trackDisplayColor } from "../../lib/client/appearance";
 import { useKnobModulation } from "./use-knob-modulation";
+import "./mixer-panel.css";
 
 export function MixerPanel() {
   const s = useStudio();
@@ -25,12 +26,11 @@ export function MixerPanel() {
   return (
     <div className="mix-panel">
       <PanelHeading
-        eyebrow="Every part, in its place"
-        title="Make it feel finished."
-      />
+        title="Mixer"
+      ><span className="tiny">{s.project.tracks.length} channels · stereo output</span></PanelHeading>
       <div className="mixer-scroll">
         <div className="mixer-channels">
-          {s.project.tracks.map((track) => (
+          {s.project.tracks.map((track, index) => (
             <section
               className={
                 "mixer-channel " +
@@ -39,6 +39,7 @@ export function MixerPanel() {
               key={track.id}
               style={{ "--track-color": trackDisplayColor(s.project, track) } as React.CSSProperties}
             >
+              <span className="channel-number mono">{String(index + 1).padStart(2, "0")}</span>
               <button
                 className="channel-title"
                 onClick={() => s.selectTrack(track.id)}
@@ -70,6 +71,7 @@ export function MixerPanel() {
                 trackId={track.id} modulationTarget="track.pan" effectiveValue={effective(track,"track.pan")}
                 modulationRange={effective.range(track,"track.pan")}
                 label={track.name + " pan"}
+                displayLabel="Pan"
                 min={-1}
                 max={1}
                 value={track.pan}
@@ -111,6 +113,7 @@ export function MixerPanel() {
                 trackId={track.id} modulationTarget="track.reverb" effectiveValue={effective(track,"track.reverb")}
                 modulationRange={effective.range(track,"track.reverb")}
                 label={track.name + " reverb"}
+                displayLabel="Reverb"
                 value={track.reverb}
                 onChange={(v) =>
                   s.updateTrack(track.id, { reverb: v }, "Reverb send")
@@ -121,6 +124,7 @@ export function MixerPanel() {
                 trackId={track.id} modulationTarget="track.delay" effectiveValue={effective(track,"track.delay")}
                 modulationRange={effective.range(track,"track.delay")}
                 label={track.name + " delay"}
+                displayLabel="Delay"
                 value={track.delay}
                 onChange={(v) =>
                   s.updateTrack(track.id, { delay: v }, "Delay send")
@@ -191,8 +195,7 @@ export function MixerPanel() {
       {s.selectedTrack && (
         <section className="channel-effects">
           <div className="subheading">
-            <h3>{s.selectedTrack.name} · tone & effects</h3>
-            <span className="tiny">Shared reverb & tempo-synced delay</span>
+            <h3>{s.selectedTrack.name} <span>EQ & saturation</span></h3>
           </div>
           <div className="effects-row">
             {(["low", "mid", "high"] as const).map((p) => (

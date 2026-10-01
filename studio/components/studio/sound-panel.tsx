@@ -96,10 +96,9 @@ export function SoundPanel() {
       </label>
       <div><SoundReadiness/>
       <p className="sound-description">{instrument.description}</p>
-      </div><p className="helper">Tune while auditioning. Attack, decay, filter envelope, engine and articulation changes apply to the next notes.</p></div>
-      <ModulationRack />
+      </div><span className="sound-next-notes" title="Envelope timing, synthesis engine and articulation changes apply when a note starts.">Envelope, engine & articulation · next notes</span></div>
       <div className="sound-modules" key={track.id} data-edit-policy="bypass">
-        <section>
+        <section className="sound-device sound-performance">
           <h3>
             {instrument.kind === "sample" ? "Performance" : "Oscillators"}
           </h3>
@@ -225,7 +224,7 @@ export function SoundPanel() {
             Hold sustain pedal
           </button>}
         </section>
-        {!isDrumInstrument(instrument)&&<section>
+        {!isDrumInstrument(instrument)&&<section className="sound-device sound-amplitude">
           <h3>Amplitude envelope</h3>
           <div className="instrument-envelope-graph"><SourceGraphEditor source={envelope} trackId={track.id} seed={s.project.seed} disabled={configLocked}
             onChange={source => change({ attack: source.attack, decay: source.decay, sustain: source.sustain, release: source.release })} /></div>
@@ -259,8 +258,8 @@ export function SoundPanel() {
           )}
         </section>
         }
-        <section>
-          <h3>Filter & movement</h3>
+        <section className="sound-device sound-filter">
+          <h3>Filter & modulation</h3>
           <Range
             variant="knob"
             label="Filter cutoff"
@@ -323,14 +322,15 @@ export function SoundPanel() {
           />
         </section>
       </div>
+      <ModulationRack />
       {instrument.kind === "sample" && (
-        <section className="sample-map">
-          <div className="subheading">
-            <h3>Sample mapping</h3>
+        <details className="sample-map sound-sample-inspector">
+          <summary>
+            <span>Sample mapping</span>
             <span className="tiny">
               {instrument.zones.length} zones · {instrument.license}
             </span>
-          </div>
+          </summary>
           <p className="helper">
             {s.project.userInstruments.some((i) => i.id === instrument.id)
               ? "Edit note ranges, velocity layers, and sustain loops for your recordings."
@@ -466,7 +466,7 @@ export function SoundPanel() {
               </tbody>
             </table>
           </div>
-        </section>
+        </details>
       )}
     </div>
   );

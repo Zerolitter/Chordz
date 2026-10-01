@@ -7,7 +7,7 @@ import { useStudio } from "./use-studio";
 import "./daw-knob.css";
 
 export interface DawKnobProps {
-  label: string; value: number; min?: number; max?: number; step?: number;
+  label: string; displayLabel?: string; value: number; min?: number; max?: number; step?: number;
   defaultValue?: number; unit?: string; format?: (value: number) => string; log?: boolean;
   disabled?: boolean; size?: "normal" | "small"; stageOwner?: string; performance?: boolean;
   effectiveValue?: number; modulationRange?: readonly [number, number]; modulationTarget?: ModTarget; modulationTargets?: readonly ModTarget[];
@@ -17,10 +17,10 @@ export interface DawKnobProps {
 const SOURCE_MIME = "application/x-chordz-mod-source", TRACK_MIME = "application/x-chordz-track-id";
 type Gesture = { kind: "pointer" | "keyboard" | "numeric" | "reset"; start: number; value: number; invalid: boolean };
 
-export function DawKnob({ label, value, min = 0, max = 1, step = .01, defaultValue,
+export function DawKnob({ label, displayLabel, value, min = 0, max = 1, step = .01, defaultValue,
   unit = "", format, log = false, disabled: disabledProp = false, size = "normal", stageOwner, performance = false,
   effectiveValue, modulationRange, modulationTarget, modulationTargets, trackId, onModulationDrop, onChange }: DawKnobProps) {
-  const s = useStudio(), owner = "knob:" + useId(), labelId = useId(), helpId = useId();
+  const s = useStudio(), owner = "knob:" + useId(), labelId = useId(), helpId = useId(), inputId = useId();
   const disabled = disabledProp || (performance ? !["idle","count-in","capturing"].includes(s.recordingPhase) : s.recordingPhase !== "idle");
   const headless = useRef<KnobHeadlessHandle>(null), gesture = useRef<Gesture | null>(null), blocked = useRef(false);
   const mounted = useRef(false), displayEpoch = useRef(0);
@@ -113,12 +113,13 @@ export function DawKnob({ label, value, min = 0, max = 1, step = .01, defaultVal
     if (targets.length === 1) assign(sourceId, targets[0], origin); else setPendingDrop({ sourceId, origin });
   }
   const p = knobToUnit(value, min, max, log), effective = effectiveValue === undefined ? p : knobToUnit(effectiveValue, min, max, log);
+  const numericValue = raw ?? Number(value.toPrecision(8)).toString();
   return <div className={`daw-knob daw-knob-${size}${dragOver ? " is-drop-target" : ""}${disabled ? " is-disabled" : ""}`} data-edit-policy="bypass"
     onDragOver={event => { if (!disabled && targets.length && event.dataTransfer.types.includes(SOURCE_MIME)) { event.preventDefault(); setDragOver(true); } }}
     onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragOver(false); }} onDrop={drop}>
-    <span id={labelId} className="daw-knob-label">{label}</span>
+    <span id={labelId} className="daw-knob-label" title={label}>{displayLabel ?? label}</span>
     <div className="daw-knob-control">
-      <KnobHeadless ref={headless} className="daw-knob-dial" aria-labelledby={labelId} aria-describedby={helpId}
+      <KnobHeadless ref={headless} className="daw-knob-dial" aria-label={displayLabel ? label : undefined} aria-labelledby={displayLabel ? undefined : labelId} aria-describedby={helpId}
         valueRaw={value} valueMin={min} valueMax={max} log={log} disabled={disabled} valueRawDisplayFn={display}
         onGestureStart={() => begin("pointer")} onValueRawChange={publish}
         onGestureEnd={canceled => { if (gesture.current?.kind === "pointer") { if (canceled) cancel(); else finish(); } }}
@@ -146,8 +147,11 @@ export function DawKnob({ label, value, min = 0, max = 1, step = .01, defaultVal
       </KnobHeadless>
       {defaultValue !== undefined && <button type="button" className="daw-knob-reset" disabled={disabled} aria-label={`Reset ${label}`} title={`Reset ${label} to ${display(defaultValue)}`} onClick={reset}>↺</button>}
     </div>
-    <input className="daw-knob-number" aria-label={`${label} value`} aria-invalid={invalid || undefined} aria-describedby={helpId}
-      type="text" inputMode="decimal" disabled={disabled} value={raw ?? Number(value.toPrecision(8)).toString()}
+    <label className="daw-knob-readout" htmlFor={inputId}>
+    {raw === null && min < 0 && value > 0 && <span className="daw-knob-sign" aria-hidden="true">+</span>}
+    <input id={inputId} className="daw-knob-number" aria-label={`${label} value`} aria-invalid={invalid || undefined} aria-describedby={helpId}
+      type="text" inputMode="decimal" disabled={disabled} value={numericValue}
+      style={{ width: `${Math.max(2, Math.min(14, numericValue.length))}ch` }}
       onFocus={event => { if (begin("numeric")) { setRaw(Number(value.toPrecision(8)).toString()); event.currentTarget.select(); } }}
       onChange={event => {
         if (!begin("numeric")) return;
@@ -160,7 +164,9 @@ export function DawKnob({ label, value, min = 0, max = 1, step = .01, defaultVal
         if (event.key === "Enter") { event.preventDefault(); if (finish()) event.currentTarget.blur(); }
         if (event.key === "Escape") { event.preventDefault(); cancel(); event.currentTarget.blur(); }
       }} />
-    <output className="daw-knob-display" aria-hidden="true">{display(value)}</output>
+      {unit && <span className="daw-knob-unit" aria-hidden="true">{unit.trim()}</span>}
+    </label>
+    {format && <output className="daw-knob-display" aria-hidden="true">{display(value)}</output>}
     {effectiveValue !== undefined && effective !== p && <span className="daw-knob-effective">Now {display(effectiveValue)}</span>}
     {modulationRange && effectiveValue === undefined && <span className="daw-knob-effective">{targets.every(target => target.startsWith("voice.")) ? "Awaiting voice" : "Awaiting audio"}</span>}
     <span id={helpId} className="sr-only">Drag up or down. Hold Shift for fine control. Arrow keys adjust; Home and End set limits. Enter a number below. Escape cancels.{modulationRange ? ` Modulation range ${display(modulationRange[0])} to ${display(modulationRange[1])}.` : ""}{targets.length ? " Drop a modulation source to assign it." : ""}</span>

@@ -1,7 +1,7 @@
-.daw-knob { display: flex; flex-direction: column; align-items: center; gap: 3px; position: relative; min-width: 88px; padding: 6px; border: 1px solid transparent; color: var(--ink, #eee); }
-.daw-knob-label { font-size: 11px; line-height: 1.4; color: var(--ink-2, #b7b9b3); text-align: center; }
+.daw-knob { display: flex; flex-direction: column; align-items: center; gap: 2px; position: relative; min-width: 76px; padding: 4px; border: 1px solid transparent; color: var(--ink, #eee); }
+.daw-knob-label { font-size: 10px; line-height: 1.3; color: var(--ink-2, #b7b9b3); text-align: center; }
 .daw-knob-control { display: flex; align-items: center; position: relative; }
-.daw-knob-dial { width: 56px; height: 56px; cursor: ns-resize; border-radius: 50%; user-select: none; outline-offset: 2px; }
+.daw-knob-dial { width: 48px; height: 48px; cursor: ns-resize; border-radius: 50%; user-select: none; outline-offset: 2px; }
 .daw-knob-dial:focus-visible { outline: 2px solid var(--selection, #76b6ed); }
 .daw-knob-dial svg { width: 100%; height: 100%; display: block; pointer-events: none; }
 .knob-track, .knob-value, .knob-modulation { fill: none; stroke-width: 3; stroke-linecap: round; }
@@ -12,33 +12,28 @@
 .knob-face { fill: var(--raised, #282b29); stroke: var(--border-strong, #454842); stroke-width: 1; }
 .knob-indicator { stroke: var(--ink, #eee); stroke-width: 2; stroke-linecap: round; }
 .knob-effective-dot { fill: var(--selection, #76b6ed); }
-.daw-knob-reset { min-width: 44px; min-height: 44px; padding: 0; font-size: 16px; border: 0; background: transparent; color: var(--ink-3, #858b83); }
-.daw-knob-number { width: 84px; min-height: 44px; text-align: center; font: 12px var(--font-mono, monospace); padding: 5px !important; border: 1px solid var(--border, #343834); background: var(--input, #1b1e1c); color: var(--ink, #eee); }
-.daw-knob-number:focus { border-color: var(--selection, #76b6ed); outline: 1px solid var(--selection, #76b6ed); }
-.daw-knob-display, .daw-knob-effective { font: 10px var(--font-mono, monospace); color: var(--ink-3, #858b83); min-height: 13px; }
+.daw-knob .daw-knob-reset { position: absolute; right: -21px; top: 12px; width: 24px; height: 24px; min-width: 24px; min-height: 24px; padding: 0; font-size: 13px; border: 0; background: transparent; color: var(--ink-3, #858b83); }
+.daw-knob .daw-knob-reset:hover { color: var(--ink, #eee); }
+.daw-knob .daw-knob-readout { display: flex; align-items: center; justify-content: center; gap: 4px; max-width: 100%; margin: 0; cursor: text; }
+/* The input owns its width. Rack and movement field rules must not stretch it. */
+.daw-knob .daw-knob-number[type="text"] { box-sizing: content-box; flex: 0 1 auto; min-width: 0; max-width: 14ch; height: 20px; min-height: 20px; margin: 0; text-align: center; font: 11px var(--font-mono, monospace); padding: 1px 5px !important; border: 1px solid #565957; border-radius: 3px; background: #414442; color: var(--ink, #eee); }
+.daw-knob .daw-knob-number[type="text"]:focus { border-color: var(--selection, #76b6ed); outline: 1px solid var(--selection, #76b6ed); }
+.daw-knob-sign, .daw-knob-unit, .daw-knob-display, .daw-knob-effective { font: 10px var(--font-mono, monospace); color: var(--ink-3, #858b83); line-height: 1.3; }
+.daw-knob-unit { white-space: nowrap; }
 .daw-knob-effective { color: var(--selection, #76b6ed); }
-.daw-knob-small .daw-knob-dial { width: 48px; height: 48px; }
-.daw-knob-small { min-width: 88px; padding: 3px 0; }
+.daw-knob-small .daw-knob-dial { width: 44px; height: 44px; }
+.daw-knob-small { min-width: 68px; padding: 3px 0; }
+.daw-knob-small .daw-knob-reset { top: 10px; }
 .daw-knob.is-drop-target { border-color: var(--selection, #76b6ed); background: var(--raised, #282b29); }
 .daw-knob.is-disabled { opacity: .5; }
 .daw-knob-error { font-size: 10px; color: var(--danger, #ed948c); }
-.daw-knob-number[aria-invalid="true"] { border-color: var(--danger, #ed948c); }
+.daw-knob .daw-knob-number[type="text"][aria-invalid="true"] { border-color: var(--danger, #ed948c); }
 .daw-knob-destinations { position: absolute; z-index: 12; top: 55px; left: 0; width: 190px; padding: 6px; background: var(--raised, #282b29); border: 1px solid var(--selection, #76b6ed); display: grid; gap: 4px; }
 .daw-knob-destinations button { min-height: 44px; font-size: 11px; text-align: left; }
-.sound-panel .sound-modules { gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.sound-panel .sound-modules > section { padding: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; align-content: start; }
-.sound-modules h3, .sound-modules .field, .sound-modules .envelope-visual, .sound-modules .sound-module-note { grid-column: 1 / -1; }
-.sound-modules .instrument-envelope-graph { grid-column: 1 / -1; min-width: 0; }
-.sound-modules .sound-module-note { min-height: 44px; }
-.sound-panel .sound-modules h3 { font-size: 12px; margin: 0 0 3px; }
-.sound-panel .envelope-visual { height: 44px; margin: 0; }
-.sound-instrument-header { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(180px, 2fr); align-items: start; gap: 8px 18px; margin-bottom: 12px; }
-.sound-instrument-header .field { margin: 0; }
-.sound-instrument-header .sound-description { margin: 0; font-size: 12px; }
-.sound-instrument-header > .helper { grid-column: 1 / -1; margin: 0; font-size: 11px; }
-.mixer-channel .daw-knob { margin: 4px 0; }
-.mixer-channel .daw-knob-label { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
-.mixer-channel .daw-knob-display { font-size: 10px; }
-.mix-panel .effects-row { grid-template-columns: repeat(4, minmax(96px, 1fr)); gap: 12px; }
-@media (max-width: 1200px) { .sound-panel .sound-modules { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 700px) { .sound-panel .sound-modules, .sound-instrument-header { grid-template-columns: 1fr; } .mix-panel .effects-row { grid-template-columns: repeat(2, minmax(96px, 1fr)); } }
+@media (pointer: coarse) {
+  .daw-knob, .daw-knob-small { min-width: 90px; }
+  .daw-knob .daw-knob-control { padding-right: 44px; }
+  .daw-knob .daw-knob-reset { right: 0; top: 0; width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+  .daw-knob .daw-knob-readout { min-width: 44px; min-height: 44px; }
+  .daw-knob .daw-knob-number[type="text"] { min-height: 20px; }
+}

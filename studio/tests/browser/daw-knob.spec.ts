@@ -23,7 +23,7 @@ test("knobs accept exact values, reject invalid drafts, reset and preserve Undo"
   const field = page.getByLabel("Resonance value", { exact: true }), knob = page.getByRole("slider", { name: "Resonance", exact: true });
   const initial = await number(knob);
   expect((await knob.boundingBox())!.width).toBeGreaterThanOrEqual(44);
-  expect((await field.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect((await field.boundingBox())!.height).toBeLessThanOrEqual(28);
   await field.fill("3.75"); await field.press("Enter"); await expect(knob).toHaveAttribute("aria-valuenow", "3.75");
   await page.getByLabel("Undo", { exact: true }).click(); await expect(knob).toHaveAttribute("aria-valuenow", String(initial));
   await page.getByLabel("Redo", { exact: true }).click(); await expect(field).toHaveValue("3.75");

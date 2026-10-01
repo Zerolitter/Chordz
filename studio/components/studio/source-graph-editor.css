@@ -1,0 +1,96 @@
+.mod-source-graph.daw-source-graph {
+  padding: 2px 4px 0;
+  min-width: 0;
+  background: color-mix(in srgb, var(--panel) 72%, #0e1212);
+  border-top: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+}
+.mod-source-graph.daw-source-graph svg {
+  display: block;
+  width: 100%;
+  height: 112px;
+  overflow: visible;
+  touch-action: none;
+  user-select: none;
+}
+.daw-source-graph svg .graph-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+  opacity: .45;
+}
+.daw-source-graph svg .graph-zero {
+  stroke: var(--soft);
+  stroke-width: 1;
+  opacity: .45;
+  stroke-dasharray: none;
+}
+.daw-source-graph svg text.graph-axis {
+  fill: var(--soft);
+  font: 9px Consolas, monospace;
+}
+.daw-source-graph svg text.graph-phase {
+  fill: var(--source-color, var(--amber));
+  opacity: .65;
+  font: 9px Consolas, monospace;
+  letter-spacing: .05em;
+}
+.daw-source-graph svg .graph-area {
+  fill: var(--source-color, var(--amber));
+  opacity: .08;
+  pointer-events: none;
+}
+.daw-source-graph svg .graph-base {
+  fill: none;
+  stroke: var(--soft);
+  stroke-width: 1;
+  opacity: .45;
+}
+.daw-source-graph svg .graph-effective {
+  fill: none;
+  stroke: var(--source-color, var(--amber));
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.daw-source-graph svg .graph-handle {
+  fill: var(--panel);
+  stroke: var(--source-color, var(--amber));
+  stroke-width: 1.7;
+}
+.daw-source-graph svg .graph-handle-hit {
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 37px;
+  cursor: move;
+  outline: none;
+  touch-action: none;
+  pointer-events: all;
+}
+.daw-source-graph svg .graph-handle-hit:focus-visible + .graph-handle {
+  fill: var(--source-color, var(--amber));
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+.daw-source-graph svg .graph-handle-hit[aria-disabled=true] {
+  cursor: default;
+  pointer-events: none;
+}
+.daw-source-graph svg .graph-cursor {
+  stroke: var(--selection);
+  stroke-width: 1;
+  opacity: .85;
+}
+.daw-source-graph svg .graph-live-point {
+  fill: var(--selection);
+  stroke: var(--ink);
+  stroke-width: 1;
+}
+.daw-source-graph .graph-help {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

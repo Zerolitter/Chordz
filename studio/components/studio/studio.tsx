@@ -291,7 +291,7 @@ function StudioShell() {
           <PerformanceDock open={dockOpen} onOpenChange={setDockOpen} />
         </div>
       </div>
-      <div
+      {(!s.hydrated || s.busy || s.error || s.message) && <div
         className={"studio-notice " + (s.error ? "error" : "")}
         role={s.error ? "alert" : "status"}
       >
@@ -299,14 +299,13 @@ function StudioShell() {
           ? "Opening your studio…"
           : s.busy ||
             s.error ||
-            s.message ||
-            "Your next song starts with a few notes."}
+            s.message}
         {s.error && (
           <button onClick={() => s.notify("Ready to try again.")}>
             Dismiss
           </button>
         )}
-      </div>
+      </div>}
       <Transport />
       {s.editConflict&&<div className="edit-conflict" role="alert" data-edit-policy="bypass">A newer edit was kept. Your proposal is available. <button onClick={s.reapplyEdit}>Reapply</button><button onClick={s.discardEdit}>Discard</button></div>}
       {narrow && <TrackDrawer open={tracksOpen} onClose={() => setTracksOpen(false)} />}

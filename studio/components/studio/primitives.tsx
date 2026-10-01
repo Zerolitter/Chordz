@@ -1,5 +1,5 @@
 "use client";
-import { useId,useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { useId,useRef, type ButtonHTMLAttributes, type ReactNode, type RefObject } from "react";
 import {useStudio} from "./use-studio";
 import { DawKnob, type DawKnobProps } from "./daw-knob";
 import {
@@ -100,6 +100,8 @@ export function Modal({
   description,
   children,
   wide = false,
+  className = "",
+  returnFocusRef,
 }: {
   open: boolean;
   onClose: () => void;
@@ -107,6 +109,8 @@ export function Modal({
   description?: string;
   children: ReactNode;
   wide?: boolean;
+  className?: string;
+  returnFocusRef?: RefObject<HTMLElement | null>;
 }) {
   return (
     <Dialog
@@ -116,7 +120,10 @@ export function Modal({
       }}
     >
       <DialogContent
-        className={"studio-dialog " + (wide ? "studio-dialog-wide" : "")}
+        className={"studio-dialog " + (wide ? "studio-dialog-wide " : "") + className}
+        onCloseAutoFocus={event => {
+          if (returnFocusRef?.current?.isConnected) { event.preventDefault(); returnFocusRef.current.focus(); }
+        }}
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

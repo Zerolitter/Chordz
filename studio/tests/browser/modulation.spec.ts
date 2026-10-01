@@ -186,7 +186,7 @@ test("movement controls produce editable notes and fit tablet/mobile layouts", a
   const idea = page.locator(".idea-panel");
   await idea.getByText("Voicing, rhythm & movement", { exact: true }).click();
   await idea.getByLabel("Use in generation", { exact: true }).check();
-  await idea.getByLabel("Movement pattern").selectOption("upDown");
+  await idea.getByLabel("Movement pattern", { exact: true }).selectOption("upDown");
   await idea.getByLabel("Movement rate").selectOption("240");
   await page.getByRole("button", { name: "Insert", exact: true }).click();
   await page.getByRole("navigation").getByRole("button", { name: "02 Arrange" }).click();

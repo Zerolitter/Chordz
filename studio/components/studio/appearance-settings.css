@@ -1,0 +1,25 @@
+.studio-dialog.appearance-dialog { width: 340px; max-width: calc(100vw - 32px) !important; padding: 16px !important; gap: 0 !important; border-radius: 4px; box-shadow: 0 12px 32px #0005; }
+.appearance-dialog [data-slot="dialog-header"] { padding: 0 28px 12px 0; gap: 0; text-align: left; border-bottom: 1px solid var(--border); }
+.appearance-dialog [data-slot="dialog-title"] { font-size: 14px; line-height: 20px; }
+.appearance-dialog [data-slot="dialog-description"] { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.appearance-dialog .appearance-presets { padding: 12px 0; margin: 0; border: 0; }
+.appearance-dialog .appearance-presets legend { float: left; width: 100%; margin: 0 0 8px; padding: 0; color: var(--ink-2); font-size: 11px; line-height: 16px; }
+.appearance-accent-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; clear: both; }
+.appearance-dialog .appearance-presets button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; width: auto; height: 50px; min-width: 44px; margin: 0; padding: 4px 2px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: var(--ink-2); font-size: 10px; }
+.appearance-dialog .appearance-presets button:hover { background: var(--raised); }
+.appearance-dialog .appearance-presets button[aria-pressed="true"] { border-color: var(--border-strong); background: var(--raised); outline: none; }
+.appearance-dialog .appearance-presets button:focus-visible { outline: 2px solid var(--selection); outline-offset: 1px; }
+.appearance-swatch { display: grid; place-items: center; width: 24px; height: 20px; border-radius: 2px; color: #28231b; font-size: 13px; }
+.appearance-setting { display: grid; grid-template-columns: 90px minmax(0, 1fr); align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid var(--border); color: var(--ink-2); font-size: 11px; }
+.appearance-setting select { width: 100%; height: 28px; min-height: 28px; padding: 3px 6px; font-size: 11px; }
+.appearance-rail-control { display: flex; align-items: center; gap: 8px; }
+.appearance-rail-control input { width: 100%; min-width: 0; height: 28px; margin: 0; }
+.appearance-rail-control output { flex-shrink: 0; width: 28px; font: 11px var(--font-mono, Consolas, monospace); color: var(--ink); }
+.appearance-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
+.appearance-footer > span { font-size: 10px; color: var(--ink-3); }
+.appearance-footer .text-button { min-height: 28px; padding: 4px 0 4px 8px; font-size: 11px; }
+.appearance-dialog > .helper { margin: 0 0 8px; font-size: 11px; }
+@media (pointer: coarse) {
+  .appearance-dialog [data-slot="dialog-close"] { display: grid; place-items: center; width: 44px; height: 44px; top: 4px; right: 4px; }
+  .appearance-setting select, .appearance-rail-control input, .appearance-footer .text-button { min-height: 44px; }
+}

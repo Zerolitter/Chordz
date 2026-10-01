@@ -9,7 +9,7 @@ test("live movement records emitted notes once and keeps four independent macros
   const rack = page.getByRole("region", { name: "Selected track modulation rack" });
   await rack.getByText("Live & generated chord movement", { exact: true }).click();
   await rack.getByLabel("Live arpeggiator", { exact: true }).check();
-  await rack.getByLabel("Movement pattern").selectOption("up");
+  await rack.getByLabel("Movement pattern", { exact: true }).selectOption("up");
   await rack.getByLabel("Movement rate").selectOption("240");
   await rack.getByLabel("Route source", { exact: true }).selectOption("M1");
   await rack.getByRole("button", { name: "Assign", exact: true }).click();

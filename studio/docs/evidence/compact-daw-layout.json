@@ -1,0 +1,63 @@
+{
+  "date": "2026-10-01",
+  "baseline": {
+    "studio": "0495ad64353fcc67e646cf6925faad7ff25eb98a",
+    "site": "b914b3f9ab6b8464fadc23e270c4b7e5a10aa90a",
+    "matchingFiles": 436
+  },
+  "unit": {
+    "passed": 223,
+    "files": 27
+  },
+  "browser": {
+    "verifiedTotal": 85,
+    "fullRunPassed": 83,
+    "fullRunLocatorFailures": 2,
+    "focusedRunPassed": 28,
+    "focusedRunLocatorFailures": 1,
+    "finalCompactLayoutPassed": 3,
+    "nativeCasesPassed": 11,
+    "emulatedTouch": true
+  },
+  "checks": {
+    "typecheck": "passed",
+    "lintZeroWarnings": "passed",
+    "productionBuild": "passed"
+  },
+  "visualViewports": [
+    [
+      2515,
+      1138
+    ],
+    [
+      1668,
+      1244
+    ],
+    [
+      960,
+      900
+    ],
+    [
+      390,
+      844
+    ]
+  ],
+  "referenceExport": {
+    "tracks": 16,
+    "recordedSeconds": 2.1093333333333333,
+    "exportSeconds": 304.8,
+    "rate": 48000,
+    "depth": 24,
+    "channels": 2,
+    "rms": 0.010181703891673896,
+    "peak": 0.14250361919403076,
+    "nonzero": 29041955,
+    "renderWallSeconds": 78.305
+  },
+  "handsOnOutstanding": [
+    "physical microphone/MIDI/hotplug",
+    "physical touch",
+    "human listening",
+    "reopened native window"
+  ]
+}
