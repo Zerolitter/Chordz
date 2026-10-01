@@ -9,7 +9,7 @@ function pulseFixture(seconds = 65) {
 }
 async function savedTrack(page: Page) {
   return page.evaluate(() => new Promise<{ routes: number; movement: boolean } | null>(resolve => {
-    const opened = indexedDB.open("chordz-recovery-v1", 1);
+    const opened = indexedDB.open("chordz-recovery-v1");
     opened.onerror = () => resolve(null);
     opened.onsuccess = () => {
       const db = opened.result; if (!db.objectStoreNames.contains("drafts")) { db.close(); resolve(null); return; }

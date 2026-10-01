@@ -71,7 +71,7 @@ const audio = z
     fadeOutSec: z.number().min(0).max(300),
   })
   .strict();
-const clip = z
+export const clipSchema = z
   .object({
     id: idSchema,
     name: z.string().max(120),
@@ -105,7 +105,7 @@ const track = z
     sound: soundSchema,
     modulation:modulationSchema.optional(),
     chordMovement:chordMovementSchema.optional(),
-    clips: z.array(clip).max(1000),
+    clips: z.array(clipSchema).max(1000),
     automation: z
       .array(
         z
@@ -167,6 +167,15 @@ export const instrumentSchema = z
     defaults: soundSchema.partial(),
   })
   .strict();
+export const assetSchema = z.object({
+  id: idSchema,
+  name: z.string().min(1).max(200),
+  mime: z.string().max(100),
+  byteLength: z.number().int().min(1).max(100 * 1024 * 1024),
+  duration: z.number().min(0).max(86400),
+  sampleRate: z.number().min(8000).max(192000),
+  channels: z.number().int().min(1).max(8),
+}).strict();
 export const projectSchema: z.ZodType<ProjectDocument> = z
   .object({
     schemaVersion: z.literal(1),
@@ -235,25 +244,7 @@ export const projectSchema: z.ZodType<ProjectDocument> = z
       )
       .max(10000),
     tracks: z.array(track).max(64),
-    assets: z
-      .array(
-        z
-          .object({
-            id: idSchema,
-            name: z.string().min(1).max(200),
-            mime: z.string().max(100),
-            byteLength: z
-              .number()
-              .int()
-              .min(1)
-              .max(100 * 1024 * 1024),
-            duration: z.number().min(0).max(86400),
-            sampleRate: z.number().min(8000).max(192000),
-            channels: z.number().int().min(1).max(8),
-          })
-          .strict(),
-      )
-      .max(1000),
+    assets: z.array(assetSchema).max(1000),
     userInstruments: z.array(instrumentSchema).max(128),
     master: z
       .object({

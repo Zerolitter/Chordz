@@ -93,7 +93,7 @@ export function instrumentFor(project: ProjectDocument, track: Track) {
     FACTORY_INSTRUMENTS[0]
   );
 }
-export const isDrumInstrument=(instrument:InstrumentManifest)=>instrument.kind==="drums"||instrument.id==="percussion";
+export const isDrumInstrument=(instrument:InstrumentManifest)=>instrument.kind==="drums"||instrument.id==="percussion"||instrument.id.startsWith("percussion_");
 export function instrumentSettings(manifest: InstrumentManifest) {
   return { ...DEFAULT_SOUND, ...manifest.defaults };
 }

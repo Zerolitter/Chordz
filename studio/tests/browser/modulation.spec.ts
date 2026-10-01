@@ -19,7 +19,7 @@ async function openRouteSettings(rack: Locator) {
 
 async function savedRoutes(page: Page) {
   return page.evaluate(() => new Promise<{ count: number; amount?: number } | null>(resolve => {
-    const opened = indexedDB.open("chordz-recovery-v1", 1);
+    const opened = indexedDB.open("chordz-recovery-v1");
     opened.onerror = () => resolve(null);
     opened.onsuccess = () => {
       const db = opened.result;
