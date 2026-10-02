@@ -9,6 +9,7 @@ import { generatePart } from "../../lib/music/generate";
 import { createPhraseEntry, createSoundEntry, phraseCompatibility, type LibraryEntry } from "../../lib/music/reusable-library";
 import type { DetailTool } from "../../lib/client/studio-view";
 import type { GenerationOptions, ProjectDocument, Section } from "../../lib/music/types";
+import { entrySampleProvenance } from "../../lib/music/refined-sample";
 import "./library-browser.css";
 
 type LibraryTab = "sounds" | "ideas" | "favorites" | "recent";
@@ -168,7 +169,7 @@ export function LibraryBrowser({active,onTool}:{active:boolean;onTool:(tool:Deta
       {tab === "ideas" && <div className="idea-routes"><button onClick={() => onTool("writing")}><strong>Chords & parts</strong><small>Develop the current progression.</small></button><button onClick={() => onTool("lyrics")}><strong>Lyrics & song notes</strong><small>Keep words beside your song.</small></button><button onClick={() => onTool("reference")}><strong>Reference</strong><small>Review analyzed audio proposals.</small></button></div>}
     </div>
     <div className="library-placement">
-      {chosen && <><strong className="library-selected-name">{chosen.name}</strong><p className="assets-destination">{chosen.kind === "sound" ? <>Insert: new instrument track<br/>Replace: <strong>{s.selectedTrack?.name ?? "choose a track"}</strong></> : <>Insert: <strong>{s.selectedTrack?.name ?? "new track"}</strong> · {s.selectedSection.name}<br/>Bar {Math.floor(s.selectedSection.startTick/ticksPerBar(s.project))+1}{chosen.kind !== "audio" && <><br/>Replace: {s.selectedClip?.name ?? "select a compatible phrase"}</>}</>}</p>
+      {chosen && <><strong className="library-selected-name">{chosen.name}</strong>{entrySampleProvenance(chosen) && <span className="sample-provenance-badge">{entrySampleProvenance(chosen)!.method} · {entrySampleProvenance(chosen)!.status === "approved" ? "User reviewed" : entrySampleProvenance(chosen)!.status === "mixed-texture" ? "Mixed texture" : "Needs review"}</span>}<p className="assets-destination">{chosen.kind === "sound" ? <>Insert: new instrument track<br/>Replace: <strong>{s.selectedTrack?.name ?? "choose a track"}</strong></> : <>Insert: <strong>{s.selectedTrack?.name ?? "new track"}</strong> · {s.selectedSection.name}<br/>Bar {Math.floor(s.selectedSection.startTick/ticksPerBar(s.project))+1}{chosen.kind !== "audio" && <><br/>Replace: {s.selectedClip?.name ?? "select a compatible phrase"}</>}</>}</p>
         <div className="library-preview-actions"><button className="secondary-button" disabled={busy} onClick={() => void preview()}>Preview</button><button className="text-button" onClick={stopPreview}>Stop preview</button></div>
         <div className="library-use-actions"><button className="secondary-button" aria-label={chosen.id.startsWith("factory_") ? "Add instrument track" : "Insert library entry"} disabled={busy} onClick={() => void place("insert")}>{chosen.kind === "sound" ? "Insert track" : "Insert"}</button>
           {chosen.kind !== "audio" && <button className="secondary-button" aria-label={chosen.id.startsWith("factory_") ? "Use on selected track" : "Replace with library entry"} disabled={busy || !s.selectedTrack || (chosen.kind === "sound" ? s.selectedTrack.kind !== "instrument" : !s.selectedClip || !!s.selectedClip.audio)} title={chosen.kind === "sound" ? "Replace sound on the selected track" : "Replace the explicitly selected phrase"} onClick={() => void place("replace")}>{chosen.kind === "sound" ? "Replace sound" : "Replace phrase"}</button>}</div>
@@ -180,6 +181,7 @@ export function LibraryBrowser({active,onTool}:{active:boolean;onTool:(tool:Deta
       {s.libraryBusy && <button className="secondary-button" onClick={() => {s.cancelLibraryOperation();setStatus({scope,text:"Library operation cancelled.",error:false});}}>Cancel library operation</button>}
       {message && <p className={`library-message${message.error ? " library-error" : ""}`} role="status">{message.text}</p>}
       {s.libraryError && s.libraryError !== message?.text && <p className="library-message library-error" role="status">{s.libraryError}<button className="text-button" disabled={!!s.libraryBusy} onClick={() => void s.refreshReusableLibrary()}>Retry library</button></p>}
+      <button className="text-button" onClick={() => onTool("reference")}>Refine a sample</button>
       <button className="text-button" onClick={() => onTool("keyboard")}>Import audio / Inputs</button>
     </div>
     <details className="library-manage"><summary>Save & manage library</summary><div>

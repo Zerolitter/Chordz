@@ -17,6 +17,7 @@ const eslintConfig = defineConfig([
     "public/audio/processor.worker.js",
     "public/audio/mp3.worker.js",
     "public/audio/reference.worker.js",
+    "public/audio/sample-refinement.worker.js",
     "out/**",
     "build/**",
     "next-env.d.ts",

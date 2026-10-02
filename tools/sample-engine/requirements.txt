@@ -1,0 +1,5 @@
+# Python 3.11; install the matching CPU or CUDA torch/torchaudio pair first.
+# No model weights are bundled or downloaded by installation.
+demucs==4.0.1
+soundfile==0.13.1
+numpy==1.26.4
