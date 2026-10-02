@@ -6,6 +6,7 @@ Windows desktop music studio for songwriting, arranging, recording and mixing.
 The desktop app opens the live [Chordz Studio](https://www.chordz.zerolitter.net) in a dedicated WebView2 window. It provides piano, chord editing, orchestral instruments, synthesizers, multitrack arrangement, microphone recording, private cloud projects and WAV/MP3/MIDI exports.
 
 **Version 0.1.0 is an online desktop client. Internet access is required.** The complete studio source is included in `studio/` for development; it is not bundled as an offline server.
+<img width="2411" height="1188" alt="image" src="https://github.com/user-attachments/assets/5f729506-20f3-4b36-8b59-d3e46c17c7c0" />
 
 ## Download and use
 
