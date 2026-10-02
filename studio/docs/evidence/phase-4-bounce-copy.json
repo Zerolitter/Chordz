@@ -64,11 +64,11 @@
   },
   "audio": {
     "wav-roundtrip": {
-      "playbackError": 5.421010862427522E-20,
-      "quantizationError": 6.332993507385254E-08,
+      "playbackError": 5.421010862427522e-20,
+      "quantizationError": 6.332993507385254e-8,
       "stereoDifference": 0.006947547197341919,
       "tailPeak": 0.007609466090798378,
-      "fullMixError": 2.514570951461792E-08,
+      "fullMixError": 2.514570951461792e-8,
       "frames": 806400,
       "expectedFrames": 806400,
       "channels": 2,
@@ -77,12 +77,12 @@
       "unchanged": true
     },
     "neutral": {
-      "error": 2.7696283309321112E-17,
-      "initialError": 2.2344729148568443E-17,
+      "error": 2.7696283309321112e-17,
+      "initialError": 2.2344729148568443e-17,
       "frames": 48000
     },
     "off-grid-placement-3841": {
-      "error": 6.332993507385254E-08,
+      "error": 6.332993507385254e-8,
       "peak": 0.05716269463300705,
       "shiftedErrors": [
         {
@@ -95,7 +95,7 @@
         },
         {
           "shift": 0,
-          "error": 6.332993507385254E-08
+          "error": 6.332993507385254e-8
         },
         {
           "shift": 1,
@@ -116,7 +116,7 @@
       "unchanged": true
     },
     "off-grid-placement-3839": {
-      "error": 6.332993507385254E-08,
+      "error": 6.332993507385254e-8,
       "peak": 0.057171422988176346,
       "shiftedErrors": [
         {
@@ -129,7 +129,7 @@
         },
         {
           "shift": 0,
-          "error": 6.332993507385254E-08
+          "error": 6.332993507385254e-8
         },
         {
           "shift": 1,
@@ -150,14 +150,14 @@
       "unchanged": true
     },
     "tail-automation": {
-      "error": 7.450580596923828E-08,
+      "error": 7.450580596923828e-8,
       "tailPeak": 0.07146181911230087,
       "tailPolicyDifference": 0.0011298246681690216,
       "frames": 844801,
       "expectedFrames": 844801
     },
     "long-release": {
-      "error": 7.450580596923828E-08,
+      "error": 7.450580596923828e-8,
       "latePeak": 0.0017339005134999752,
       "frames": 1276800,
       "expectedFrames": 1276800,
@@ -165,16 +165,16 @@
       "requiredDuration": 15.1
     },
     "slow-delay": {
-      "error": 7.450580596923828E-08,
+      "error": 7.450580596923828e-8,
       "lateEchoPeak": 0.018225306645035744,
-      "beyondBudgetPeak": 1.8150345592812811E-12,
+      "beyondBudgetPeak": 1.8150345592812811e-12,
       "duration": 54.2,
       "frames": 2601600,
       "expectedFrames": 2601600
     },
     "held-transition": {
-      "beforeError": 4.798529697896958E-08,
-      "afterError": 4.357417068140412E-08,
+      "beforeError": 4.798529697896958e-8,
+      "afterError": 4.357417068140412e-8,
       "middleDifference": 0.03184171883896027,
       "middleEnergy": 0.015987858176231384,
       "frames": 72000
@@ -182,14 +182,14 @@
     "live-controls": [
       {
         "type": "modulation",
-        "beforeError": 3.119791751327039E-17,
-        "afterError": 3.115048366822415E-17,
+        "beforeError": 3.119791751327039e-17,
+        "afterError": 3.115048366822415e-17,
         "activeDifference": 0.11743731796741486
       },
       {
         "type": "pressure",
-        "beforeError": 3.119791751327039E-17,
-        "afterError": 3.115048366822415E-17,
+        "beforeError": 3.119791751327039e-17,
+        "afterError": 3.115048366822415e-17,
         "activeDifference": 0.11743731796741486
       }
     ]
@@ -220,5 +220,818 @@
     "Hosted end-to-end workflows and reopened WebView2",
     "No controlled CPU benefit measurement"
   ],
-  "systemChanges": "No hardware, firmware or OS performance changes"
+  "systemChanges": "No hardware, firmware or OS performance changes",
+  "desktopLayout": {
+    "primaryViewport": {
+      "width": 2560,
+      "height": 1440
+    },
+    "supportingViewport": {
+      "width": 2048,
+      "height": 1152
+    },
+    "scope": "Compact Sound device banks, grouped headers, modulation alongside instruments at sufficient actual container width; preserve input ownership and schema",
+    "initialRun": {
+      "output": "output/desktop-density-final",
+      "startTime": "2026-10-02T01:12:27.598Z",
+      "duration": 71771.233,
+      "expected": 18,
+      "skipped": 0,
+      "unexpected": 1,
+      "flaky": 0
+    },
+    "confirmation": {
+      "output": "output/desktop-density-confirmation",
+      "startTime": "2026-10-02T01:13:59.403Z",
+      "duration": 74922.337,
+      "expected": 19,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "expandedInstrumentCase": {
+      "passed": 1,
+      "total": 1,
+      "seconds": 6,
+      "variants": [
+        "sample",
+        "FM",
+        "drums"
+      ],
+      "output": "output/desktop-density-variants-red"
+    },
+    "before": {
+      "label": "before",
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "arrange": {
+        "panel": {
+          "x": 248,
+          "y": 951.40625,
+          "width": 1320,
+          "height": 935.75
+        },
+        "modules": {
+          "x": 248,
+          "y": 1068.90625,
+          "width": 1320,
+          "height": 312.5
+        },
+        "devices": [
+          {
+            "name": "Performance",
+            "x": 248,
+            "y": 1068.90625,
+            "width": 383.375,
+            "height": 312.5,
+            "controls": [
+              {
+                "x": 255,
+                "y": 1109.40625,
+                "width": 120.453125,
+                "height": 123
+              },
+              {
+                "x": 379.453125,
+                "y": 1109.40625,
+                "width": 120.453125,
+                "height": 123
+              },
+              {
+                "x": 503.90625,
+                "y": 1109.40625,
+                "width": 120.46875,
+                "height": 123
+              }
+            ]
+          },
+          {
+            "name": "Amplitude envelope",
+            "x": 637.375,
+            "y": 1068.90625,
+            "width": 473.578125,
+            "height": 312.5,
+            "controls": [
+              {
+                "x": 644.375,
+                "y": 1229.40625,
+                "width": 111.890625,
+                "height": 97
+              },
+              {
+                "x": 760.265625,
+                "y": 1229.40625,
+                "width": 111.890625,
+                "height": 97
+              },
+              {
+                "x": 876.15625,
+                "y": 1229.40625,
+                "width": 111.890625,
+                "height": 97
+              },
+              {
+                "x": 992.046875,
+                "y": 1229.40625,
+                "width": 111.90625,
+                "height": 97
+              }
+            ]
+          },
+          {
+            "name": "Filter & modulation",
+            "x": 1116.953125,
+            "y": 1068.90625,
+            "width": 451.03125,
+            "height": 312.5,
+            "controls": [
+              {
+                "x": 1123.953125,
+                "y": 1109.40625,
+                "width": 143,
+                "height": 138
+              },
+              {
+                "x": 1270.953125,
+                "y": 1109.40625,
+                "width": 143.015625,
+                "height": 138
+              },
+              {
+                "x": 1417.96875,
+                "y": 1109.40625,
+                "width": 143.015625,
+                "height": 138
+              },
+              {
+                "x": 1123.953125,
+                "y": 1251.40625,
+                "width": 143,
+                "height": 123
+              },
+              {
+                "x": 1270.953125,
+                "y": 1251.40625,
+                "width": 143.015625,
+                "height": 123
+              }
+            ]
+          }
+        ],
+        "rack": {
+          "x": 248,
+          "y": 1428.90625,
+          "width": 1320,
+          "height": 458.25
+        },
+        "overflow": false
+      },
+      "sound": {
+        "panel": {
+          "x": 248,
+          "y": 965.8125,
+          "width": 1320,
+          "height": 935.75
+        },
+        "modules": {
+          "x": 248,
+          "y": 1083.3125,
+          "width": 1320,
+          "height": 312.5
+        },
+        "devices": [
+          {
+            "name": "Performance",
+            "x": 248,
+            "y": 1083.3125,
+            "width": 383.375,
+            "height": 312.5,
+            "controls": [
+              {
+                "x": 255,
+                "y": 1123.8125,
+                "width": 120.453125,
+                "height": 123
+              },
+              {
+                "x": 379.453125,
+                "y": 1123.8125,
+                "width": 120.453125,
+                "height": 123
+              },
+              {
+                "x": 503.90625,
+                "y": 1123.8125,
+                "width": 120.46875,
+                "height": 123
+              }
+            ]
+          },
+          {
+            "name": "Amplitude envelope",
+            "x": 637.375,
+            "y": 1083.3125,
+            "width": 473.578125,
+            "height": 312.5,
+            "controls": [
+              {
+                "x": 644.375,
+                "y": 1243.8125,
+                "width": 111.890625,
+                "height": 97
+              },
+              {
+                "x": 760.265625,
+                "y": 1243.8125,
+                "width": 111.890625,
+                "height": 97
+              },
+              {
+                "x": 876.15625,
+                "y": 1243.8125,
+                "width": 111.890625,
+                "height": 97
+              },
+              {
+                "x": 992.046875,
+                "y": 1243.8125,
+                "width": 111.90625,
+                "height": 97
+              }
+            ]
+          },
+          {
+            "name": "Filter & modulation",
+            "x": 1116.953125,
+            "y": 1083.3125,
+            "width": 451.03125,
+            "height": 312.5,
+            "controls": [
+              {
+                "x": 1123.953125,
+                "y": 1123.8125,
+                "width": 143,
+                "height": 138
+              },
+              {
+                "x": 1270.953125,
+                "y": 1123.8125,
+                "width": 143.015625,
+                "height": 138
+              },
+              {
+                "x": 1417.96875,
+                "y": 1123.8125,
+                "width": 143.015625,
+                "height": 138
+              },
+              {
+                "x": 1123.953125,
+                "y": 1265.8125,
+                "width": 143,
+                "height": 123
+              },
+              {
+                "x": 1270.953125,
+                "y": 1265.8125,
+                "width": 143.015625,
+                "height": 123
+              }
+            ]
+          }
+        ],
+        "rack": {
+          "x": 248,
+          "y": 1443.3125,
+          "width": 1320,
+          "height": 458.25
+        },
+        "overflow": false
+      },
+      "errors": []
+    },
+    "after": {
+      "label": "final",
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "arrange": {
+        "panel": {
+          "x": 248,
+          "y": 951.40625,
+          "width": 2300,
+          "height": 458.25
+        },
+        "modules": {
+          "x": 248,
+          "y": 1081.90625,
+          "width": 1110,
+          "height": 264.5
+        },
+        "devices": [
+          {
+            "name": "Performance",
+            "x": 248,
+            "y": 1081.90625,
+            "width": 260,
+            "height": 206.5,
+            "controls": [
+              {
+                "x": 255,
+                "y": 1122.40625,
+                "width": 79.328125,
+                "height": 123
+              },
+              {
+                "x": 338.328125,
+                "y": 1122.40625,
+                "width": 79.328125,
+                "height": 123
+              },
+              {
+                "x": 421.65625,
+                "y": 1122.40625,
+                "width": 79.34375,
+                "height": 123
+              }
+            ]
+          },
+          {
+            "name": "Amplitude envelope",
+            "x": 514,
+            "y": 1081.90625,
+            "width": 344,
+            "height": 264.5,
+            "controls": [
+              {
+                "x": 521,
+                "y": 1242.40625,
+                "width": 79.5,
+                "height": 97
+              },
+              {
+                "x": 604.5,
+                "y": 1242.40625,
+                "width": 79.5,
+                "height": 97
+              },
+              {
+                "x": 688,
+                "y": 1242.40625,
+                "width": 79.5,
+                "height": 97
+              },
+              {
+                "x": 771.5,
+                "y": 1242.40625,
+                "width": 79.5,
+                "height": 97
+              }
+            ]
+          },
+          {
+            "name": "Filter & modulation",
+            "x": 864,
+            "y": 1081.90625,
+            "width": 494,
+            "height": 185.5,
+            "controls": [
+              {
+                "x": 871,
+                "y": 1122.40625,
+                "width": 76.65625,
+                "height": 138
+              },
+              {
+                "x": 951.65625,
+                "y": 1122.40625,
+                "width": 76.671875,
+                "height": 138
+              },
+              {
+                "x": 1032.328125,
+                "y": 1122.40625,
+                "width": 76.65625,
+                "height": 138
+              },
+              {
+                "x": 1112.984375,
+                "y": 1122.40625,
+                "width": 76.671875,
+                "height": 138
+              },
+              {
+                "x": 1193.65625,
+                "y": 1122.40625,
+                "width": 76.671875,
+                "height": 138
+              }
+            ]
+          }
+        ],
+        "rack": {
+          "x": 1366,
+          "y": 951.40625,
+          "width": 1182,
+          "height": 458.25
+        },
+        "overflow": false
+      },
+      "sound": {
+        "panel": {
+          "x": 248,
+          "y": 965.8125,
+          "width": 2300,
+          "height": 458.25
+        },
+        "modules": {
+          "x": 248,
+          "y": 1096.3125,
+          "width": 1110,
+          "height": 264.5
+        },
+        "devices": [
+          {
+            "name": "Performance",
+            "x": 248,
+            "y": 1096.3125,
+            "width": 260,
+            "height": 206.5,
+            "controls": [
+              {
+                "x": 255,
+                "y": 1136.8125,
+                "width": 79.328125,
+                "height": 123
+              },
+              {
+                "x": 338.328125,
+                "y": 1136.8125,
+                "width": 79.328125,
+                "height": 123
+              },
+              {
+                "x": 421.65625,
+                "y": 1136.8125,
+                "width": 79.34375,
+                "height": 123
+              }
+            ]
+          },
+          {
+            "name": "Amplitude envelope",
+            "x": 514,
+            "y": 1096.3125,
+            "width": 344,
+            "height": 264.5,
+            "controls": [
+              {
+                "x": 521,
+                "y": 1256.8125,
+                "width": 79.5,
+                "height": 97
+              },
+              {
+                "x": 604.5,
+                "y": 1256.8125,
+                "width": 79.5,
+                "height": 97
+              },
+              {
+                "x": 688,
+                "y": 1256.8125,
+                "width": 79.5,
+                "height": 97
+              },
+              {
+                "x": 771.5,
+                "y": 1256.8125,
+                "width": 79.5,
+                "height": 97
+              }
+            ]
+          },
+          {
+            "name": "Filter & modulation",
+            "x": 864,
+            "y": 1096.3125,
+            "width": 494,
+            "height": 185.5,
+            "controls": [
+              {
+                "x": 871,
+                "y": 1136.8125,
+                "width": 76.65625,
+                "height": 138
+              },
+              {
+                "x": 951.65625,
+                "y": 1136.8125,
+                "width": 76.671875,
+                "height": 138
+              },
+              {
+                "x": 1032.328125,
+                "y": 1136.8125,
+                "width": 76.65625,
+                "height": 138
+              },
+              {
+                "x": 1112.984375,
+                "y": 1136.8125,
+                "width": 76.671875,
+                "height": 138
+              },
+              {
+                "x": 1193.65625,
+                "y": 1136.8125,
+                "width": 76.671875,
+                "height": 138
+              }
+            ]
+          }
+        ],
+        "rack": {
+          "x": 1366,
+          "y": 965.8125,
+          "width": 1182,
+          "height": 458.25
+        },
+        "overflow": false
+      },
+      "errors": []
+    },
+    "scaled": {
+      "label": "scaled",
+      "viewport": {
+        "width": 2048,
+        "height": 1152
+      },
+      "arrange": {
+        "panel": {
+          "x": 248,
+          "y": 778.609375,
+          "width": 1788,
+          "height": 583.75
+        },
+        "modules": {
+          "x": 248,
+          "y": 909.109375,
+          "width": 1110,
+          "height": 264.5
+        },
+        "devices": [
+          {
+            "name": "Performance",
+            "x": 248,
+            "y": 909.109375,
+            "width": 260,
+            "height": 206.5,
+            "controls": [
+              {
+                "x": 255,
+                "y": 949.609375,
+                "width": 79.328125,
+                "height": 123
+              },
+              {
+                "x": 338.328125,
+                "y": 949.609375,
+                "width": 79.328125,
+                "height": 123
+              },
+              {
+                "x": 421.65625,
+                "y": 949.609375,
+                "width": 79.34375,
+                "height": 123
+              }
+            ]
+          },
+          {
+            "name": "Amplitude envelope",
+            "x": 514,
+            "y": 909.109375,
+            "width": 344,
+            "height": 264.5,
+            "controls": [
+              {
+                "x": 521,
+                "y": 1069.609375,
+                "width": 79.5,
+                "height": 97
+              },
+              {
+                "x": 604.5,
+                "y": 1069.609375,
+                "width": 79.5,
+                "height": 97
+              },
+              {
+                "x": 688,
+                "y": 1069.609375,
+                "width": 79.5,
+                "height": 97
+              },
+              {
+                "x": 771.5,
+                "y": 1069.609375,
+                "width": 79.5,
+                "height": 97
+              }
+            ]
+          },
+          {
+            "name": "Filter & modulation",
+            "x": 864,
+            "y": 909.109375,
+            "width": 494,
+            "height": 185.5,
+            "controls": [
+              {
+                "x": 871,
+                "y": 949.609375,
+                "width": 76.65625,
+                "height": 138
+              },
+              {
+                "x": 951.65625,
+                "y": 949.609375,
+                "width": 76.671875,
+                "height": 138
+              },
+              {
+                "x": 1032.328125,
+                "y": 949.609375,
+                "width": 76.65625,
+                "height": 138
+              },
+              {
+                "x": 1112.984375,
+                "y": 949.609375,
+                "width": 76.671875,
+                "height": 138
+              },
+              {
+                "x": 1193.65625,
+                "y": 949.609375,
+                "width": 76.671875,
+                "height": 138
+              }
+            ]
+          }
+        ],
+        "rack": {
+          "x": 1366,
+          "y": 778.609375,
+          "width": 670,
+          "height": 583.75
+        },
+        "overflow": false
+      },
+      "sound": {
+        "panel": {
+          "x": 248,
+          "y": 793,
+          "width": 1788,
+          "height": 583.75
+        },
+        "modules": {
+          "x": 248,
+          "y": 923.5,
+          "width": 1110,
+          "height": 264.5
+        },
+        "devices": [
+          {
+            "name": "Performance",
+            "x": 248,
+            "y": 923.5,
+            "width": 260,
+            "height": 206.5,
+            "controls": [
+              {
+                "x": 255,
+                "y": 964,
+                "width": 79.328125,
+                "height": 123
+              },
+              {
+                "x": 338.328125,
+                "y": 964,
+                "width": 79.328125,
+                "height": 123
+              },
+              {
+                "x": 421.65625,
+                "y": 964,
+                "width": 79.34375,
+                "height": 123
+              }
+            ]
+          },
+          {
+            "name": "Amplitude envelope",
+            "x": 514,
+            "y": 923.5,
+            "width": 344,
+            "height": 264.5,
+            "controls": [
+              {
+                "x": 521,
+                "y": 1084,
+                "width": 79.5,
+                "height": 97
+              },
+              {
+                "x": 604.5,
+                "y": 1084,
+                "width": 79.5,
+                "height": 97
+              },
+              {
+                "x": 688,
+                "y": 1084,
+                "width": 79.5,
+                "height": 97
+              },
+              {
+                "x": 771.5,
+                "y": 1084,
+                "width": 79.5,
+                "height": 97
+              }
+            ]
+          },
+          {
+            "name": "Filter & modulation",
+            "x": 864,
+            "y": 923.5,
+            "width": 494,
+            "height": 185.5,
+            "controls": [
+              {
+                "x": 871,
+                "y": 964,
+                "width": 76.65625,
+                "height": 138
+              },
+              {
+                "x": 951.65625,
+                "y": 964,
+                "width": 76.671875,
+                "height": 138
+              },
+              {
+                "x": 1032.328125,
+                "y": 964,
+                "width": 76.65625,
+                "height": 138
+              },
+              {
+                "x": 1112.984375,
+                "y": 964,
+                "width": 76.671875,
+                "height": 138
+              },
+              {
+                "x": 1193.65625,
+                "y": 964,
+                "width": 76.671875,
+                "height": 138
+              }
+            ]
+          }
+        ],
+        "rack": {
+          "x": 1366,
+          "y": 793,
+          "width": 670,
+          "height": 583.75
+        },
+        "overflow": false
+      },
+      "errors": []
+    },
+    "screenshotsInspected": [
+      "output/desktop-density/final-2560-arrange.png",
+      "output/desktop-density/final-2560-detail.png",
+      "output/desktop-density/scaled-2048-arrange.png",
+      "output/compact-layout/2560-maximized-sound.png"
+    ],
+    "checks": {
+      "typecheck": "passed",
+      "lint": "passed, zero warnings",
+      "build": "passed; existing large-client-chunk advisory",
+      "review": "No remaining material source blocker"
+    },
+    "limitations": [
+      "Physical touch and display scaling were not tested",
+      "Content taller than the selected dock remains internally scrollable",
+      "Published hosted workflows remain a separate evidence gate"
+    ]
+  }
 }

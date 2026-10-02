@@ -6,6 +6,8 @@ An expressive browser studio for developing an idea into a complete song. The or
 
 Start with the original hybrid demo, **Where the light returns**, or choose **Songs → Blank song**. Defaults are 120 BPM and 4/4; tempo, meter, key and scale are editable.
 
+On a wide desktop, Sound keeps compact instrument controls beside the modulation rack. The layout follows the available dock width; use **Maximize editor** or **Layout → Editor height** for expanded sample mappings and patches.
+
 - **Write:** play the piano, enter chord symbols, explore inversions and extensions, preview shared notes and voice leading, and write section-linked lyrics. Generate editable melodies, bass, arpeggios, strings and drums with energy, density, register and tension controls. Audition before inserting; existing parts are preserved.
 - **Arrange:** create and move sections; drag, resize, split, duplicate, loop and transpose clips. Edit notes, velocities, drum steps and captured expression. Quantize, swing and humanize phrases. Draw volume, pan, filter, expression, pitch bend and send automation.
 - **Sound:** sampled piano, strings, cello, horn, flute, glockenspiel and orchestral percussion; hybrid drums and subtractive/FM pads, basses and leads. Edit envelopes, filters, LFOs, detuning and articulations. Import and map your own sample by root, range, velocity and sustain loop.

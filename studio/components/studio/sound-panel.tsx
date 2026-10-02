@@ -21,8 +21,10 @@ export function releaseSoundPanelInputs(studio: Pick<ReturnType<typeof useStudio
 export function SoundPanel({ active = true, section, onOpenMovement }: { active?: boolean; section?: SoundPanelSection; onOpenMovement?: () => void } = {}) {
   const soundVisible = active && (!section || section === "sound");
   return <div className="sound-panel">
-    <ToolVisibilityProvider active={soundVisible}><div hidden={!soundVisible}><InstrumentSoundBody onOpenMovement={onOpenMovement} /></div></ToolVisibilityProvider>
-    <ModulationRack active={active} section={section} />
+    <div className="sound-workspace">
+      <ToolVisibilityProvider active={soundVisible}><div className="sound-devices" hidden={!soundVisible}><InstrumentSoundBody onOpenMovement={onOpenMovement} /></div></ToolVisibilityProvider>
+      <ModulationRack active={active} section={section} />
+    </div>
   </div>;
 }
 
@@ -118,9 +120,9 @@ function InstrumentSoundBody({ onOpenMovement }: { onOpenMovement?: () => void }
           }
         />
       </label>
-      <div><SoundReadiness/>
+      <div className="sound-instrument-meta"><SoundReadiness/>
       <p className="sound-description">{instrument.description}</p>
-      </div><span className="sound-next-notes" title="Envelope timing, synthesis engine and articulation changes apply when a note starts.">Envelope, engine & articulation · next notes</span></div>
+      <span className="sound-next-notes" title="Envelope timing, synthesis engine and articulation changes apply when a note starts.">Envelope, engine & articulation · next notes</span></div></div>
       <div className="sound-modules" key={track.id} data-edit-policy="bypass">
         <section className="sound-device sound-performance">
           <h3>
@@ -128,6 +130,7 @@ function InstrumentSoundBody({ onOpenMovement }: { onOpenMovement?: () => void }
           </h3>
           {instrument.kind === "synth" && (
             <>
+              <div className="sound-selectors">
               <label className="field">
                 Engine
                 <select
@@ -157,6 +160,7 @@ function InstrumentSoundBody({ onOpenMovement }: { onOpenMovement?: () => void }
                 </select>
               </label>
               }
+              </div>
               {sound.algorithm === "fm" && (
                 <>
                   <Range
