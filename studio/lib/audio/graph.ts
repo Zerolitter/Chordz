@@ -36,6 +36,10 @@ export interface TrackGraph {
   expression: GainNode;
   pan: StereoPannerNode;
   filter: BiquadFilterNode;
+  filterDry?: GainNode;
+  filterWet?: GainNode;
+  filterBypassed?: boolean;
+  liveFilterModulation?: number;
   low: BiquadFilterNode;
   mid: BiquadFilterNode;
   high: BiquadFilterNode;
@@ -140,6 +144,7 @@ export function configureModulation(graph:SongGraph,project:ProjectDocument,even
   for(const originalTrack of project.tracks) {
     const track={...originalTrack,modulation:resolvedModulationPatch(originalTrack,instrumentFor(project,originalTrack))};
     const strip=graph.tracks.get(track.id);if(!strip)continue;
+    updateAudioFilterRoute(strip,track,project,graph.context.currentTime);
     const prior=previous?.tracks.get(track.id);
     const oldTargets=prior?.activeTrackTargets??new Set<string>();
     const nextTargets=new Set<string>(track.modulation?.enabled?track.modulation.routes.filter(r=>r.enabled).map(r=>r.target):[]);
@@ -325,6 +330,7 @@ export function makeGraph(
   destination: AudioNode = context.destination,
   mastering = true,
   initializeImmediately = false,
+  bypassCompressor = false,
 ): SongGraph {
   const master = context.createGain();
   master.gain.value = dbGain(!mastering || onlyTrack ? 0 : project.master.volume);
@@ -336,8 +342,10 @@ export function makeGraph(
   limiter.release.value = 0.12;
   const analyser = context.createAnalyser();
   analyser.fftSize = 1024;
-  master.connect(limiter);
-  limiter.connect(analyser);
+  // A ratio of one still adds the compressor's native lookahead latency.
+  // Internal bounce rendering opts out; ordinary playback/export retains its graph.
+  master.connect(bypassCompressor ? analyser : limiter);
+  if(!bypassCompressor)limiter.connect(analyser);
   const output = context.createGain();
   analyser.connect(output);
   output.connect(destination);
@@ -393,6 +401,8 @@ export function makeGraph(
       meter = context.createAnalyser(),
       lfo = context.createOscillator(),
       lfoGain = context.createGain();
+    const filterDry=track.kind==="audio"?context.createGain():undefined,
+      filterWet=track.kind==="audio"?context.createGain():undefined;
     filter.type = "lowpass";
     low.type = "lowshelf";
     low.frequency.value = 180;
@@ -403,7 +413,11 @@ export function makeGraph(
     high.frequency.value = 6000;
     meter.fftSize = 512;
     input.connect(filter);
-    filter.connect(low);
+    if(filterDry&&filterWet){
+      // Keep the filter fed while bypassed so held audio retains its filter state.
+      input.connect(filterDry);filterDry.connect(low);
+      filter.connect(filterWet);filterWet.connect(low);
+    }else filter.connect(low);
     low.connect(mid);
     mid.connect(high);
     high.connect(drive);
@@ -423,6 +437,8 @@ export function makeGraph(
       input,
       expression,
       filter,
+      filterDry,
+      filterWet,
       low,
       mid,
       high,
@@ -438,6 +454,7 @@ export function makeGraph(
         input,
         expression,
         filter,
+        ...(filterDry&&filterWet?[filterDry,filterWet]:[]),
         low,
         mid,
         high,
@@ -453,7 +470,8 @@ export function makeGraph(
     };
     tracks.set(track.id, graph);
     nodes.push(...graph.nodes);
-    applyTrack(graph, track, project, context.currentTime, 0, onlyTrack, initializeImmediately);
+    // Transparent audio must not start with default unity wet sends before settling.
+    applyTrack(graph, track, project, context.currentTime, 0, onlyTrack, initializeImmediately||isNeutralAudioFilter(track,project));
   }
   return {
     context,
@@ -487,6 +505,26 @@ function automatedChanged(track:Track,previous:Track,parameter:string,base:numbe
 function trackMuted(track:Track,project:ProjectDocument,onlyTrack?:string) {
   return track.mute||(!onlyTrack&&project.tracks.some(t=>t.solo&&!t.mute)&&!track.solo);
 }
+/** Existing audio settings express transparency; authored filter controls retain their path. */
+export function isNeutralAudioFilter(track:Track,project:ProjectDocument) {
+  if(track.kind!=="audio"||track.sound.cutoff!==20000||track.sound.resonance!==0||track.sound.lfoDepth!==0)return false;
+  if(track.automation.some(lane=>(lane.parameter==="cutoff"||lane.parameter==="modulation")&&lane.points.length))return false;
+  if(track.clips.some(clip=>clip.events.some(event=>event.type==="modulation"||event.type==="pressure")))return false;
+  const patch=resolvedModulationPatch(track,instrumentFor(project,track));
+  return !patch?.enabled||!patch.routes.some(route=>route.enabled&&(route.target==="track.cutoff"||route.target==="track.resonance"));
+}
+/** Change only the audio filter route, retaining voices and every parameter schedule. */
+export function updateAudioFilterRoute(graph:TrackGraph,track:Track,project:ProjectDocument,time:number,immediately=false,liveModulation?:number) {
+  if(!graph.filterDry||!graph.filterWet)return;
+  if(liveModulation!==undefined)graph.liveFilterModulation=clamp(liveModulation,0,1);
+  const bypassed=isNeutralAudioFilter(track,project)&&!(graph.liveFilterModulation??0);
+  if(graph.filterBypassed===bypassed)return;
+  for(const [param,value] of [[graph.filterDry.gain,bypassed?1:0],[graph.filterWet.gain,bypassed?0:1]] as const){
+    if(graph.filterBypassed===undefined||immediately){param.cancelScheduledValues(time);param.setValueAtTime(value,time);}
+    else{param.cancelAndHoldAtTime(time);param.linearRampToValueAtTime(value,time+.02);}
+  }
+  graph.filterBypassed=bypassed;
+}
 export function applyTrack(
   graph: TrackGraph,
   track: Track,
@@ -498,6 +536,7 @@ export function applyTrack(
   previous?: Track,
   previousProject?: ProjectDocument,
 ) {
+  updateAudioFilterRoute(graph,track,project,time,immediately);
   const muted = trackMuted(track,project,onlyTrack);
   const changed=(parameter:string,base:number,oldBase:number)=>!previous||automatedChanged(track,previous,parameter,base,oldBase);
   const set = (param: AudioParam, value: number, shouldChange = true) => {
@@ -981,8 +1020,11 @@ export function scheduleAudio(
   fadeOut: number,
 ): Voice {
   const context = graph.context,
-    input = graph.tracks.get(trackId)?.input;
+    strip = graph.tracks.get(trackId),input=strip?.input;
   if (!input) throw new Error("This audio track is unavailable.");
+  // Transparent PCM is cropped on this sample clock. A fractional start would
+  // interpolate it again and shift a printed source at off-grid song ticks.
+  if(strip?.filterBypassed)time=Math.round(time*context.sampleRate)/context.sampleRate;
   const source = context.createBufferSource(),
     level = context.createGain();
   source.buffer = buffer;

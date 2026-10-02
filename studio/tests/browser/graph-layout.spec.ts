@@ -33,7 +33,7 @@ test("envelope nodes stay circular and map screen drags to the same timing at ev
   const graph = page.getByRole("group", { name: "Instrument envelope editable envelope graph", exact: true });
   const value = page.getByLabel("Attack value", { exact: true });
 
-  for (const [width, height] of [[2515, 1138], [1668, 1244], [960, 720], [390, 844]]) {
+  for (const [width, height] of [[2560, 1440], [1668, 1244], [960, 720], [390, 844]]) {
     await page.setViewportSize({ width, height });
     await graph.scrollIntoViewIfNeeded();
     await expectContainedTargets(graph);

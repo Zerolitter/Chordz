@@ -32,11 +32,12 @@ import {
   modulationEvent,
   scheduleModulation,
   updateReverbDecay,
+  updateAudioFilterRoute,
   type SongGraph,
   type Voice,
 } from "./graph";
 import { changedMacroEvents, controlEventId, effectiveControlTime, musicalControlTime } from "./modulation";
-import {checkExportActive,compileExportSong,exportRenderPlan,exportTailSeconds,holdExportAutomation,waitForExport,type RenderExportOptions} from "./export-range";
+import {checkExportActive,compileExportSong,exportRenderPlan,bounceRenderPlan,exportTailSeconds,holdExportAutomation,waitForExport,type RenderExportOptions} from "./export-range";
 
 export interface TransportState {
   playing: boolean;
@@ -1099,7 +1100,7 @@ export class StudioEngine {
     if(!this.context) return;
     for(const [id,control] of this.controls) {
       const track=this.project.tracks.find(t=>t.id===id);if(!track)continue;
-      for(const graph of [this.liveGraph,this.previewId?this.graph:null]){const strip=graph?.tracks.get(id);if(strip){strip.expression.gain.setValueAtTime(control.expression,this.context.currentTime);strip.lfoGain.gain.setValueAtTime(track.sound.cutoff*.35*clamp(track.sound.lfoDepth+control.modulation,0,1),this.context.currentTime);}}
+      for(const graph of [this.liveGraph,this.previewId?this.graph:null]){const strip=graph?.tracks.get(id);if(strip){strip.expression.gain.setValueAtTime(control.expression,this.context.currentTime);strip.lfoGain.gain.setValueAtTime(track.sound.cutoff*.35*clamp(track.sound.lfoDepth+control.modulation,0,1),this.context.currentTime);updateAudioFilterRoute(strip,track,this.project,this.context.currentTime,false,control.modulation);}}
     }
   }
   expression(
@@ -1164,12 +1165,14 @@ export class StudioEngine {
     if (event.type === "modulation" || event.type === "pressure") {
       control.modulation = clamp(event.value, 0, 1);
       const track = this.project.tracks.find((t) => t.id === trackId);
-      if (track)for(const graph of graphs)graph.lfoGain.gain.setValueAtTime(
+      if (track)for(const graph of graphs){graph.lfoGain.gain.setValueAtTime(
           track.sound.cutoff *
             0.35 *
             clamp(track.sound.lfoDepth + control.modulation, 0, 1),
           at,
         );
+        updateAudioFilterRoute(graph,track,this.project,at,false,control.modulation);
+      }
     }
     if (event.type === "sustain" && !fromArrangement) {
       this.pedals.set(source, { trackId, down: event.value >= 0.5 });
@@ -1201,6 +1204,7 @@ export class StudioEngine {
     options: RenderExportOptions = {},
   ): Promise<AudioBuffer> {
     checkExportActive(options.signal);
+    if(options.preMaster&&!onlyTrack)throw new Error("A pre-master bounce requires one source track.");
     this.pause();
     await waitForExport(this.ensureBuffers(
       project,
@@ -1208,19 +1212,21 @@ export class StudioEngine {
     ),options.signal);
     checkExportActive(options.signal);
     const originalProject=project;
-    if(options.range)project=holdExportAutomation(project,options.range.endTick);
-    const plan=options.range||options.includeTails===false?exportRenderPlan(project,options.range,options.includeTails!==false):null;
+    const preserveBounceTailAutomation=options.preMaster===true&&options.includeTails!==false;
+    if(options.range&&!preserveBounceTailAutomation)project=holdExportAutomation(project,options.range.endTick);
+    const plan=options.preMaster?bounceRenderPlan({...project,tracks:project.tracks.filter(track=>track.id===onlyTrack)},options.range,options.includeTails!==false):
+      options.range||options.includeTails===false?exportRenderPlan(project,options.range,options.includeTails!==false):null;
     const song = compileExportSong(project, onlyTrack,options.range),
       duration =
         durationOverride ??
         (plan?plan.renderFrames/48000:tickToSeconds(projectEnd(project), project.tempo)+exportTailSeconds(project));
     const native = new OfflineAudioContext(
         2,
-        Math.ceil(duration * 48000),
+        durationOverride===undefined&&plan?plan.renderFrames:Math.ceil(duration * 48000),
         48000,
       ),
       offline = new Tone.OfflineContext(native),
-      graph = makeGraph(native, project, onlyTrack);
+      graph = makeGraph(native, project, onlyTrack,undefined,true,false,options.preMaster===true);
     configureModulation(graph,project,song.events.map(e=>({...e,seconds:tickToSeconds(e.tick,project.tempo)})),0);
     const tracks = new Map(project.tracks.map((t) => [t.id, t]));
     let renderVoices:Voice[]=[],modulationUntil=0;
@@ -1348,7 +1354,7 @@ export class StudioEngine {
             at,
           );
       }
-      if(options.range){
+      if(options.range&&!preserveBounceTailAutomation){
         const cutoff=tickToSeconds(options.range.endTick,project.tempo);
         for(const track of graph.tracks.values())
           for(const parameter of [track.volume.gain,track.pan.pan,track.filter.frequency,track.expression.gain,track.reverb.gain,track.delay.gain,track.lfoGain.gain])

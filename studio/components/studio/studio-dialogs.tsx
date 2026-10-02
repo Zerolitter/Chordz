@@ -75,7 +75,7 @@ export function StudioDialogs() {
   },[s.owner,s.project.id]);
   function cancelExport(){exportJob.current?.controller.abort();}
   async function runExport() {
-    if(exportJob.current||s.busy)return;
+    if(exportJob.current||s.busyRef.current)return;
     if(s.recordingPhase!=="idle"){s.report(new Error("Finish or preserve your recording before exporting."));return;}
     if(!s.finishEdit())return;
     // Settle edits, then capture the committed song and every choice before a picker or loader.

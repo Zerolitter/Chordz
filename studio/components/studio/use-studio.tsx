@@ -73,6 +73,8 @@ import {LibraryTargetRevisions} from "../../lib/client/library-operations";
 import {useReusableLibrary} from "./use-reusable-library";
 import { useRecordingInput } from "./use-recording-input";
 import { buildTakePreview } from "../../lib/music/take-review";
+import { TrackBounceRevisions } from "../../lib/client/bounce-operations";
+import { useTrackBounce } from "./use-track-bounce";
 
 export type {StudioMode, DetailTool, SongViewport} from "../../lib/client/studio-view";
 export type StudioUser = { userId: string; displayName: string } | null;
@@ -107,6 +109,8 @@ function useStudioController(
   const activeEdit=useRef<EditTransaction|null>(null),fieldOwner=useRef(""),committedRef=useRef(history.present);
   const activeGesture=useRef<EditGesture|null>(null);
   const [libraryRevisions]=useState(()=>new LibraryTargetRevisions());
+  const [bounceRevisions]=useState(()=>new TrackBounceRevisions());
+  const cancelBounceRef=useRef<()=>void>(()=>{}), resetBounceRef=useRef<()=>void>(()=>{}), observeBounceRef=useRef<(document:ProjectDocument)=>void>(()=>{});
   const cancelLibraryOperationRef=useRef<()=>void>(()=>{}),cancelLibraryPreviewRef=useRef<()=>void>(()=>{});
   const [editConflict,setEditConflict]=useState<EditTransaction|null>(null);
   const project=useMemo(()=>applyPreview(history.present,transaction),[history.present,transaction]),projectRef=useRef(project);
@@ -159,7 +163,9 @@ function useStudioController(
   const [message, setMessage] = useState("");
   const [error, setErrorState] = useState("");
   const [errorScope,setErrorScope]=useState({mode:"write" as StudioMode,projectId:initialProject.id});
-  const [busy, setBusy] = useState("");
+  const [busy, setBusyState] = useState("");
+  const busyRef = useRef("");
+  function setBusy(value: string) { busyRef.current = value; setBusyState(value); }
   const [ready, setReady] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [engine, setEngine] = useState<StudioEngine | null>(null);
@@ -330,6 +336,7 @@ function useStudioController(
   }
   function renderEdit(next:EditTransaction|null){
     const document=applyPreview(committedRef.current,next);libraryRevisions.observe(projectRef.current,document);
+    bounceRevisions.observe(projectRef.current,document);observeBounceRef.current(document);
     activeEdit.current=next;setTransaction(next);projectRef.current=document;
   }
   function beginEdit(owner:string){
@@ -457,6 +464,7 @@ function useStudioController(
     if(takePreview.current)cancelPreview();
     selectionHistory.current.set(current,selectedChordId);
     libraryRevisions.observe(current,next);
+    bounceRevisions.observe(current,next);observeBounceRef.current(next);
     committedRef.current=next;projectRef.current=applyPreview(next,activeEdit.current);
     setSaveStatus(user ? "Device draft · saving…" : "Device draft");
     dispatch({ type: "commit", project: next, label });return true;
@@ -469,6 +477,7 @@ function useStudioController(
     if(takePreview.current)cancelPreview();
     const next=historyReducer({...history,present:committedRef.current},action);
     libraryRevisions.observe(committedRef.current,next.present);
+    bounceRevisions.observe(committedRef.current,next.present);observeBounceRef.current(next.present);
     committedRef.current=next.present;projectRef.current=next.present;
     const selected=selectionHistory.current.get(next.present);if(selected!==undefined)setSelectedChordId(selected);
     if (action.type === "undo" || action.type === "redo")
@@ -595,7 +604,7 @@ function useStudioController(
     fingerprint = JSON.stringify(document),
     editPolicy: "finish" | "discard" = "finish",
   ) {
-    cancelLibraryOperationRef.current();cancelLibraryPreviewRef.current();
+    cancelLibraryOperationRef.current();cancelLibraryPreviewRef.current();resetBounceRef.current();
     if (takeSession.current || importCount.current) { report(new Error("Finish recording or importing before opening another song.")); return false; }
     if(editPolicy === "discard") { cancelEdit(); setError(""); }
     else if(!finishEdit())return false;
@@ -609,7 +618,7 @@ function useStudioController(
       viewScopeRef.current=null;setViewRestoreRequest(request=>request+1);
       clipsByTrack.current.clear();setModeState("arrange");setDetailToolState("notes");
     }
-    libraryRevisions.reset();committedRef.current=document;setSelectedChordId(chordId);setAutomationFocus({scope:"",parameter:"volume"});
+    libraryRevisions.reset();bounceRevisions.reset();committedRef.current=document;setSelectedChordId(chordId);setAutomationFocus({scope:"",parameter:"volume"});
     pendingPreview.current=null;++audioIntent.current; heldInputs.current.clear(); controlTargets.current.clear(); controllerStates.current.clear(); syncHeld();
     movement.current?.clear();cancelMidiLearn();runtimeMacrosRef.current={};setRuntimeMacros({});engineRef.current?.stop();
     projectRef.current = document;
@@ -913,6 +922,7 @@ function useStudioController(
     }
   }
   function stop() {
+    cancelBounceRef.current();
     recordingInput.release();
     movement.current?.clear();cancelMidiLearn();
     cancelInteraction.current?.();
@@ -1350,9 +1360,10 @@ function useStudioController(
     session.phase=value; setRecordingPhase(value); setRecording(value!=="idle");
   }
   async function beginRecording() {
+    cancelBounceRef.current();
     if(takeSession.current) { if(takeSession.current.phase==="recovery-error") await retryRecording(); else await finishRecording(); return; }
     if(!finishEdit())return;
-    if(transportJob.current || busy) return;
+    if(transportJob.current || busyRef.current) return;
     if(importCount.current) { report(new Error("Wait for the audio import to finish before recording.")); return; }
     if(recordingDestinationMissing) { report(new Error("The recording destination is no longer available. Choose a destination in Record setup.")); return; }
     recordingInput.release();
@@ -1591,6 +1602,13 @@ function useStudioController(
     }
   }
 
+  const bounce=useTrackBounce({owner,project,hydrated:hydrated&&readyViewScope===viewScope,
+    document:()=>committedRef.current,currentOwner:()=>ownerRef.current,revisions:bounceRevisions,
+    finishEdit:()=>{if(!finishEdit())return false;cancelPreview();cancelLibraryOperationRef.current();cancelLibraryPreviewRef.current();return true;},
+    hasDraft:()=>!!activeEdit.current||!!activeGesture.current||!!editConflict,recording:()=>!!takeSession.current,
+    busy:()=>busyRef.current,setBusy,commit,select:selectClip,getEngine,persistDraft:persistDeviceDraft,notify,
+    report:(value)=>setError(value instanceof Error?value.message:String(value))});
+  useLayoutEffect(()=>{cancelBounceRef.current=bounce.cancelBounce;resetBounceRef.current=bounce.invalidateBounceScope;observeBounceRef.current=bounce.observeBounceDocument;},[bounce]);
   const library=useReusableLibrary({owner,project,hydrated:hydrated&&readyViewScope===viewScope,
     document:()=>committedRef.current,currentOwner:()=>ownerRef.current,
     destination:()=>({trackId:selectedTrackRef.current?.id??"",sectionId:selectedSectionId,clipId:selectedClipId}),
@@ -1599,6 +1617,7 @@ function useStudioController(
   useLayoutEffect(()=>{cancelLibraryOperationRef.current=library.cancelLibraryOperation;cancelLibraryPreviewRef.current=library.cancelLibraryPreview;},[library]);
   return {
     ...library,
+    ...bounce,
     automationLane:automationFocus.scope===JSON.stringify([owner,project.id])?automationFocus.parameter:"volume" as AutomationParameter,
     setAutomationLane,openAutomation,
     user,
@@ -1649,6 +1668,7 @@ function useStudioController(
     message,
     error:errorScope.mode===mode&&errorScope.projectId===project.id?error:"",
     busy,
+    busyRef,
     setBusy,
     ready,
     hydrated:hydrated&&readyViewScope===viewScope,

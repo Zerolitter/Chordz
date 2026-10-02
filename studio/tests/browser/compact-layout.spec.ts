@@ -63,13 +63,76 @@ test("empty and populated Sound racks remain compact at reference viewport sizes
   mkdirSync("output/compact-layout", { recursive: true });
   await rack.locator(".movement-controls").screenshot({ path: "output/compact-layout/movement.png", animations: "disabled" });
   await page.getByRole("tab", {name:"Sound",exact:true}).click();
-  for (const [width, height] of [[2515, 1138], [1668, 1244], [960, 900], [390, 844]]) {
+  for (const [width, height] of [[2560, 1440], [1668, 1244], [960, 900], [390, 844]]) {
     await page.setViewportSize({ width, height });
     await page.locator(".workspace-content").evaluate(element => { element.scrollTop = 0; });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    expect((await page.locator(".sound-panel").boundingBox())!.width).toBeLessThanOrEqual(1320);
+    const sound = (await page.locator(".sound-panel").boundingBox())!;
+    const dock = (await page.locator(".detail-body").boundingBox())!;
+    expect(sound.width).toBeGreaterThanOrEqual(dock.width - 48);
+    expect(sound.x + sound.width).toBeLessThanOrEqual(dock.x + dock.width);
     await expect(page.getByLabel("Stop song", { exact: true })).toBeInViewport();
     await page.screenshot({ path: `output/compact-layout/${width}-sound.png`, animations: "disabled" });
+  }
+  expect(errors).toEqual([]);
+});
+
+test("1440p Sound keeps controls close and modulation alongside the instrument", async ({ page }) => {
+  await page.setViewportSize({ width: 2560, height: 1440 });
+  const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/"); await expect(page.getByLabel("Song title")).toBeEnabled();
+  await page.getByRole("button", { name: "Songs", exact: true }).click();
+  await page.getByRole("button", { name: "Blank song", exact: true }).click();
+  await page.getByRole("tab", { name: "Sound", exact: true }).click();
+  mkdirSync("output/compact-layout", { recursive: true });
+  for (const mode of ["arrange", "maximized-sound"]) {
+    if (mode === "maximized-sound") {
+      await page.getByRole("navigation").getByRole("button", { name: "03 Sound" }).click();
+      await page.getByLabel("Maximize editor", { exact: true }).click();
+    }
+    await page.locator(".detail-body").evaluate(element => { element.scrollTop = 0; });
+    const modules = (await page.locator(".sound-modules").boundingBox())!;
+    const rack = (await page.locator(".modulation-rack").boundingBox())!;
+    const instrument = (await page.locator(".instrument-sound-body").boundingBox())!;
+    const dock = (await page.locator(".detail-body").boundingBox())!;
+    expect(rack.x).toBeGreaterThanOrEqual(modules.x + modules.width + 4);
+    expect(Math.abs(rack.y - instrument.y)).toBeLessThanOrEqual(12);
+    expect(dock.x + dock.width - rack.x - rack.width).toBeLessThanOrEqual(24);
+    for (const device of await page.locator(".sound-device").all()) {
+      expect((await device.boundingBox())!.height).toBeLessThan(280);
+      for (const knob of await device.locator(":scope > .daw-knob").all()) {
+        expect((await knob.boundingBox())!.width).toBeLessThanOrEqual(96);
+        const dial = (await knob.getByRole("slider").boundingBox())!;
+        const reset = (await knob.locator(".daw-knob-reset").boundingBox())!;
+        expect(dial.width).toBeGreaterThanOrEqual(44);
+        expect(reset.x).toBeGreaterThanOrEqual(dial.x + dial.width - .5);
+        const bounds = (await knob.boundingBox())!;
+        expect(reset.x + reset.width).toBeLessThanOrEqual(bounds.x + bounds.width + .5);
+      }
+    }
+    await expect(page.getByLabel("Sound patch preset")).toBeInViewport();
+    await expect(page.getByRole("button", { name: "Assign", exact: true })).toBeInViewport();
+    await expect(page.getByLabel("Stop song", { exact: true })).toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: `output/compact-layout/2560-${mode}.png`, animations: "disabled" });
+  }
+  const cutoff = page.getByLabel("Filter cutoff value", { exact: true });
+  const original = await cutoff.inputValue();
+  await cutoff.fill("4321"); await cutoff.press("Enter");
+  await expect(page.getByRole("slider", { name: "Filter cutoff", exact: true })).toHaveAttribute("aria-valuenow", "4321");
+  await page.getByLabel("Undo", { exact: true }).click(); await expect(cutoff).toHaveValue(original);
+  for (const sound of ["Glass FM Synthesizers", "Hybrid drum machine Percussion"]) {
+    await page.getByRole("button", { name: sound, exact: true }).click();
+    await page.getByRole("button", { name: "Use on selected track", exact: true }).click();
+    for (const device of await page.locator(".sound-device").all()) {
+      const bank = (await device.boundingBox())!;
+      for (const knob of await device.locator(":scope > .daw-knob").all()) {
+        const dial = (await knob.getByRole("slider").boundingBox())!;
+        const reset = (await knob.locator(".daw-knob-reset").boundingBox())!;
+        expect(reset.x).toBeGreaterThanOrEqual(dial.x + dial.width - .5);
+        expect(reset.x + reset.width).toBeLessThanOrEqual(bank.x + bank.width + .5);
+      }
+    }
   }
   expect(errors).toEqual([]);
 });
@@ -92,6 +155,16 @@ test.describe("compact fields on touch screens", () => {
     const reset = (await page.getByLabel("Reset Low EQ", { exact: true }).boundingBox())!;
     expect(reset.x).toBeGreaterThanOrEqual(dial.x + dial.width - .5);
     await page.getByRole("navigation").getByRole("button", { name: "03 Sound" }).tap();
+    for (const device of await page.locator(".sound-device").all()) {
+      const bank = (await device.boundingBox())!;
+      for (const knob of await device.locator(":scope > .daw-knob").all()) {
+        const dial = (await knob.getByRole("slider").boundingBox())!;
+        const reset = (await knob.locator(".daw-knob-reset").boundingBox())!;
+        expect(reset.width).toBeGreaterThanOrEqual(44);
+        expect(reset.x).toBeGreaterThanOrEqual(dial.x + dial.width - .5);
+        expect(reset.x + reset.width).toBeLessThanOrEqual(bank.x + bank.width + .5);
+      }
+    }
     const rack = page.getByRole("region", { name: "Selected track modulation rack" });
     await rack.getByRole("button", { name: "Assign", exact: true }).tap();
     const route = rack.locator(".mod-route").first(); await route.scrollIntoViewIfNeeded();

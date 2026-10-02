@@ -165,43 +165,61 @@
 .mod-source-precision { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
 
 /* Instrument devices use the same compact rail and control bank as sources. */
-.sound-panel { max-width: 1320px; }
-.sound-panel>.panel-heading { margin-bottom: 6px; }
-.sound-panel>.panel-heading h2 { font-size: 17px; letter-spacing: -.2px; }
-.sound-panel .sound-instrument-header { display: grid; grid-template-columns: minmax(150px,200px) minmax(0,1fr) auto; gap: 6px 12px; align-items: center; margin-bottom: 8px; }
+.sound-panel { min-width: 0; container-type: inline-size; container-name: sound-panel; }
+.sound-workspace { display: grid; gap: 8px; align-items: start; }
+.sound-devices { min-width: 0; container-type: inline-size; container-name: sound-devices; }
+.sound-workspace>.modulation-rack { margin-top: 0; width: 100%; max-width: 1320px; min-width: 0; }
+.sound-panel .instrument-sound-body>.panel-heading { justify-content: start; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 6px; }
+.sound-panel .instrument-sound-body>.panel-heading>div { margin-right: 6px; }
+.sound-panel .instrument-sound-body>.panel-heading h2 { font-size: 17px; letter-spacing: -.2px; }
+.sound-panel .sound-instrument-header { display: grid; grid-template-columns: minmax(150px,200px) minmax(0,1fr); gap: 6px 12px; align-items: center; margin-bottom: 8px; max-width: 1110px; }
 .sound-panel .sound-instrument-header .field { margin: 0; font-size: 10px; gap: 3px; }
+.sound-instrument-meta { min-width: 0; }
 .sound-panel .sound-instrument-header .sound-description { margin: 2px 0 0; font-size: 10px; color: var(--soft); }
-.sound-next-notes { font-size: 10px; color: var(--soft); text-align: right; }
-.sound-panel .sound-modules { display: grid; grid-template-columns: minmax(0,.85fr) minmax(0,1.05fr) minmax(0,1fr); gap: 6px; }
-.sound-panel .sound-modules>.sound-device { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); align-content: start; gap: 4px; padding: 6px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface); }
+.sound-next-notes { display: block; font-size: 10px; color: var(--soft); margin-top: 2px; }
+.sound-panel .sound-modules { display: grid; grid-template-columns: minmax(228px,260px) minmax(304px,344px) minmax(456px,494px); align-items: start; justify-content: start; gap: 6px; }
+.sound-panel .sound-modules:not(:has(>.sound-amplitude)) { grid-template-columns: minmax(228px,260px) minmax(456px,494px); }
+.sound-panel .sound-modules>.sound-device { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); min-width: 0; align-content: start; gap: 4px; padding: 6px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface); }
 .sound-panel .sound-modules>.sound-amplitude { grid-template-columns: repeat(4,minmax(0,1fr)); }
-.sound-panel .sound-modules>.sound-device:last-child { grid-column: auto; }
+.sound-panel .sound-modules>.sound-filter { grid-template-columns: repeat(6,minmax(0,1fr)); }
 .sound-panel .sound-modules h3 { grid-column: 1/-1; font-size: 11px; margin: 0 0 3px; padding: 3px 0 6px; border-bottom: 1px solid var(--line); }
-.sound-panel .sound-device>.field,.sound-panel .sound-device>.instrument-envelope-graph,.sound-panel .sound-device>.sound-module-note { grid-column: 1/-1; min-width: 0; }
-.sound-panel .sound-device>.field { font-size: 10px; gap: 3px; margin: 0 0 4px; }
-.sound-panel .sound-device>.field select { font-size: 11px; min-height: 26px; padding: 3px 5px; }
-.sound-panel .sound-device>.daw-knob { min-width: 0; padding: 3px 0; }
+.sound-panel .sound-device>.field,.sound-panel .sound-selectors,.sound-panel .sound-device>.instrument-envelope-graph,.sound-panel .sound-device>.sound-module-note { grid-column: 1/-1; min-width: 0; }
+.sound-panel .sound-selectors { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1fr); gap: 6px; }
+.sound-panel .sound-selectors>.field:only-child { grid-column: 1/-1; }
+.sound-panel .sound-device .field { font-size: 10px; gap: 3px; margin: 0 0 4px; min-width: 0; }
+.sound-panel .sound-device .field select { font-size: 11px; min-height: 26px; padding: 3px 5px; width: 100%; min-width: 0; }
+.sound-panel .sound-device>.daw-knob { min-width: 0; padding: 3px 24px 3px 0; }
+.sound-panel .sound-device .daw-knob-reset { right: -24px; }
 .sound-panel .sound-device .sound-module-note { font-size: 10px; min-height: 28px; padding: 4px 6px; margin-top: 4px; }
 .sound-panel .sound-sample-inspector { margin-top: 8px; padding: 0; border-top: 1px solid var(--line); }
 .sound-sample-inspector>summary { display: list-item; cursor: pointer; padding: 7px 0; font-size: 11px; color: var(--ink); }
 .sound-sample-inspector>summary>.tiny { float: right; font-size: 10px; }
 .sound-panel .sound-sample-inspector>.helper { font-size: 10px; margin: 0 0 6px; }
-@media (max-width: 1200px) {
-  .sound-panel .sound-modules { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .sound-panel .sound-modules>.sound-filter:last-child { grid-column: 1/-1; grid-template-columns: repeat(6,minmax(0,1fr)); }
-  .sound-panel .sound-instrument-header { grid-template-columns: minmax(130px,180px) minmax(0,1fr); }
-  .sound-next-notes { grid-column: 1/-1; text-align: left; }
+@container sound-panel (min-width: 1760px) {
+  .sound-workspace:has(>.sound-devices:not([hidden])) { grid-template-columns: 1110px minmax(0,1fr); }
+  .sound-workspace>.modulation-rack { max-width: none; }
 }
-@media (max-width: 700px) {
-  .sound-panel .sound-modules { grid-template-columns: 1fr; }
-  .sound-panel .sound-modules>.sound-amplitude { grid-template-columns: repeat(4,minmax(0,1fr)); }
-  .sound-panel .sound-modules>.sound-filter:last-child { grid-template-columns: repeat(3,minmax(0,1fr)); grid-column: auto; }
+@container sound-devices (max-width: 1099px) {
+  .sound-panel .sound-modules,.sound-panel .sound-modules:not(:has(>.sound-amplitude)) { grid-template-columns: minmax(228px,260px) minmax(304px,344px); }
+  .sound-panel .sound-modules>.sound-filter { grid-column: 1/-1; max-width: 494px; }
+}
+@container sound-devices (max-width: 627px) {
+  .sound-panel .sound-modules,.sound-panel .sound-modules:not(:has(>.sound-amplitude)) { grid-template-columns: minmax(0,1fr); max-width: 494px; }
+  .sound-panel .sound-modules>.sound-performance { max-width: 260px; }
+  .sound-panel .sound-modules>.sound-amplitude { max-width: 344px; }
+  .sound-panel .sound-modules>.sound-filter { grid-column: auto; grid-template-columns: repeat(3,minmax(0,1fr)); }
   .sound-panel .sound-instrument-header { grid-template-columns: 1fr; }
+}
+@container sound-devices (max-width: 359px) {
+  .sound-panel .sound-modules>.sound-amplitude { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 @media (pointer: coarse) {
   .movement-knobs { grid-template-columns: repeat(3,minmax(90px,1fr)); }
   .mod-route-controls>.daw-knob { grid-template-columns: 88px minmax(0,1fr); }
   .mod-route-controls>.daw-knob>.daw-knob-control { padding-right: 44px; }
-  .sound-panel .sound-device>.field select,.sound-panel .sound-device .sound-module-note { min-height: 44px; }
-  .sound-panel .sound-modules>.sound-amplitude { grid-template-columns: repeat(2,minmax(90px,1fr)); }
+  .sound-panel .sound-device .field select,.sound-panel .sound-device .sound-module-note { min-height: 44px; }
+  .sound-panel .sound-device>.daw-knob { padding: 3px 0; }
+  .sound-panel .sound-device .daw-knob-reset { right: 0; }
+  .sound-panel .sound-modules>.sound-performance,.sound-panel .sound-modules>.sound-amplitude { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .sound-panel .sound-modules>.sound-filter { grid-template-columns: repeat(3,minmax(0,1fr)); }
 }

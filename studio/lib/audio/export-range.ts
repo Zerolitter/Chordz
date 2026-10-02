@@ -1,9 +1,11 @@
 import {type ProjectDocument} from "../music/types";
 import {projectEnd,tickToSeconds} from "../music/project";
 import {automationValue,compileSong,type ScheduledNote,type ScheduledAudio,type ScheduledExpression} from "./compile";
+import {instrumentFor,isDrumInstrument} from "./catalog";
+import {resolvedModulationPatch} from "../music/automation-bindings";
 
 export type ExportRange={startTick:number;endTick:number};
-export type RenderExportOptions={range?:ExportRange;includeTails?:boolean;signal?:AbortSignal};
+export type RenderExportOptions={range?:ExportRange;includeTails?:boolean;signal?:AbortSignal;preMaster?:boolean};
 
 export function checkExportActive(signal?:AbortSignal){
   if(signal?.aborted)throw new DOMException("Export cancelled.","AbortError");
@@ -39,13 +41,33 @@ export function exportRange(project:ProjectDocument,sectionId?:string):ExportRan
 export function exportTailSeconds(project:ProjectDocument){
   return Math.max(project.master.reverbDecay*2,4,...project.tracks.map(t=>t.modulation?.enabled&&t.modulation.routes.some(r=>r.enabled&&r.target==="voice.release")?15:0));
 }
-export function exportRenderPlan(project:ProjectDocument,range=exportRange(project),includeTails=true){
+/** Finite attenuation budget for printing source releases, filters and reachable effects. */
+export function bounceTailSeconds(project:ProjectDocument){
+  let voiceTail=0,reverb=false,delay=false;
+  for(const track of project.tracks){
+    const instrument=instrumentFor(project,track),patch=resolvedModulationPatch(track,instrument),
+      routed=(target:string)=>!!patch?.enabled&&patch.routes.some(route=>route.enabled&&route.target===target),
+      send=(parameter:"reverb"|"delay")=>track[parameter]>0||track.automation.some(lane=>lane.parameter===parameter&&lane.points.some(point=>point.value>0))||routed(`track.${parameter}`);
+    voiceTail=Math.max(voiceTail,track.sound.release,routed("voice.release")?15:0,isDrumInstrument(instrument)?1.4:0);
+    reverb||=send("reverb");delay||=send("delay");
+  }
+  // Low resonant filters can continue after voices stop. Delay is infinite
+  // feedback; twenty periods include a conservative attenuation margin.
+  return voiceTail+.1+8+Math.max(reverb?project.master.reverbDecay:0,delay?20*(60/project.tempo)*.75:0);
+}
+function renderPlan(project:ProjectDocument,range:ExportRange,includeTails:boolean,tailSeconds:number){
   if(!Number.isSafeInteger(range.startTick)||!Number.isSafeInteger(range.endTick)||range.startTick<0||range.endTick<=range.startTick)
     throw new Error("Choose a valid export range.");
   const startFrame=Math.round(tickToSeconds(range.startTick,project.tempo)*48000),
     endFrame=Math.round(tickToSeconds(range.endTick,project.tempo)*48000),
-    renderFrames=endFrame+(includeTails?Math.ceil(exportTailSeconds(project)*48000):0);
+    renderFrames=endFrame+(includeTails?Math.ceil(tailSeconds*48000):0);
   return {startFrame,renderFrames,outputFrames:renderFrames-startFrame};
+}
+export function exportRenderPlan(project:ProjectDocument,range=exportRange(project),includeTails=true){
+  return renderPlan(project,range,includeTails,exportTailSeconds(project));
+}
+export function bounceRenderPlan(project:ProjectDocument,range=exportRange(project),includeTails=true){
+  return renderPlan(project,range,includeTails,bounceTailSeconds(project));
 }
 
 /** Keep the absolute song timeline so preroll establishes voices, effects and control state. */
