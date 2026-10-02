@@ -100,7 +100,7 @@ test("1440p Sound keeps controls close and modulation alongside the instrument",
     expect(dock.x + dock.width - rack.x - rack.width).toBeLessThanOrEqual(24);
     for (const device of await page.locator(".sound-device").all()) {
       expect((await device.boundingBox())!.height).toBeLessThan(280);
-      for (const knob of await device.locator(":scope > .daw-knob").all()) {
+      for (const knob of await device.locator(".daw-knob").all()) {
         expect((await knob.boundingBox())!.width).toBeLessThanOrEqual(96);
         const dial = (await knob.getByRole("slider").boundingBox())!;
         const reset = (await knob.locator(".daw-knob-reset").boundingBox())!;
@@ -126,7 +126,7 @@ test("1440p Sound keeps controls close and modulation alongside the instrument",
     await page.getByRole("button", { name: "Use on selected track", exact: true }).click();
     for (const device of await page.locator(".sound-device").all()) {
       const bank = (await device.boundingBox())!;
-      for (const knob of await device.locator(":scope > .daw-knob").all()) {
+      for (const knob of await device.locator(".daw-knob").all()) {
         const dial = (await knob.getByRole("slider").boundingBox())!;
         const reset = (await knob.locator(".daw-knob-reset").boundingBox())!;
         expect(reset.x).toBeGreaterThanOrEqual(dial.x + dial.width - .5);
@@ -157,7 +157,7 @@ test.describe("compact fields on touch screens", () => {
     await page.getByRole("navigation").getByRole("button", { name: "03 Sound" }).tap();
     for (const device of await page.locator(".sound-device").all()) {
       const bank = (await device.boundingBox())!;
-      for (const knob of await device.locator(":scope > .daw-knob").all()) {
+      for (const knob of await device.locator(".daw-knob").all()) {
         const dial = (await knob.getByRole("slider").boundingBox())!;
         const reset = (await knob.locator(".daw-knob-reset").boundingBox())!;
         expect(reset.width).toBeGreaterThanOrEqual(44);
