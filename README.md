@@ -1,4 +1,5 @@
 # Chordz
+<img width="2558" height="1266" alt="image" src="https://github.com/user-attachments/assets/75800759-19a5-4e65-9d5c-ff02ffdc3c51" />
 
 Windows desktop music studio for songwriting, arranging, recording and mixing.
 
