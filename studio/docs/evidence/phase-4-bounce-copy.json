@@ -1,0 +1,224 @@
+{
+  "date": "2026-10-02",
+  "milestone": "Phase 4 reversible instrument bounce copy",
+  "base": "29e7aa67788fb05c777389572e5df4f313792b7f",
+  "checkpoints": [
+    "340d76a543a9181ec175e1e7b68472d2aa325c3b",
+    "d6f5079"
+  ],
+  "checks": {
+    "unitTests": 354,
+    "unitFiles": 41,
+    "typecheck": "passed",
+    "lint": "passed with zero warnings",
+    "productionBuild": "passed",
+    "diff": "passed",
+    "advisory": "Existing client chunks above 500 kB"
+  },
+  "browser": {
+    "distinctVerified": 88,
+    "scope": "Aggregate verification across recorded runs, not one uninterrupted green suite",
+    "native": {
+      "passed": 9,
+      "total": 9,
+      "seconds": 16.2,
+      "output": "output/phase4-audio-final"
+    },
+    "initialWorkflow": {
+      "passed": 3,
+      "total": 8,
+      "failures": [
+        "Three module-identity render gates did not intercept the UI engine",
+        "Retry fixture raced ordinary draft autosave",
+        "Real workspace inert state blocked Cancel and Close; fixed"
+      ]
+    },
+    "correctedWorkflow": {
+      "passed": 13,
+      "total": 13,
+      "seconds": 54.4,
+      "output": "output/phase4-ui-final"
+    },
+    "affected": {
+      "passed": 61,
+      "total": 63,
+      "minutes": 4.1,
+      "output": "output/phase4-affected-final",
+      "failures": "Two export locators matched the hidden bounce tail field; new visible and accessible name now Include bounce effect tails"
+    },
+    "confirmation": {
+      "passed": 18,
+      "total": 18,
+      "seconds": 69.027417,
+      "output": "output/phase4-confirmation-final",
+      "cases": "All 16 bounce workflows, including clipped/nonfinite PCM and owned encoder cancellation, plus both corrected export cases"
+    },
+    "viewports": [
+      "1920x1080",
+      "1366x768",
+      "1024x768",
+      "390x844"
+    ],
+    "screenshots": "output/phase4-ui-review",
+    "engine": "Chrome native Web Audio, one isolated browser worker, synthetic input/local dispatch"
+  },
+  "audio": {
+    "wav-roundtrip": {
+      "playbackError": 5.421010862427522E-20,
+      "quantizationError": 6.332993507385254E-08,
+      "stereoDifference": 0.006947547197341919,
+      "tailPeak": 0.007609466090798378,
+      "fullMixError": 2.514570951461792E-08,
+      "frames": 806400,
+      "expectedFrames": 806400,
+      "channels": 2,
+      "rate": 48000,
+      "depth": 24,
+      "unchanged": true
+    },
+    "neutral": {
+      "error": 2.7696283309321112E-17,
+      "initialError": 2.2344729148568443E-17,
+      "frames": 48000
+    },
+    "off-grid-placement-3841": {
+      "error": 6.332993507385254E-08,
+      "peak": 0.05716269463300705,
+      "shiftedErrors": [
+        {
+          "shift": -2,
+          "error": 0.09411632642149925
+        },
+        {
+          "shift": -1,
+          "error": 0.06134132854640484
+        },
+        {
+          "shift": 0,
+          "error": 6.332993507385254E-08
+        },
+        {
+          "shift": 1,
+          "error": 0.06134131737053394
+        },
+        {
+          "shift": 2,
+          "error": 0.09411634132266045
+        }
+      ],
+      "startTick": 3841,
+      "startFrameExact": 84109.48905109489,
+      "regionTicks": 35927,
+      "regionSeconds": 16.390054744525546,
+      "assetSeconds": 16.389895833333334,
+      "frames": 786715,
+      "expectedFrames": 786715,
+      "unchanged": true
+    },
+    "off-grid-placement-3839": {
+      "error": 6.332993507385254E-08,
+      "peak": 0.057171422988176346,
+      "shiftedErrors": [
+        {
+          "shift": -2,
+          "error": 0.09413035959005356
+        },
+        {
+          "shift": -1,
+          "error": 0.061350395902991295
+        },
+        {
+          "shift": 0,
+          "error": 6.332993507385254E-08
+        },
+        {
+          "shift": 1,
+          "error": 0.06135041266679764
+        },
+        {
+          "shift": 2,
+          "error": 0.09413043782114983
+        }
+      ],
+      "startTick": 3839,
+      "startFrameExact": 84065.69343065693,
+      "regionTicks": 35927,
+      "regionSeconds": 16.390054744525546,
+      "assetSeconds": 16.389875,
+      "frames": 786714,
+      "expectedFrames": 786714,
+      "unchanged": true
+    },
+    "tail-automation": {
+      "error": 7.450580596923828E-08,
+      "tailPeak": 0.07146181911230087,
+      "tailPolicyDifference": 0.0011298246681690216,
+      "frames": 844801,
+      "expectedFrames": 844801
+    },
+    "long-release": {
+      "error": 7.450580596923828E-08,
+      "latePeak": 0.0017339005134999752,
+      "frames": 1276800,
+      "expectedFrames": 1276800,
+      "duration": 26.6,
+      "requiredDuration": 15.1
+    },
+    "slow-delay": {
+      "error": 7.450580596923828E-08,
+      "lateEchoPeak": 0.018225306645035744,
+      "beyondBudgetPeak": 1.8150345592812811E-12,
+      "duration": 54.2,
+      "frames": 2601600,
+      "expectedFrames": 2601600
+    },
+    "held-transition": {
+      "beforeError": 4.798529697896958E-08,
+      "afterError": 4.357417068140412E-08,
+      "middleDifference": 0.03184171883896027,
+      "middleEnergy": 0.015987858176231384,
+      "frames": 72000
+    },
+    "live-controls": [
+      {
+        "type": "modulation",
+        "beforeError": 3.119791751327039E-17,
+        "afterError": 3.115048366822415E-17,
+        "activeDifference": 0.11743731796741486
+      },
+      {
+        "type": "pressure",
+        "beforeError": 3.119791751327039E-17,
+        "afterError": 3.115048366822415E-17,
+        "activeDifference": 0.11743731796741486
+      }
+    ]
+  },
+  "reference": {
+    "tracks": 16,
+    "recordedSeconds": 2.112,
+    "projectDocumentJsonCharacters": 1428736,
+    "exportSeconds": 304.8,
+    "sampleRate": 48000,
+    "bitDepth": 24,
+    "channels": 2,
+    "rms": 0.010181624314560572,
+    "peak": 0.1426081657409668,
+    "nonzeroSamples": 29041988,
+    "renderWallSeconds": 61.591
+  },
+  "retainedContracts": [
+    "Project schema v1",
+    "Private asset and cloud ownership",
+    "Original source notes/controllers/automation/instrument references",
+    "Windows online client",
+    "Separate sample-refinement branch"
+  ],
+  "unverified": [
+    "Human workflow comparison deferred",
+    "Physical microphone/MIDI/hotplug/touch and listening",
+    "Hosted end-to-end workflows and reopened WebView2",
+    "No controlled CPU benefit measurement"
+  ],
+  "systemChanges": "No hardware, firmware or OS performance changes"
+}
