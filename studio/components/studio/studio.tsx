@@ -68,6 +68,9 @@ function StudioShell() {
             <i className={s.saveStatus.includes("Saved") ? "saved" : ""} />
             {s.saveStatus}
           </span>
+          <span role="status" aria-label="Device draft status" className="device-draft-status">{s.deviceDraftStatus}
+            {s.deviceDraftStatus === "Device draft unavailable" && <><span> · Keep this tab open; retry or export a backup.</span><button className="text-button" data-edit-policy="bypass" disabled={s.recording || !!s.busy} onClick={() => void s.retryDeviceDraft()}>Retry device draft</button></>}
+          </span>
         </div>
         <div className="header-actions">
           <AppearanceSettings value={appearance} onChange={setAppearance} storageError={appearanceError} />

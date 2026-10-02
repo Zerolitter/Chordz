@@ -71,6 +71,8 @@ import {capturedExpression,captureReleaseReset,effectiveSustain} from "../../lib
 import {freezeToolGestures,useToolVisibility} from "./tool-visibility";
 import {LibraryTargetRevisions} from "../../lib/client/library-operations";
 import {useReusableLibrary} from "./use-reusable-library";
+import { useRecordingInput } from "./use-recording-input";
+import { buildTakePreview } from "../../lib/music/take-review";
 
 export type {StudioMode, DetailTool, SongViewport} from "../../lib/client/studio-view";
 export type StudioUser = { userId: string; displayName: string } | null;
@@ -90,6 +92,7 @@ type TakeSession = {
   clipId: string; assetId: string; newTrack: Track | null;
   result?: { blob: Blob; duration: number; sampleRate: number; peaks: number[] }; clip?: Clip;
 };
+const stagedOwner = (owner?: string) => !!owner && (owner.startsWith("reference-") || owner.startsWith("reference:") || owner.startsWith("modulation-ab:") || owner.startsWith("note-transform:"));
 function useStudioController(
   initialProject: ProjectDocument,
   user: StudioUser,
@@ -138,6 +141,7 @@ function useStudioController(
   const macroProject=useRef(project);
   const audioIntent = useRef(0);
   const pendingPreview=useRef<{identity:string;token:number}|null>(null);
+  const takePreview = useRef(false);
   const writingActions = useRef<{generated:()=>void;chord:()=>void;progression:()=>void}|null>(null);
   const cancelInteraction = useRef<(()=>boolean)|null>(null);
   const registerInteraction=useCallback((cancel:()=>boolean)=>{cancelInteraction.current=cancel;return()=>{if(cancelInteraction.current===cancel)cancelInteraction.current=null;};},[]);
@@ -151,6 +155,7 @@ function useStudioController(
   const [saveStatus, setSaveStatus] = useState(
     user ? "Demo · not saved" : "Sign in for cloud saves",
   );
+  const [draftReceipt, setDraftReceipt] = useState<{ owner: string; projectId: string; fingerprint: string; saved: boolean } | null>(null);
   const [message, setMessage] = useState("");
   const [error, setErrorState] = useState("");
   const [errorScope,setErrorScope]=useState({mode:"write" as StudioMode,projectId:initialProject.id});
@@ -164,6 +169,8 @@ function useStudioController(
   const [loop, setLoopState] = useState(false);
   const [metronome, setMetronomeState] = useState(false);
   const [recordKind, setRecordKind] = useState<"audio" | "midi">("midi");
+  const [recordCountIn, setRecordCountInState] = useState(1);
+  const [recordDestination, setRecordDestination] = useState<{ scope: string; id: string } | null>(null);
   const [recording, setRecording] = useState(false);
   const [recordingPhase, setRecordingPhase] = useState<RecordingPhase>("idle");
   const takeSession = useRef<TakeSession | null>(null);
@@ -171,6 +178,7 @@ function useStudioController(
   const importCount = useRef(0);
   const [recordSeconds, setRecordSeconds] = useState(0);
   const [monitor, setMonitorState] = useState(false);
+  const monitorRef = useRef(false);
   const [microphoneId, setMicrophoneId] = useState("");
   const [microphones, setMicrophones] = useState<MediaDeviceInfo[]>([]);
   const [midiInputs, setMidiInputs] = useState<MIDIInput[]>([]);
@@ -212,6 +220,27 @@ function useStudioController(
   const selectedClip = selectedTrack?.clips.find(
     (c) => c.id === selectedClipId,
   );
+  const recordScope = JSON.stringify([owner, project.id, recordKind]);
+  const targetId = recordDestination?.scope === recordScope ? recordDestination.id : selectedTrack?.id;
+  const recordingDestination = project.tracks.find(track => track.id === targetId && track.kind === (recordKind === "audio" ? "audio" : "instrument"));
+  const recordingDestinationMissing = recordDestination?.scope === recordScope && targetId !== "new" && !recordingDestination;
+  const recordingTargetName = recording ? (takeSession.current?.newTrack?.name ?? project.tracks.find(track => track.id === takeSession.current?.trackId)?.name ?? "Take") : recordingDestinationMissing ? "Choose a destination" : recordingDestination?.name ?? (recordKind === "audio" ? "New audio track" : "Choose an instrument");
+  const recordingInput = useRecordingInput(JSON.stringify([recordScope, microphoneId, targetId, recordingDestinationMissing]), getEngine);
+  const deviceDraftFingerprint = useMemo(() => JSON.stringify(stagedOwner(transaction?.owner) || transaction?.owner?.startsWith("note-gesture:") ? history.present : project), [transaction, history.present, project]);
+
+  function setRecordingDestination(id: string) {
+    if (takeSession.current || busy || !finishEdit()) return;
+    if (id !== "new" && !committedRef.current.tracks.some(track => track.id === id && track.kind === (recordKind === "audio" ? "audio" : "instrument"))) return;
+    setRecordDestination({ scope: recordScope, id });
+  }
+  function setRecordCountIn(value: number) {
+    if (!takeSession.current && !busy && [0, 1, 2].includes(value)) setRecordCountInState(value);
+  }
+  async function checkRecordingInput() {
+    if (takeSession.current || busy || recordKind !== "audio" || !finishEdit()) return;
+    await recordingInput.check(microphoneId, monitor);
+    void refreshDevices();
+  }
 
   useLayoutEffect(() => {
     projectRef.current = project;
@@ -309,7 +338,27 @@ function useStudioController(
     fieldOwner.current=owner;renderEdit({owner,projectId:committedRef.current.id,label:"Edit",patches:[],invalid:null});return true;
   }
   function ownsEdit(owner:string){return activeEdit.current?.owner===owner;}
-  const stagedOwner = (owner?: string) => !!owner && (owner.startsWith("reference-") || owner.startsWith("reference:") || owner.startsWith("modulation-ab:") || owner.startsWith("note-transform:"));
+  function recoverableDocument() {
+    return stagedOwner(activeEdit.current?.owner) || activeEdit.current?.owner?.startsWith("note-gesture:") ? committedRef.current : projectRef.current;
+  }
+  function noteDraftReceipt(document: ProjectDocument, saveOwner: string, saved: boolean) {
+    const fingerprint = JSON.stringify(document);
+    if (saveOwner === ownerRef.current && document.id === committedRef.current.id && fingerprint === JSON.stringify(recoverableDocument()))
+      setDraftReceipt({ owner: saveOwner, projectId: document.id, fingerprint, saved });
+  }
+  async function persistDeviceDraft(document: ProjectDocument, saveOwner = ownerRef.current) {
+    const details = meta.current.get(document.id) ?? { revision: 0, fingerprint: "" };
+    try {
+      await saveDraft({ owner: saveOwner, document, revision: details.revision, savedFingerprint: details.fingerprint, updatedAt: new Date().toISOString() });
+      noteDraftReceipt(document, saveOwner, true);
+    } catch (error) { noteDraftReceipt(document, saveOwner, false); throw error; }
+  }
+  async function retryDeviceDraft() {
+    if (takeSession.current || busy) return;
+    const document = recoverableDocument();
+    if (!projectSchema.safeParse(document).success) { report(new Error("Correct or cancel the unfinished field before saving this device draft.")); return; }
+    try { await persistDeviceDraft(document); } catch (error) { report(error); }
+  }
   function ownsGesture(owner:string){
     const gesture=activeGesture.current;
     return gesture?.owner===owner && activeEdit.current?.projectId===gesture.projectId &&
@@ -405,6 +454,7 @@ function useStudioController(
     if(!projectSchema.safeParse(next).success){setError("The proposed edit is outside the supported project limits.");return false;}
     if(takeSession.current && !takeCommit && (JSON.stringify(next.tracks)!==JSON.stringify(current.tracks) || JSON.stringify(next.master)!==JSON.stringify(current.master) || next.tempo!==current.tempo || JSON.stringify(next.timeSignature)!==JSON.stringify(current.timeSignature))) { setError("Finish recording before changing playback or instruments."); return false; }
     if(JSON.stringify(next)===JSON.stringify(current))return true;
+    if(takePreview.current)cancelPreview();
     selectionHistory.current.set(current,selectedChordId);
     libraryRevisions.observe(current,next);
     committedRef.current=next;projectRef.current=applyPreview(next,activeEdit.current);
@@ -416,6 +466,7 @@ function useStudioController(
     if((action.type==="undo"||action.type==="redo")&&cancelInteraction.current?.())return;
     if(activeGesture.current){cancelGesture();return;}
     if(activeEdit.current){cancelEdit();return;}
+    if(takePreview.current)cancelPreview();
     const next=historyReducer({...history,present:committedRef.current},action);
     libraryRevisions.observe(committedRef.current,next.present);
     committedRef.current=next.present;projectRef.current=next.present;
@@ -428,6 +479,7 @@ function useStudioController(
     update: (document: ProjectDocument) => ProjectDocument,
     label: string,
   ) {
+    if(takePreview.current)cancelPreview();
     if(activeEdit.current){
       if(activeEdit.current.invalid)return;
       const before=applyPreview(committedRef.current,activeEdit.current),next=update(before);
@@ -680,17 +732,8 @@ function useStudioController(
               ? "Saved to cloud"
               : "Saving edits…",
           );
-        await saveDraft({
-          owner,
-          document:
-            projectRef.current.id === snapshot.id
-              ? (stagedOwner(activeEdit.current?.owner) || activeEdit.current?.owner?.startsWith("note-gesture:")
-                ? committedRef.current : projectRef.current)
-              : snapshot,
-          revision: result.revision,
-          savedFingerprint: fingerprint,
-          updatedAt: new Date().toISOString(),
-        });
+        // Cloud success and device durability are separate receipts.
+        await persistDeviceDraft(projectRef.current.id === snapshot.id ? recoverableDocument() : snapshot, owner).catch(report);
         void refreshLibrary();
         return result;
       } catch (error) {
@@ -732,6 +775,8 @@ function useStudioController(
   }
 
   const effectNotify=useEffectEvent(notify),effectReport=useEffectEvent(report);
+  const restoredDraftReceipt=useEffectEvent(noteDraftReceipt);
+  const autoSaveDraft=useEffectEvent((document: ProjectDocument, saveOwner: string) => { void persistDeviceDraft(document, saveOwner).catch(effectReport); });
   const restoreDocument = useEffectEvent(loadDocument);
   const autoSave = useEffectEvent((document: ProjectDocument) => {
     void saveNow(document,false);
@@ -762,6 +807,7 @@ function useStudioController(
         if (draft) {
           const document = projectSchema.parse(draft.document);
           restoreDocument(document, draft.revision, draft.savedFingerprint);
+          restoredDraftReceipt(document, owner, true);
           effectNotify("Your latest device draft has been restored.");
           if(draft.recoveryWarning)effectReport(new Error(draft.recoveryWarning));
         }
@@ -791,17 +837,7 @@ function useStudioController(
     const draftDocument=audition?history.present:project;
     const timer = setTimeout(() => {
       if (takeSession.current?.phase === "finalizing" || !projectSchema.safeParse(draftDocument).success) return;
-      const details = meta.current.get(draftDocument.id) ?? {
-        revision: 0,
-        fingerprint: "",
-      };
-      void saveDraft({
-        owner,
-        document: draftDocument,
-        revision: details.revision,
-        savedFingerprint: details.fingerprint,
-        updatedAt: new Date().toISOString(),
-      }).catch(effectReport);
+      autoSaveDraft(draftDocument, owner);
     }, 250);
     const cloudTimer = setTimeout(() => {
       if(takeSession.current) return;
@@ -877,6 +913,7 @@ function useStudioController(
     }
   }
   function stop() {
+    recordingInput.release();
     movement.current?.clear();cancelMidiLearn();
     cancelInteraction.current?.();
     pendingPreview.current=null;
@@ -900,7 +937,27 @@ function useStudioController(
       report(error);
     }
   }
-  function cancelPreview() { cancelLibraryPreviewRef.current();pendingPreview.current=null;++audioIntent.current; engineRef.current?.cancelAudition(); }
+  function cancelPreview() { takePreview.current=false;cancelLibraryPreviewRef.current();pendingPreview.current=null;++audioIntent.current; engineRef.current?.cancelAudition(); }
+  async function previewTake(trackId: string, clipId: string) {
+    if (takeSession.current || busy || !finishEdit()) return;
+    const doc = committedRef.current, previewOwner = ownerRef.current;
+    const identity = `take_${doc.id}_${trackId}_${clipId}`;
+    if (pendingPreview.current?.identity === identity || engineRef.current?.state.previewId === identity) { cancelPreview(); return; }
+    cancelPreview();
+    takePreview.current = true;
+    const token = ++audioIntent.current;
+    pendingPreview.current = { identity, token };
+    try {
+      const preview = buildTakePreview(doc, trackId, clipId);
+      const audio = await getEngine();
+      if (token !== audioIntent.current || previewOwner !== ownerRef.current || committedRef.current.id !== doc.id) return;
+      audio.pause();
+      await audio.previewSnapshot(preview, id => resolveAsset(previewOwner, id), identity);
+      if (token === audioIntent.current) pendingPreview.current = null;
+    } catch (error) {
+      if (token === audioIntent.current) { takePreview.current = false;pendingPreview.current = null; report(error); }
+    }
+  }
   async function previewPhrase(trackId: string, notes: NoteEvent[], identity: string) {
     if (takeSession.current) return;
     if(pendingPreview.current?.identity===identity){cancelPreview();return;}
@@ -1159,8 +1216,10 @@ function useStudioController(
     }
   }
   function setMonitor(value: boolean) {
+    monitorRef.current = value;
     setMonitorState(value);
     recorder.current?.setMonitoring(value);
+    recordingInput.setMonitoring(value);
   }
 
   async function addAudio(
@@ -1293,9 +1352,11 @@ function useStudioController(
   async function beginRecording() {
     if(takeSession.current) { if(takeSession.current.phase==="recovery-error") await retryRecording(); else await finishRecording(); return; }
     if(!finishEdit())return;
-    if(transportJob.current) return;
+    if(transportJob.current || busy) return;
     if(importCount.current) { report(new Error("Wait for the audio import to finish before recording.")); return; }
-    const doc=projectRef.current, target=selectedTrackRef.current;
+    if(recordingDestinationMissing) { report(new Error("The recording destination is no longer available. Choose a destination in Record setup.")); return; }
+    recordingInput.release();
+    const doc=committedRef.current, target=doc.tracks.find(track => track.id === recordingDestination?.id);
     if(recordKind==="midi" && target?.kind!=="instrument") { report(new Error("Select an instrument track to record MIDI.")); return; }
     const newTrack=recordKind==="audio" && target?.kind!=="audio" ? createTrack("piano","Microphone",TRACK_COLORS[doc.tracks.length%8],"audio") : null;
     if(newTrack && doc.tracks.length>=64) { report(new Error("This project already has 64 tracks.")); return; }
@@ -1309,16 +1370,16 @@ function useStudioController(
         const mic=new MicrophoneRecorder(); recorder.current=mic;
         await mic.prepare(await audio.unlock(),microphoneId||undefined,audio.monitorDestination!);
         if(takeSession.current!==session) { mic.dispose(); return; }
-        mic.setMonitoring(monitor);
+        mic.setMonitoring(monitorRef.current);
       }
-      await audio.play(session.startTick,1);
+      await audio.play(session.startTick,recordCountIn);
       if(takeSession.current!==session) return;
       session.startTime=audio.recordingStartTime;
       audio.beginLiveModulationClock(session.startTime,tickToSeconds(session.startTick,session.tempo));
       recordingAt.current=session.startTime; recordingTick.current=session.startTick;
       if(session.kind==="audio") recorder.current!.start(session.startTime,audio.rawContext!);
       else midiTake.current={trackId:session.trackId,startTick:session.startTick,open:new Map(),notes:[],events:[]};
-      phase(session,"count-in"); setRecordSeconds(0); notify("One bar count-in, then recording.");
+      phase(session,"count-in"); setRecordSeconds(0); notify(recordCountIn ? `${recordCountIn} bar count-in, then recording.` : "Recording starts now.");
     } catch(error) {
       if(takeSession.current===session) { recorder.current?.dispose(); recorder.current=null; takeSession.current=null; setRecording(false); setRecordingPhase("idle"); report(error); }
     }
@@ -1386,8 +1447,12 @@ function useStudioController(
           const receipt=await preserveTake({owner:session.owner,document:next,revision:details?.revision??0,savedFingerprint:details?.fingerprint??"",updatedAt:new Date().toISOString()},
             {takeId:session.id,projectId:session.projectId,clipId:clip.id},asset?{owner:session.owner,projectId:session.projectId,asset,blob:session.result!.blob}:undefined);
           if(!receipt.already) commit(next,session.kind==="audio"?"Add audio take":"Record performance",true);
+          noteDraftReceipt(next, session.owner, true);
           if(asset) setWaveforms(w=>({...w,[asset!.id]:session.result!.peaks}));
           setSelectedTrackId(target.id); setSelectedClipId(clip.id);
+          clipsByTrack.current.set(target.id,clip.id);
+          terminateDetailInputs();
+          setDetailToolState("notes"); setClipEditorRequest(request=>request+1);
           notify("Take saved to this device. Cloud save follows when signed in.");
         }
         recorder.current?.acknowledge(); recorder.current?.dispose(); recorder.current=null; midiTake.current=null;
@@ -1540,7 +1605,7 @@ function useStudioController(
     owner,
     signIn,
     project,
-    projectRef,committedRef,
+    projectRef,committedRef,ownerRef,
     history,
     transaction,ownsEdit,beginEdit,finishEdit,cancelEdit,invalidateEdit,beginGesture,ownsGesture,gestureParent,finishGesture,cancelGesture,invalidateGesture,assignModulation,editConflict,reapplyEdit,discardEdit:()=>setEditConflict(null),registerInteraction,
     applyChord,selectedChordId,setSelectedChordId,
@@ -1579,6 +1644,8 @@ function useStudioController(
     setDeviceOpen,
     projects,
     saveStatus,
+    deviceDraftStatus: draftReceipt?.owner === owner && draftReceipt.projectId === project.id && draftReceipt.fingerprint === deviceDraftFingerprint ? draftReceipt.saved ? "Device draft saved" : "Device draft unavailable" : "Device draft pending",
+    retryDeviceDraft,
     message,
     error:errorScope.mode===mode&&errorScope.projectId===project.id?error:"",
     busy,
@@ -1595,6 +1662,7 @@ function useStudioController(
     setMetronome,
     recordKind,
     setRecordKind,
+    recordCountIn,setRecordCountIn,recordingDestination,setRecordingDestination,recordingTargetName,recordingDestinationMissing,recordingInput,checkRecordingInput,
     recording,
     recordingPhase,
     retryRecording,
@@ -1631,6 +1699,7 @@ function useStudioController(
     seek,
     audition,
     previewPhrase,
+    previewTake,
     cancelPreview,
     writingActions,
     registerWritingActions,

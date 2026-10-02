@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { useStudio, useTransport } from "./use-studio";
 import { IconButton, Meter } from "./primitives";
 import { PPQ } from "../../lib/music/types";
+import { RecordingSetup } from "./recording-setup";
 import {
   projectEnd,
   tickToSeconds,
@@ -103,6 +104,7 @@ export function Transport() {
           <Timer size={19} />
         </IconButton>
       </div>
+      <RecordingSetup />
       {s.recordingPhase === "recovery-error" && <div role="alert" data-edit-policy="bypass"><span className="tiny">Take kept in memory — not saved to this device or cloud. Retry or download before closing.</span><button className="secondary-button" onClick={()=>void s.retryRecording()}>Retry take save</button><button className="secondary-button" onClick={()=>void s.downloadRecording().catch(s.report)}>Download unsaved take</button></div>}
       <div className="transport-position">
         <span className="mono transport-bars">

@@ -1,0 +1,11 @@
+.audio-take-review { min-width: 0; padding: 10px; margin-bottom: 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 4px; }
+.audio-take-review-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; margin-bottom: 8px; }
+.audio-take-review-heading h3 { margin: 0; font-size: 12px; color: var(--ink); }
+.audio-take-review-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.audio-take-review-controls label { min-width: 0; }
+.audio-take-review-controls select { width: 100%; min-width: 0; min-height: 44px; font-size: 12px; padding: 4px 6px; }
+.audio-take-review-controls button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 5px 8px; font-size: 12px; white-space: nowrap; }
+.audio-take-review-controls button[aria-pressed="true"] { border-color: var(--selection); }
+.audio-take-review-status, .audio-take-review-overlap { margin: 8px 0 0; font-size: 12px; line-height: 1.5; color: var(--ink-2); overflow-wrap: anywhere; }
+.audio-take-review-overlap { border-top: 1px solid var(--border); padding-top: 6px; }
+@media (max-width: 480px) { .audio-take-review-controls { grid-template-columns: minmax(0, 1fr); } }

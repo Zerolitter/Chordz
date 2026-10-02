@@ -1,11 +1,15 @@
 /** A fresh, lazy worker per export keeps MP3 failures separate from recording. */
+import {checkExportActive} from "./export-range";
 export async function encodeMp3Buffer(
   buffer: AudioBuffer,
   onProgress?: (percent: number) => void,
+  signal?:AbortSignal,
 ): Promise<Blob> {
+  checkExportActive(signal);
   const worker = new Worker("/audio/mp3.worker.js", { type: "module" });
   return new Promise<Blob>((resolve, reject) => {
     const cleanup = () => {
+      signal?.removeEventListener("abort",abort);
       worker.onmessage = null;
       worker.onerror = null;
       worker.onmessageerror = null;
@@ -15,6 +19,7 @@ export async function encodeMp3Buffer(
       cleanup();
       reject(error instanceof Error ? error : new Error("MP3 encoding failed."));
     };
+    const abort=()=>fail(new DOMException("Export cancelled.","AbortError"));
     worker.onmessage = (event: MessageEvent) => {
       const message = event.data;
       try {
@@ -39,7 +44,9 @@ export async function encodeMp3Buffer(
     };
     worker.onmessageerror = () =>
       fail(new Error("The MP3 worker could not return its audio. Try again."));
+    signal?.addEventListener("abort",abort,{once:true});
     try {
+      checkExportActive(signal);
       const channels = Array.from(
         { length: buffer.numberOfChannels },
         (_, channel) => buffer.getChannelData(channel).slice().buffer,
