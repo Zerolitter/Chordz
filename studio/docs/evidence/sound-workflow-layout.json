@@ -1,0 +1,135 @@
+{
+  "date": "2026-10-02",
+  "baseline": "5da8f9be8056a25e87ddd8c40fd01264329b62d9",
+  "implementationCheckpoint": "32ce682a1cde2d2610417ab57e0d96fddd24a7d9",
+  "scope": "Sound tuning workflow correction",
+  "checks": {
+    "typecheck": "passed",
+    "lint": "passed; zero warnings",
+    "build": "passed; existing client chunk advisory",
+    "diff": "passed",
+    "chromeConfirmation": {
+      "startTime": "2026-10-02T02:12:32.798Z",
+      "duration": 87324.676,
+      "expected": 21,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "finalAudioRefinement": {
+      "startTime": "2026-10-02T02:14:19.419Z",
+      "duration": 7710.561,
+      "expected": 1,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "distinctChromeCases": 21,
+    "finalAudioOverlapsConfirmation": true,
+    "sourceReview": "clear after staged-disclosure correction"
+  },
+  "fixture": {
+    "kind": "real imported 48kHz/16bit mono WAV; 1 second 220Hz sine",
+    "sources": 2,
+    "routes": 5,
+    "arrangeEditorRatio": 0.6,
+    "ratioSetThroughLayoutUI": true,
+    "originalAssetAndClipsRetained": true,
+    "playbackAndSaturationUndo": true
+  },
+  "measurements": {
+    "units": "CSS pixels in local Chrome",
+    "oldReservedAudioColumn": {
+      "width": 1110,
+      "provenance": "prior release CSS rule; not a new browser measurement"
+    },
+    "evidence": [
+      {
+        "width": 2560,
+        "height": 1440,
+        "mode": "arrange",
+        "devices": {
+          "x": 248,
+          "y": 724.203125,
+          "width": 454,
+          "height": 460
+        },
+        "rack": {
+          "x": 710,
+          "y": 724.203125,
+          "width": 1838,
+          "height": 441.75
+        }
+      },
+      {
+        "width": 2560,
+        "height": 1440,
+        "mode": "maximized",
+        "devices": {
+          "x": 248,
+          "y": 603.40625,
+          "width": 454,
+          "height": 460
+        },
+        "rack": {
+          "x": 710,
+          "y": 603.40625,
+          "width": 1838,
+          "height": 441.75
+        }
+      },
+      {
+        "width": 2555,
+        "height": 1271,
+        "mode": "arrange",
+        "devices": {
+          "x": 248,
+          "y": 656.609375,
+          "width": 454,
+          "height": 460
+        },
+        "rack": {
+          "x": 710,
+          "y": 656.609375,
+          "width": 1833,
+          "height": 441.75
+        }
+      },
+      {
+        "width": 2555,
+        "height": 1271,
+        "mode": "maximized",
+        "devices": {
+          "x": 248,
+          "y": 552.703125,
+          "width": 454,
+          "height": 460
+        },
+        "rack": {
+          "x": 710,
+          "y": 552.703125,
+          "width": 1833,
+          "height": 441.75
+        }
+      }
+    ],
+    "errors": []
+  },
+  "screenshots": [
+    "output/sound-workflow-layout/2560-arrange-audio.png",
+    "output/sound-workflow-layout/2555-arrange-audio.png",
+    "output/compact-layout/2560-arrange.png"
+  ],
+  "limitations": [
+    "Human/device/listening, physical display scaling/touch, hosted end-to-end and reopened WebView2 are separate unverified gates.",
+    "No CPU or complete engine benchmark claimed."
+  ],
+  "failedExploratoryRuns": {
+    "initial": "5/6; hidden Mix duplicate field query",
+    "audioCheck": "mode returned to Notes/Audio instead of Sound",
+    "audioCheck2": "full source visibility assertion in the small default dock; fixture now uses user's expanded dock without changing app defaults",
+    "audioCheck3": "Layout semantic query; fixed accessible summary query",
+    "focused": "1/2; Cancel comparison accessible name query"
+  },
+  "publication": "Prepared; consolidated ignored milestone report records actual release after publication."
+}

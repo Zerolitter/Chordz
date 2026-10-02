@@ -10,10 +10,12 @@ import { useKnobModulation } from "./use-knob-modulation";
 import { SourceGraphEditor } from "./source-graph-editor";
 import { makeSource } from "../../lib/audio/modulation";
 import { instrumentFor, instrumentSettings,isDrumInstrument } from "../../lib/audio/catalog";
+import { DEFAULT_SOUND } from "../../lib/music/project";
 import {
   clamp,
   type SoundSettings,
   type SampleZone,
+  type Track,
 } from "../../lib/music/types";
 
 export function releaseSoundPanelInputs(studio: Pick<ReturnType<typeof useStudio>, "releaseSource">) { studio.releaseSource("sound:sustain"); }
@@ -49,30 +51,40 @@ function InstrumentSoundBody({ onOpenMovement }: { onOpenMovement?: () => void }
     [modulation, setModulation] = useState(0);
   const effective = useKnobModulation(track ? [track.id] : [], active);
   const configLocked = s.recordingPhase !== "idle";
-  if (track?.kind === "audio")
-    return (
-      <div>
-        <PanelHeading eyebrow="Recorded audio" title={track.name}>{onOpenMovement && <button data-edit-policy="bypass" className="secondary-button" onClick={onOpenMovement}>Movement</button>}</PanelHeading>
-        <p className="helper">
-          Edit waveforms, trims and fades in Arrange, then balance this take in
-          Mix.
-        </p>
-        <button data-edit-policy="bypass" className="primary-button" onClick={() => s.setMode("arrange")}>
-          Open arrangement
-        </button>
-      </div>
-    );
   if (!track)
     return (
       <div className="empty-state">Add an instrument to shape its sound.</div>
     );
-  const sound = track.sound,
-    instrument = instrumentFor(s.project, track);
-  const defaults = instrumentSettings(instrument);
-  const envelope = { ...makeSource("envelope", "instrument-envelope", "voice"), name: "Instrument envelope", attack: sound.attack, decay: sound.decay, sustain: sound.sustain, release: sound.release };
+  const sound = track.sound;
   function change(update: Partial<SoundSettings>) {
     s.updateTrack(track!.id, t=>({...t,sound:{...t.sound,...update}}), "Shape sound");
   }
+  if (track.kind === "audio") {
+    const region = s.selectedClip?.audio ? s.selectedClip : track.clips.find(clip => clip.audio);
+    return <div className="instrument-sound-body audio-sound-body">
+      <div className="sound-tuning-row">
+        <PanelHeading eyebrow="Audio track" title={track.name}>
+          {region && <button data-edit-policy="bypass" className="secondary-button" onClick={() => s.selectClip(track.id, region.id)}>Audio editor</button>}
+        </PanelHeading>
+        <SoundDetails key={track.id} track={track} description="Track effects shape every audio region. Edit trims and fades in the audio editor." />
+      </div>
+      <div className="sound-modules sound-audio-modules" key={track.id} data-edit-policy="bypass">
+        <section className="sound-device sound-filter">
+          <h3>Filter & modulation</h3>
+          <TrackFilterControls track={track} defaults={{ ...DEFAULT_SOUND, cutoff: 20000, resonance: 0, lfoDepth: 0 }} effective={effective} change={change} modulation={modulation} onModulation={value => { setModulation(value); s.expression("modulation", value); }} />
+        </section>
+        <section className="sound-device sound-audio-effects">
+          <h3>Effects & sends</h3>
+          <Range variant="knob" label="Saturation" defaultValue={0} value={track.drive} onChange={value => s.updateTrack(track.id, { drive: value }, "Track saturation")} />
+          <Range variant="knob" label="Reverb" defaultValue={0} trackId={track.id} modulationTarget="track.reverb" effectiveValue={effective(track, "track.reverb")} modulationRange={effective.range(track, "track.reverb")} value={track.reverb} onChange={value => s.updateTrack(track.id, { reverb: value }, "Reverb send")} />
+          <Range variant="knob" label="Delay" defaultValue={0} trackId={track.id} modulationTarget="track.delay" effectiveValue={effective(track, "track.delay")} modulationRange={effective.range(track, "track.delay")} value={track.delay} onChange={value => s.updateTrack(track.id, { delay: value }, "Delay send")} />
+        </section>
+      </div>
+    </div>;
+  }
+  const instrument = instrumentFor(s.project, track);
+  const defaults = instrumentSettings(instrument);
+  const envelope = { ...makeSource("envelope", "instrument-envelope", "voice"), name: "Instrument envelope", attack: sound.attack, decay: sound.decay, sustain: sound.sustain, release: sound.release };
   function zone(index: number, update: Partial<SampleZone>) {
     s.edit(
       (p) => ({
@@ -93,6 +105,7 @@ function InstrumentSoundBody({ onOpenMovement }: { onOpenMovement?: () => void }
   }
   return (
     <div className="instrument-sound-body">
+      <div className="sound-tuning-row">
       <PanelHeading eyebrow={instrument.family} title={instrument.name}>
         <button
           data-edit-policy="bypass"
@@ -108,21 +121,10 @@ function InstrumentSoundBody({ onOpenMovement }: { onOpenMovement?: () => void }
           Reset sound
         </button>
         {onOpenMovement && <button data-edit-policy="bypass" className="secondary-button" onClick={onOpenMovement}>Movement</button>}
+        <SoundReadiness />
       </PanelHeading>
-      <div className="sound-instrument-header"><label className="field">
-        Track name
-        <DraftInput
-          disabled={configLocked}
-          aria-label="Track name"
-          value={track.name}
-          onChange={(e) =>
-            s.updateTrack(track.id, { name: e.target.value }, "Rename track")
-          }
-        />
-      </label>
-      <div className="sound-instrument-meta"><SoundReadiness/>
-      <p className="sound-description">{instrument.description}</p>
-      <span className="sound-next-notes" title="Envelope timing, synthesis engine and articulation changes apply when a note starts.">Envelope, engine & articulation · next notes</span></div></div>
+      <SoundDetails key={track.id} track={track} description={instrument.description} nextNotes />
+      </div>
       <div className="sound-modules" key={track.id} data-edit-policy="bypass">
         <section className="sound-device sound-performance">
           <h3>
@@ -256,6 +258,7 @@ function InstrumentSoundBody({ onOpenMovement }: { onOpenMovement?: () => void }
           <h3>Amplitude envelope</h3>
           <div className="instrument-envelope-graph"><SourceGraphEditor source={envelope} trackId={track.id} seed={s.project.seed} disabled={configLocked}
             onChange={source => change({ attack: source.attack, decay: source.decay, sustain: source.sustain, release: source.release })} /></div>
+          <div className="sound-envelope-controls">
           {(["attack", "decay", "sustain", "release"] as const).map(
             (parameter) => (
               <Range
@@ -284,70 +287,12 @@ function InstrumentSoundBody({ onOpenMovement }: { onOpenMovement?: () => void }
               />
             ),
           )}
+          </div>
         </section>
         }
         <section className="sound-device sound-filter">
           <h3>Filter & modulation</h3>
-          <Range
-            variant="knob"
-            label="Filter cutoff"
-            min={20}
-            max={20000}
-            step={1}
-            defaultValue={defaults.cutoff}
-            modulationTargets={instrument.kind === "synth" ? ["track.cutoff","voice.cutoff"] : ["track.cutoff"]}
-            effectiveValue={effective(track,"track.cutoff")}
-            modulationRange={effective.range(track,"track.cutoff")}
-            log
-            value={sound.cutoff}
-            onChange={(v) => change({ cutoff: v })}
-            format={frequencyLabel}
-          />
-          <Range
-            variant="knob"
-            label="Resonance"
-            min={0}
-            max={24}
-            defaultValue={defaults.resonance}
-            modulationTargets={instrument.kind === "synth" ? ["track.resonance","voice.resonance"] : ["track.resonance"]}
-            effectiveValue={effective(track,"track.resonance")}
-            modulationRange={effective.range(track,"track.resonance")}
-            value={sound.resonance}
-            onChange={(v) => change({ resonance: v })}
-          />
-          {instrument.kind==="synth"&&<Range
-            variant="knob" defaultValue={defaults.filterEnvelope}
-            label="Filter envelope"
-            min={0}
-            max={1}
-            value={sound.filterEnvelope}
-            onChange={(v) => change({ filterEnvelope: v })}
-          />
-          }
-          <Range
-            variant="knob" defaultValue={defaults.lfoRate}
-            label="LFO rate"
-            min={0}
-            max={30}
-            value={sound.lfoRate}
-            onChange={(v) => change({ lfoRate: v })}
-            unit=" Hz"
-          />
-          <Range
-            variant="knob" defaultValue={defaults.lfoDepth}
-            label="LFO depth"
-            value={sound.lfoDepth}
-            onChange={(v) => change({ lfoDepth: v })}
-          />
-          <Range
-            variant="knob" performance defaultValue={0}
-            label="Modulation" automationParameter="modulation"
-            value={modulation}
-            onChange={(v) => {
-              setModulation(v);
-              s.expression("modulation", v);
-            }}
-          />
+          <TrackFilterControls track={track} defaults={defaults} synth={instrument.kind === "synth"} effective={effective} change={change} modulation={modulation} onModulation={value => { setModulation(value); s.expression("modulation", value); }} />
         </section>
       </div>
       {instrument.kind === "sample" && (
@@ -497,4 +442,100 @@ function InstrumentSoundBody({ onOpenMovement }: { onOpenMovement?: () => void }
       )}
     </div>
   );
+}
+
+
+function SoundDetails({ track, description, nextNotes = false }: { track: Track; description: string; nextNotes?: boolean }) {
+  const s = useStudio();
+  function settle() {
+    if (!s.finishGesture()) return false;
+    if (s.transaction?.invalid) return s.finishEdit(s.transaction.owner);
+    const staged = /^(reference[-:]|modulation-ab:|note-transform:)/.test(s.transaction?.owner ?? "");
+    return staged || s.finishEdit();
+  }
+  return <details className="sound-details" onKeyDown={event => {
+    if (event.key !== "Escape" || event.defaultPrevented || !event.currentTarget.open) return;
+    event.preventDefault(); event.stopPropagation();
+    if (!settle()) return;
+    event.currentTarget.open = false;
+    event.currentTarget.querySelector("summary")?.focus({ preventScroll: true });
+  }}>
+    <summary data-edit-policy="bypass" onPointerDown={event => {
+      if (!settle()) { event.preventDefault(); event.stopPropagation(); }
+    }} onClick={event => {
+      if (!settle()) { event.preventDefault(); event.stopPropagation(); }
+    }}>Sound details</summary>
+    <div className="sound-instrument-header">
+      <label className="field">Track name<DraftInput disabled={s.recordingPhase !== "idle"} aria-label="Track name" value={track.name} onChange={event => s.updateTrack(track.id, { name: event.target.value }, "Rename track")} /></label>
+      <div className="sound-instrument-meta">
+        <p className="sound-description">{description}</p>
+        {nextNotes && <span className="sound-next-notes" title="Envelope timing, synthesis engine and articulation changes apply when a note starts.">Envelope, engine & articulation · next notes</span>}
+      </div>
+    </div>
+  </details>;
+}
+
+function TrackFilterControls({ track, defaults, synth = false, effective, change, modulation, onModulation }: {
+  track: Track; defaults: SoundSettings; synth?: boolean; effective: ReturnType<typeof useKnobModulation>;
+  change: (update: Partial<SoundSettings>) => void; modulation: number; onModulation: (value: number) => void;
+}) {
+  return <>
+          <Range
+            variant="knob"
+            label="Filter cutoff"
+            min={20}
+            max={20000}
+            step={1}
+            defaultValue={defaults.cutoff}
+            modulationTargets={synth ? ["track.cutoff","voice.cutoff"] : ["track.cutoff"]}
+            effectiveValue={effective(track,"track.cutoff")}
+            modulationRange={effective.range(track,"track.cutoff")}
+            log
+            value={track.sound.cutoff}
+            onChange={(v) => change({ cutoff: v })}
+            format={frequencyLabel}
+          />
+          <Range
+            variant="knob"
+            label="Resonance"
+            min={0}
+            max={24}
+            defaultValue={defaults.resonance}
+            modulationTargets={synth ? ["track.resonance","voice.resonance"] : ["track.resonance"]}
+            effectiveValue={effective(track,"track.resonance")}
+            modulationRange={effective.range(track,"track.resonance")}
+            value={track.sound.resonance}
+            onChange={(v) => change({ resonance: v })}
+          />
+          {synth&&<Range
+            variant="knob" defaultValue={defaults.filterEnvelope}
+            label="Filter envelope"
+            min={0}
+            max={1}
+            value={track.sound.filterEnvelope}
+            onChange={(v) => change({ filterEnvelope: v })}
+          />
+          }
+          <Range
+            variant="knob" defaultValue={defaults.lfoRate}
+            label="LFO rate"
+            min={0}
+            max={30}
+            value={track.sound.lfoRate}
+            onChange={(v) => change({ lfoRate: v })}
+            unit=" Hz"
+          />
+          <Range
+            variant="knob" defaultValue={defaults.lfoDepth}
+            label="LFO depth"
+            value={track.sound.lfoDepth}
+            onChange={(v) => change({ lfoDepth: v })}
+          />
+          <Range
+            variant="knob" performance defaultValue={0}
+            label="Modulation" automationParameter="modulation"
+            value={modulation}
+            onChange={onModulation}
+          />
+  </>;
 }
