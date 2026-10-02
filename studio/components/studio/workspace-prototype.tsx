@@ -13,6 +13,7 @@ import { useStudio } from "./use-studio";
 import { usePreference, numericPreference } from "./use-preference";
 import { useWorkspaceLayout } from "./use-workspace-layout";
 import { LibraryBrowser } from "./library-browser";
+import { TrackBounceControls } from "./track-bounce-controls";
 import { effectiveWorkspaceLayout } from "../../lib/client/workspace-layout";
 import type { DetailTool } from "../../lib/client/studio-view";
 import { PPQ } from "../../lib/music/types";
@@ -126,6 +127,7 @@ export function WorkspacePrototype() {
     <div className="workspace-layout-tools" data-edit-policy="bypass">
       <button ref={assetsToggle} className="secondary-button" aria-label="Toggle assets panel" aria-controls={assetsId} aria-expanded={assetsVisible} aria-pressed={assetsVisible} onClick={() => { if(compact) setAssetsOverlay(!assetsOverlay); else layout.update(current => ({...current,[s.mode]:{...current[s.mode],browserOpen:!profile.browserOpen}})); }}><PanelLeft size={14}/> {s.mode === "write" ? "Ideas" : "Assets"}</button>
       <span className="workspace-selection">{s.selectedTrack?.name ?? "Choose a track"}{s.selectedClip && <span> / {s.selectedClip.name}</span>}</span>
+      <TrackBounceControls/>
       <details className="layout-options" onKeyDown={event => { if(event.key === "Escape" && !event.defaultPrevented && event.currentTarget.open) { event.preventDefault(); event.stopPropagation(); event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}><summary aria-label="Workspace layout"><SlidersHorizontal size={14}/><span>Layout</span></summary><div>
         <label>Editor height<input aria-label="Editor height" type="range" min={20} max={70} value={profile.detailRatio * 100} onChange={event => { const ratio = Number(event.target.value)/100; resizeEditor(() => layout.update(current => ({...current,[s.mode]:{...current[s.mode],detailRatio:ratio}}))); }}/></label>
         <label><input type="checkbox" aria-label="Show mixer" checked={profile.mixerOpen} onChange={event => { freezeToolGestures("mixer"); if(settleLayoutEdit()) layout.update(current => ({...current,[s.mode]:{...current[s.mode],mixerOpen:event.target.checked}})); }}/>Mixer</label>

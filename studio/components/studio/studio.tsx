@@ -270,7 +270,7 @@ function StudioShell() {
       </div>
       <div
         className="studio-body"
-        inert={!s.hydrated || !!s.busy ? true : undefined}
+        inert={!s.hydrated || (!!s.busy && !s.bounceState.busy) ? true : undefined}
       >
         <WorkspacePrototype />
       </div>

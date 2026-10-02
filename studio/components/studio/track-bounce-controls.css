@@ -1,0 +1,14 @@
+.track-bounce { position: relative; flex-shrink: 0; margin-left: auto; }
+.track-bounce > summary { display: flex; align-items: center; min-height: 32px; padding: 4px 9px; border: 1px solid var(--border); border-radius: 5px; color: var(--ink-2); font-size: 11px; cursor: pointer; list-style: none; }
+.track-bounce > summary::-webkit-details-marker { display: none; }
+.track-bounce > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.track-bounce[open] > summary { color: var(--ink); background: var(--panel-2); }
+.track-bounce-body { position: fixed; z-index: 90; top: var(--bounce-top, 100px); left: var(--bounce-left, 12px); display: grid; gap: 12px; width: min(420px, calc(100vw - 24px)); max-height: 65vh; overflow: auto; padding: 18px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel); box-shadow: 0 10px 32px #0004; color: var(--ink); font-size: 13px; }
+.track-bounce-body p { margin: 0; line-height: 1.5; }
+.track-bounce-body label { display: flex; gap: 10px; align-items: center; min-height: 36px; cursor: pointer; }
+.track-bounce-body input { accent-color: var(--accent); }
+.bounce-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.bounce-actions button { min-height: 44px; }
+.bounce-help { color: var(--ink-3); font-size: 12px; }
+.track-bounce-body [role="status"] { color: var(--ink-2); line-height: 1.5; }
+@media (max-width: 600px) { .track-bounce > summary { padding: 4px 7px; font-size: 10px; } }

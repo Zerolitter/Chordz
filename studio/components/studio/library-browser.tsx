@@ -98,7 +98,7 @@ export function LibraryBrowser({active,onTool}:{active:boolean;onTool:(tool:Deta
   const incompatiblePhrase = chosen?.kind === "phrase" && s.selectedTrack && !phraseCompatibility(chosen,s.selectedTrack,instrumentFor(s.project,s.selectedTrack)).ok;
   const message = status?.scope === scope ? status : null;
   const saveForm = saving?.scope === scope ? saving : null;
-  const busy = !s.libraryReady || !!s.libraryBusy || s.recordingPhase !== "idle";
+  const busy = !s.libraryReady || !!s.libraryBusy || !!s.busy || s.recordingPhase !== "idle";
   const previousActive = useRef(active);
 
   useEffect(() => {
